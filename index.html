@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A six-morning training and nutrition plan: strength, running and simple vegetarian eating for a basic gym.">
+<title>Six Mornings: training plan</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#ECEFED; --surface:#FFFFFF; --sunk:#E3E8E5; --ink:#141B18; --muted:#5A6661; --line:#D6DDD9;
+  --red:#C8372D; --blue:#2453A0; --yellow:#E2AE10; --green:#2E7D4A; --rest:#97A19C;
+  --shadow:0 1px 2px rgba(20,27,24,.06),0 6px 18px rgba(20,27,24,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#111615; --surface:#1A211F; --sunk:#151B19; --ink:#E7ECE9; --muted:#9AA6A1; --line:#2B3532;
+    --red:#E25A4E; --blue:#5F8BDB; --yellow:#EDC23C; --green:#52A870; --rest:#7B8681;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111615; --surface:#1A211F; --sunk:#151B19; --ink:#E7ECE9; --muted:#9AA6A1; --line:#2B3532;
+  --red:#E25A4E; --blue:#5F8BDB; --yellow:#EDC23C; --green:#52A870; --rest:#7B8681;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 70px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.55 "Source Sans 3",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+.wrap{max-width:720px;margin:0 auto;padding:22px 16px 40px}
+h1,h2,h3,.rx,.disc,.time,.stat dd,.week{font-family:"Barlow Condensed","Arial Narrow","Roboto Condensed",system-ui,sans-serif}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px;border-radius:8px}
+
+/* Header */
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+h1{font-size:clamp(2.8rem,12vw,4.4rem);line-height:.86;font-weight:800;margin:0;letter-spacing:-.015em}
+.tagline{margin:10px 0 0;color:var(--muted)}
+.week{flex:none;text-align:center;font-weight:700;font-size:1rem;line-height:1.1;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:8px 12px;box-shadow:var(--shadow)}
+.week b{display:block;font-size:2rem;line-height:1}
+
+/* Tabs */
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;margin:20px -16px 0;padding:10px 16px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.tabs-inner{display:flex;gap:4px;background:var(--sunk);border-radius:14px;padding:4px}
+.tabs button{flex:1;font:600 .98rem "Source Sans 3",system-ui,sans-serif;padding:9px 6px;border-radius:10px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+
+/* Day plates */
+.plates{display:flex;gap:6px;margin:14px 0 6px}
+.plate{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:0;padding:4px 0;cursor:pointer;color:var(--ink);font:inherit}
+.disc{position:relative;width:100%;max-width:60px;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:1.15rem;
+  background:radial-gradient(circle at center,var(--surface) 0 38%,var(--c) 39% 100%);
+  box-shadow:inset 0 0 0 3px color-mix(in srgb,var(--c) 70%,#000),var(--shadow);transition:transform .15s}
+.disc::after{content:"";position:absolute;inset:22%;border-radius:50%;border:2px solid color-mix(in srgb,var(--c) 75%,#000);opacity:.35;pointer-events:none}
+.plate.rest .disc{background:var(--surface);box-shadow:inset 0 0 0 3px var(--rest);border:0}
+.plate.rest .disc::after{display:none}
+.plate[aria-pressed="true"] .disc{transform:translateY(-3px);outline:3px solid var(--ink);outline-offset:3px}
+.plate small{font-size:.74rem;color:var(--muted);white-space:nowrap}
+.plate.today small{color:var(--ink);font-weight:700}
+
+/* Session hero */
+.hero{position:relative;overflow:hidden;margin:16px 0 8px;padding:20px 18px 18px;border-radius:20px;background:var(--surface);background:color-mix(in srgb,var(--c) 13%,var(--surface));border:1px solid color-mix(in srgb,var(--c) 30%,var(--line))}
+.hero::before{content:"";position:absolute;right:-70px;top:-70px;width:210px;height:210px;border-radius:50%;background:radial-gradient(circle,transparent 0 30%,var(--c) 31% 100%);opacity:.9;pointer-events:none}
+.hero::after{content:"";position:absolute;right:-27px;top:-27px;width:124px;height:124px;border-radius:50%;border:2px solid color-mix(in srgb,var(--c) 60%,#000);opacity:.3;pointer-events:none}
+.hero-day{position:relative;margin:0;font-weight:600;color:var(--muted)}
+.hero h2{position:relative;font-size:clamp(2.3rem,10vw,3.1rem);line-height:.92;margin:4px 0 8px;font-weight:800;max-width:75%}
+.hero p.sub{position:relative;margin:0;max-width:52ch;color:var(--ink)}
+.stats{position:relative;display:flex;gap:22px;margin:16px 0 12px;padding:0}
+.stat dt{font-size:.82rem;color:var(--muted)}
+.stat dd{margin:0;font-weight:700;font-size:1.6rem;line-height:1}
+.bar{position:relative;height:6px;border-radius:6px;background:color-mix(in srgb,var(--c) 22%,var(--surface));overflow:hidden}
+.bar span{display:block;height:100%;width:0;background:var(--c);border-radius:6px;transition:width .25s}
+
+.note{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:12px 0;box-shadow:var(--shadow)}
+.note strong{display:block;margin-bottom:2px}
+.variant{display:flex;gap:4px;margin:14px 0;background:var(--sunk);border-radius:14px;padding:4px}
+.variant button{flex:1;padding:9px;border-radius:10px;border:0;background:transparent;color:var(--muted);font:600 .95rem "Source Sans 3",system-ui,sans-serif;cursor:pointer}
+.variant button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+
+/* Sections & exercises */
+h3{display:flex;align-items:baseline;gap:10px;font-size:1.5rem;font-weight:700;margin:26px 0 8px;line-height:1.1}
+h3 span{font-family:"Source Sans 3",system-ui,sans-serif;font-weight:400;color:var(--muted);font-size:.92rem}
+ul.plain{margin:0;padding:12px 16px 12px 34px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+ul.plain li{margin:4px 0}
+ul.plain li::marker{color:var(--c,var(--muted))}
+.sec-note{color:var(--muted);margin:4px 0 10px;font-size:.95rem}
+
+.ex{background:var(--surface);border:1px solid var(--line);border-radius:14px;margin:8px 0;box-shadow:var(--shadow);transition:opacity .2s}
+.ex-top{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:14px 16px 6px}
+.ex input[type=checkbox]{appearance:none;-webkit-appearance:none;width:28px;height:28px;margin:0;border-radius:50%;border:2px solid var(--line);background:var(--surface);cursor:pointer;transition:background .15s,box-shadow .15s,border-color .15s}
+.ex input[type=checkbox]:checked{background:var(--c);border-color:var(--c);box-shadow:inset 0 0 0 5px var(--surface)}
+.ex-top label{cursor:pointer;min-width:0}
+.ex-name{display:block;font-weight:600;line-height:1.25}
+.ex-rest{display:block;font-size:.86rem;color:var(--muted);margin-top:2px}
+.rx{font-weight:700;font-size:1.5rem;line-height:1;white-space:nowrap;text-align:right}
+.ex.done{opacity:.62}
+.ex.done .ex-name{text-decoration:line-through}
+.ex details{padding:0 16px 12px 58px}
+.ex summary{cursor:pointer;font-weight:600;font-size:.9rem;color:var(--muted);padding:2px 0;list-style:none;display:inline-flex;align-items:center;gap:6px}
+.ex summary::-webkit-details-marker{display:none}
+.ex summary::after{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .15s}
+.ex details[open] summary{color:var(--ink)}
+.ex details[open] summary::after{transform:rotate(-135deg) translateY(-1px)}
+.how ul{margin:8px 0;padding-left:18px}
+.how li{margin:6px 0}
+.swap{margin:8px 0;color:var(--muted)}
+.kg{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.95rem}
+.kg input{width:88px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);color:var(--ink);font:inherit}
+.progress{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:24px 0 0;color:var(--muted)}
+.progress button{background:var(--surface);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:7px 12px;font:inherit;cursor:pointer}
+
+/* Food & rules panels */
+.panel h2{font-size:clamp(2.2rem,9vw,2.8rem);line-height:.95;margin:22px 0 10px;font-weight:800}
+.panel p{max-width:65ch}
+.lead{font-size:1.08rem}
+.pantry{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:8px 0}
+.item{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
+.item b{display:block;font-family:"Barlow Condensed",system-ui,sans-serif;font-size:1.35rem;line-height:1.05}
+.item span{display:block;font-weight:600}
+.item small{color:var(--muted)}
+.timeline{list-style:none;margin:8px 0;padding:0}
+.timeline li{position:relative;display:grid;grid-template-columns:62px 1fr;gap:14px;padding:0 0 18px}
+.timeline li::before{content:"";position:absolute;left:73px;top:10px;bottom:-4px;width:2px;background:var(--line)}
+.timeline li:last-child::before{display:none}
+.timeline li::after{content:"";position:absolute;left:68px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--bg);border:3px solid var(--green)}
+.timeline li > div{padding-left:18px}
+.time{font-weight:700;font-size:1.3rem;line-height:1.1;text-align:right}
+.timeline strong{display:block}
+.mess{display:grid;grid-template-columns:150px 1fr;gap:18px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+.platevis{width:150px;aspect-ratio:1;border-radius:50%;background:conic-gradient(var(--green) 0 50%,var(--yellow) 50% 75%,var(--blue) 75% 100%);box-shadow:0 0 0 8px var(--sunk),var(--shadow)}
+.legend{list-style:none;margin:0;padding:0}
+.legend li{display:flex;gap:10px;align-items:flex-start;margin:6px 0}
+.legend i{flex:none;width:14px;height:14px;border-radius:4px;margin-top:5px}
+@media (max-width:440px){.mess{grid-template-columns:1fr;justify-items:center}.legend{justify-self:stretch}}
+.scroll{overflow-x:auto;margin:8px 0;border-radius:14px}
+table{border-collapse:separate;border-spacing:0;width:100%;min-width:420px;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:700;background:var(--sunk)}
+tr:last-child td{border-bottom:0}
+td.num{white-space:nowrap;font-weight:600}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:8px;vertical-align:baseline}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:.88rem}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Six<br>Mornings</h1>
+      <p class="tagline">Lift, run and eat well. About an hour a day, rest on Sunday.</p>
+    </div>
+    <div class="week" id="week" aria-live="polite"></div>
+  </header>
+
+  <nav class="tabs" aria-label="Sections">
+    <div class="tabs-inner" role="tablist">
+      <button role="tab" aria-selected="true" aria-controls="p-train" id="t-train">Training</button>
+      <button role="tab" aria-selected="false" aria-controls="p-food" id="t-food">Food</button>
+      <button role="tab" aria-selected="false" aria-controls="p-rules" id="t-rules">How it works</button>
+    </div>
+  </nav>
+
+  <section id="p-train" role="tabpanel" aria-labelledby="t-train">
+    <div class="plates" id="plates" aria-label="Choose a day"></div>
+    <div id="session"></div>
+  </section>
+
+  <section id="p-food" class="panel" role="tabpanel" aria-labelledby="t-food" hidden>
+    <h2>Eat for the training</h2>
+    <p class="lead">Nuts and seeds bring good fats and minerals but little protein. Protein turns the lifting into muscle and keeps you full, so plan the day around it: about <strong>100–110 g a day</strong>.</p>
+
+    <h3>Daily pantry</h3>
+    <div class="pantry">
+      <div class="item"><b>Almonds</b><span>5, soaked overnight</span><small>Before training</small></div>
+      <div class="item"><b>Walnuts</b><span>2 whole</span><small>Before training</small></div>
+      <div class="item"><b>Munakka</b><span>6, soaked overnight</span><small>Before training</small></div>
+      <div class="item"><b>Muesli</b><span>40 g, about 4 tbsp</span><small>Breakfast</small></div>
+      <div class="item"><b>Pumpkin seeds</b><span>1 tbsp</span><small>Mixed into the muesli</small></div>
+      <div class="item"><b>Chia seeds</b><span>1 tbsp, soaked 20 min</span><small>Mixed into the muesli</small></div>
+    </div>
+    <p class="sec-note">These are calorie-dense, so keep to these amounts. If sugar or honey is near the top of the muesli label, stick to 40 g.</p>
+
+    <h3>The day</h3>
+    <ol class="timeline">
+      <li><span class="time">6:00</span><div><strong>Wake up</strong>500 ml water. Then the 5 soaked almonds, 2 walnuts and the munakka, plus a banana if you're hungry. Munakka and banana give quick energy for the session.</div></li>
+      <li><span class="time">6:30</span><div><strong>Train</strong>Sip about 500 ml water through the session. Add electrolytes on run days and sticky mornings.</div></li>
+      <li><span class="time">8:00</span><div><strong>Breakfast</strong>40 g muesli in milk or curd with the pumpkin seeds and soaked chia mixed in, plus 1 scoop whey in 250 ml milk. About 35–40 g protein. No whey yet? Have 350 ml milk, a bowl of curd, and the best protein item the mess offers.</div></li>
+      <li><span class="time">11:00</span><div><strong>Mid-morning</strong>A banana or seasonal fruit with 30 g roasted chana, or a glass of buttermilk.</div></li>
+      <li><span class="time">1:00</span><div><strong>Lunch</strong>Follow the plate rule below, with a bowl of curd. Take seconds of dal, rajma or chana rather than rice.</div></li>
+      <li><span class="time">4:30</span><div><strong>Evening snack</strong>Milk or buttermilk with makhana or roasted chana, or a banana with 1 tbsp peanut butter. If you have chai, skip the biscuits.</div></li>
+      <li><span class="time">8:00</span><div><strong>Dinner</strong>Same plate rule, a little lighter on rice and roti. Take paneer whenever it's on the menu.</div></li>
+      <li><span class="time">9:30</span><div><strong>Before bed</strong>200 ml warm milk, haldi optional. Put tomorrow's almonds and munakka in water to soak.</div></li>
+    </ol>
+
+    <h3>The plate rule</h3>
+    <div class="mess">
+      <div class="platevis" role="img" aria-label="Plate: half vegetables, a quarter protein, a quarter grains"></div>
+      <ul class="legend">
+        <li><i style="background:var(--green)"></i><span><strong>Half: sabzi and salad.</strong> Fill up here first.</span></li>
+        <li><i style="background:var(--yellow)"></i><span><strong>A quarter: protein.</strong> Dal, rajma, chana, paneer or curd.</span></li>
+        <li><i style="background:var(--blue)"></i><span><strong>A quarter: grains.</strong> 2 rotis or 1 cup rice, not both.</span></li>
+      </ul>
+    </div>
+    <p class="sec-note">Fried food and sweets a couple of times a week, not every day.</p>
+
+    <h3>Protein sources</h3>
+    <div class="scroll"><table>
+      <thead><tr><th>Food</th><th>Amount</th><th>Protein</th></tr></thead>
+      <tbody>
+        <tr><td>Whey protein</td><td>1 scoop (30 g)</td><td class="num">~24 g</td></tr>
+        <tr><td>Paneer</td><td>100 g</td><td class="num">~18 g</td></tr>
+        <tr><td>Soy chunks</td><td>1 cup cooked</td><td class="num">~15 g</td></tr>
+        <tr><td>Milk</td><td>250 ml</td><td class="num">~8 g</td></tr>
+        <tr><td>Dal, rajma or chana</td><td>1 bowl</td><td class="num">~7–9 g</td></tr>
+        <tr><td>Curd</td><td>1 bowl (200 g)</td><td class="num">~7 g</td></tr>
+        <tr><td>Roasted chana</td><td>30 g</td><td class="num">~6 g</td></tr>
+        <tr><td>Peanut butter</td><td>1 tbsp</td><td class="num">~4 g</td></tr>
+        <tr><td>Pumpkin seeds</td><td>1 tbsp</td><td class="num">~3 g</td></tr>
+        <tr><td>Almonds</td><td>5</td><td class="num">~1.5 g</td></tr>
+      </tbody>
+    </table></div>
+    <p class="sec-note">The day above comes to roughly 100 g with whey, and closer to 75 g without it.</p>
+
+    <h3>On whey</h3>
+    <p>On a vegetarian mess diet, one scoop after training is the simplest way to close the protein gap. Whey is made from milk, so it's vegetarian. Choose a brand that publishes independent lab-test results for its batches. A 1 kg tub lasts about a month.</p>
+
+    <h3>Shopping list</h3>
+    <ul class="plain" style="--c:var(--green)">
+      <li>Whey protein, 1 kg, and a shaker bottle</li>
+      <li>Peanut butter, unsweetened</li>
+      <li>Roasted chana and makhana</li>
+      <li>Bananas, a few at a time</li>
+      <li>ORS sachets or electrolyte powder</li>
+    </ul>
+  </section>
+
+  <section id="p-rules" class="panel" role="tabpanel" aria-labelledby="t-rules" hidden>
+    <h2>How it works</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Day</th><th>Session</th></tr></thead>
+      <tbody>
+        <tr><td><span class="dot" style="background:var(--red)"></span>Monday</td><td>Lower body A (squat) + incline walk</td></tr>
+        <tr><td><span class="dot" style="background:var(--blue)"></span>Tuesday</td><td>Upper body A (bench press) + incline walk</td></tr>
+        <tr><td><span class="dot" style="background:var(--yellow)"></span>Wednesday</td><td>Easy run + breathing</td></tr>
+        <tr><td><span class="dot" style="background:var(--red)"></span>Thursday</td><td>Lower body B (deadlift) + incline walk</td></tr>
+        <tr><td><span class="dot" style="background:var(--blue)"></span>Friday</td><td>Upper body B (pull-ups, overhead press) + incline walk</td></tr>
+        <tr><td><span class="dot" style="background:var(--green)"></span>Saturday</td><td>Outdoors: steps circuit and long run, alternating weeks</td></tr>
+        <tr><td><span class="dot" style="background:var(--rest)"></span>Sunday</td><td>Rest</td></tr>
+      </tbody>
+    </table></div>
+    <p>Two lower-body days, two upper-body days, two outdoor sessions and four incline walks. Runs sit away from the heavy leg days, so you never run on freshly squatted legs.</p>
+
+    <h3>How heavy</h3>
+    <p>Pick a weight where the last rep of each set is hard but clean, with about two reps left in the tank. If your form breaks, it's too heavy.</p>
+
+    <h3>When to go heavier</h3>
+    <p>Once you hit the top of the rep range on every set with good form (say 4 × 8 on squats), add 2.5 kg to the bar or move up one dumbbell next session. The weight box under each exercise remembers what you lifted.</p>
+
+    <h3>Rest between sets</h3>
+    <p>2 minutes on squats, deadlifts, bench press and overhead press. 60–90 seconds on everything else.</p>
+
+    <h3>Every sixth week</h3>
+    <p>An easier week: 2 sets per exercise at the previous week's weights, and runs about a quarter shorter. The Training tab flags it when it comes round.</p>
+
+    <h3>Belly fat, honestly</h3>
+    <p>Fat can't be burned from one spot. It comes off everywhere, and the belly is often last. What moves it: eating as the Food tab shows, sleeping 7–8 hours, walking 8,000+ steps a day, and showing up six mornings a week. Measure your waist at the navel every two weeks; it's a better guide than the scale while you build muscle.</p>
+
+    <h3>Training in humidity</h3>
+    <ul class="plain" style="--c:var(--yellow)">
+      <li>Drink 500 ml before training and 3–3.5 litres across the day.</li>
+      <li>Use ORS, or water with a pinch of salt and lemon, on run days and sweaty sessions.</li>
+      <li>Bring a towel for the bench and bar.</li>
+      <li>Runs will feel 20–30 seconds per km slower in humid air. That's the weather, not lost fitness.</li>
+    </ul>
+
+    <h3>When to back off</h3>
+    <p>Sharp pain, pain that changes how you move, or pain that's worse the next morning: stop that exercise, rest it, and see a doctor if it lingers. Ordinary muscle soreness for a day or two is normal, especially early on.</p>
+
+    <h3>Timings</h3>
+    <p>The plan assumes training at about 6:30 am and meals around 8 am, 1 pm and 8 pm. Shift the clock to fit your day, but keep the order.</p>
+  </section>
+
+  <footer>General fitness guidance, not medical advice. Listen to your body.</footer>
+</div>
+
+<script>
+(function(){
+  var store={
+    get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},
+    set:function(k,v){try{localStorage.setItem(k,v)}catch(e){}},
+    del:function(k){try{localStorage.removeItem(k)}catch(e){}}
+  };
+
+  // Plan start date: change this to restart the week count.
+  var START=new Date(2026,9,5);
+  var now=new Date();
+  var today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  var beforeStart=today<START;
+  var WEEK=Math.max(1,Math.floor((today-START)/864e5/7)+1);
+  var todayIdx=(now.getDay()+6)%7;
+
+  document.getElementById('week').innerHTML='Week<b>'+WEEK+'</b>';
+
+  var T={
+    lower:{c:'var(--red)',on:'#fff',label:'Lower'},
+    upper:{c:'var(--blue)',on:'#fff',label:'Upper'},
+    run:{c:'var(--yellow)',on:'#141B18',label:'Run'},
+    out:{c:'var(--green)',on:'#fff',label:'Outdoor'},
+    rest:{c:'var(--rest)',on:'#141B18',label:'Rest'}
+  };
+
+  var gymWarm=[
+    '3 min easy walk or light jog on the treadmill',
+    '10 leg swings each leg, front-to-back and side-to-side',
+    '10 hip circles and 10 arm circles each way',
+    '10 bodyweight squats and 10 push-ups (knees down is fine)',
+    'Before your first lift: 2 lighter sets, e.g. empty bar × 10, then about half your working weight × 5'
+  ];
+  var gymCool=[
+    'Stretch quads, hamstrings, hip flexors, chest and calves, 30 s each',
+    'Box breathing for 2 min: in for 4, hold 4, out for 4, hold 4'
+  ];
+
+  var anulom={n:'Anulom Vilom',rx:'5 min',rest:'Alternate-nostril breathing',cues:[
+    'Sit tall and relaxed. Close your right nostril with your thumb and breathe in through the left for 4 counts.',
+    'Close the left with your ring finger, open the right and breathe out for 6 counts.',
+    'Breathe in through the right, switch, and breathe out through the left. That is one round. Keep it slow and quiet.'
+  ]};
+  var bhramari={n:'Bhramari',rx:'5 rounds',rest:'Humming breath',cues:[
+    'Breathe in deeply through your nose.',
+    'Gently close your ears with your thumbs and breathe out slowly while humming like a bee.',
+    'Feel the buzz in your face and head. Very calming after a hot, sweaty session.'
+  ]};
+
+  function walk(min){
+    return {n:'Incline walk',rx:min+' min',rest:'Incline 10–12%, 5.0–5.5 km/h',cues:[
+      'Lift first, walk after, so your legs and energy are fresh for the weights.',
+      'Hands off the rails. Holding on takes away much of the work.',
+      'If 12% makes your calves burn, start at 8% and build up over two weeks.',
+      'You should be able to talk. This is steady fat-burning work, not a sprint.'
+    ]};
+  }
+
+  var DAYS=[
+    {day:'Monday',short:'M',type:'lower',title:'Lower body A',sub:'Squat day, then an incline walk.',mins:65,sections:[
+      {h:'Warm-up',t:'7 min',list:gymWarm},
+      {h:'Main lifts',t:'35 min',ex:[
+        {n:'Barbell back squat',rx:'4 × 6–8',rest:'Rest 2 min',kg:true,cues:[
+          'Set the safety pins in the rack just below your bottom position.',
+          'Bar rests on your upper back muscles, not your neck. Feet shoulder-width, toes turned out slightly.',
+          'Take a big breath and brace your stomach as if someone is about to poke it.',
+          'Sit your hips down and back until your thighs are about parallel to the floor, knees following your toes.',
+          'Drive up through your whole foot, keeping your chest up.'],
+          swap:'Goblet squat with a heavy dumbbell if the rack is taken.'},
+        {n:'Dumbbell Romanian deadlift',rx:'3 × 10',rest:'Rest 90 s',kg:true,cues:[
+          'Stand tall holding the dumbbells in front of your thighs, knees slightly bent.',
+          'Push your hips back and let the dumbbells slide down your thighs to just below the knee.',
+          'Keep your back flat. You should feel a strong stretch in your hamstrings.',
+          'Squeeze your glutes to stand back up.']},
+        {n:'Dumbbell walking lunges',rx:'3 × 10',rest:'10 steps each leg, rest 75 s',kg:true,cues:[
+          'Take a long step forward and lower until your back knee nearly touches the floor.',
+          'Keep your front knee over your ankle and your torso upright.',
+          'Push through the front heel to step into the next lunge.']},
+        {n:'Dumbbell calf raises',rx:'3 × 15',rest:'Rest 45 s',kg:true,cues:[
+          'Stand with the balls of your feet on the edge of a plate or step, one dumbbell in hand.',
+          'Rise up for 1 second, pause at the top, lower for 2 seconds.',
+          'Strong calves protect your shins and Achilles when running.']},
+        {n:'Plank',rx:'3 × 40 s',rest:'Rest 30 s',cues:[
+          'Elbows under shoulders, body in a straight line from head to heels.',
+          'Squeeze your glutes and pull your ribs down so your lower back doesn\'t sag.']},
+        {n:'Dead bug',rx:'3 × 10',rest:'10 each side',cues:[
+          'Lie on your back, arms pointing at the ceiling, knees bent at 90° above your hips.',
+          'Slowly lower your opposite arm and leg towards the floor while keeping your lower back pressed into the floor.',
+          'Return and switch sides.']}
+      ]},
+      {h:'Finisher',t:'25 min',ex:[walk(25)]},
+      {h:'Cool-down',t:'5 min',list:gymCool}
+    ]},
+    {day:'Tuesday',short:'T',type:'upper',title:'Upper body A',sub:'Chest, shoulders and back, then an incline walk.',mins:60,sections:[
+      {h:'Warm-up',t:'7 min',list:gymWarm},
+      {h:'Main lifts',t:'35 min',ex:[
+        {n:'Barbell bench press',rx:'4 × 6–8',rest:'Rest 2 min',kg:true,cues:[
+          'New to it? Use only the empty bar for your first three sessions while you learn it.',
+          'Lie with your eyes under the bar, feet flat on the floor.',
+          'Squeeze your shoulder blades together and down, as if tucking them into your back pockets.',
+          'Grip slightly wider than your shoulders. Lower the bar to your mid-chest (around nipple line), elbows about 45° from your body.',
+          'Touch lightly and press back up. Use the rack safeties or ask someone to spot you once it gets heavy.'],
+          swap:'Dumbbell bench press if the bar is busy or you train alone.'},
+        {n:'One-arm dumbbell row',rx:'3 × 10',rest:'Each side, rest 75 s',kg:true,cues:[
+          'One hand and one knee on the bench, back flat like a table.',
+          'Pull the dumbbell towards your hip pocket, elbow close to your body.',
+          'Lower slowly. Don\'t twist your torso to lift it.']},
+        {n:'Standing dumbbell shoulder press',rx:'3 × 10',rest:'Rest 75 s',kg:true,cues:[
+          'Dumbbells at shoulder height, palms facing forward or each other.',
+          'Squeeze your glutes and stomach so you don\'t lean back.',
+          'Press straight up until your arms are straight, then lower with control.']},
+        {n:'Push-ups',rx:'3 × max',rest:'Stop 2 reps before failure, rest 60 s',cues:[
+          'Hands just wider than shoulders, body in one straight line.',
+          'Lower until your chest is a fist\'s height from the floor, then press up.']},
+        {n:'Lateral raises',rx:'3 × 12–15',rest:'Rest 45 s',kg:true,cues:[
+          'Light dumbbells. Slight bend in the elbows.',
+          'Raise your arms out to the sides up to shoulder height, leading with your elbows.',
+          'Lower slowly. If you have to swing, the weight is too heavy.']},
+        {n:'Hanging knee raises',rx:'3 × 10',rest:'Rest 45 s',cues:[
+          'Hang from the pull-up bar with straight arms.',
+          'Curl your knees up towards your chest, then lower slowly without swinging.']}
+      ]},
+      {h:'Finisher',t:'20 min',ex:[walk(20)]},
+      {h:'Cool-down',t:'5 min',list:gymCool}
+    ]},
+    {day:'Wednesday',short:'W',type:'run',title:'Easy run',sub:'Outdoors early, or on the treadmill at 1% incline.',mins:55,sections:[
+      {h:'Warm-up',t:'5 min',list:['5 min brisk walk','10 leg swings each leg, each direction','10 walking lunges, 10 high knees, 10 butt kicks']},
+      {h:'Run',t:'40 min',ex:[
+        {n:'Easy run',rx:'5–7 km',rest:'About 7:15–7:45 per km, conversational',cues:[
+          'If you can\'t speak in full sentences, slow down. Easy days build your engine without tiring your legs for lifting.',
+          'Go before 6:30 am to beat the worst of the heat.',
+          'Take water or electrolytes with you on humid days.']},
+        {n:'Strides',rx:'4 × 20 s',rest:'Walk back to recover between each',cues:[
+          'At the end of the run, accelerate to a fast but relaxed pace for 20 seconds.',
+          'Stay tall and light on your feet. These keep your legs quick without hard training.']}
+      ]},
+      {h:'Mobility',t:'5 min',list:['Calf stretch against a wall, 45 s each leg','Half-kneeling hip flexor stretch, 45 s each side','Pigeon stretch, 45 s each side']},
+      {h:'Breathing',t:'10 min',ex:[anulom,bhramari]}
+    ]},
+    {day:'Thursday',short:'T',type:'lower',title:'Lower body B',sub:'Deadlift day, then an incline walk.',mins:65,sections:[
+      {h:'Warm-up',t:'7 min',list:gymWarm},
+      {h:'Main lifts',t:'35 min',ex:[
+        {n:'Barbell deadlift',rx:'4 × 5',rest:'Rest 2–3 min',kg:true,cues:[
+          'Stand with the bar over the middle of your feet. Hinge down and grip just outside your legs.',
+          'Chest up, back flat, and pull the slack out of the bar before you lift.',
+          'Push the floor away with your legs, keeping the bar touching your legs all the way up.',
+          'Finish by squeezing your glutes. Don\'t lean back at the top.',
+          'Lower it along the same path. Reset your position before each rep.']},
+        {n:'Goblet squat',rx:'3 × 12',rest:'Rest 75 s',kg:true,cues:[
+          'Hold one dumbbell vertically against your chest.',
+          'Squat down between your heels, elbows brushing the inside of your knees at the bottom.',
+          'Keep your torso upright and drive up.']},
+        {n:'Bulgarian split squat',rx:'3 × 8',rest:'Each leg, rest 75 s',kg:true,cues:[
+          'Rest the top of your back foot on the bench. Front foot about two feet ahead.',
+          'Drop straight down until your back knee nearly touches the floor.',
+          'Start with bodyweight. Hold dumbbells once all sets feel easy. Hard, and great for runners.']},
+        {n:'Barbell hip thrust',rx:'3 × 12',rest:'Rest 60 s',kg:true,cues:[
+          'Upper back against the bench, bar across your hips with a towel or pad for comfort.',
+          'Feet flat, knees bent. Drive your hips up until your body is flat from shoulders to knees.',
+          'Squeeze your glutes for a second at the top.'],
+          swap:'Glute bridge on the floor with a dumbbell on your hips.'},
+        {n:'Side plank',rx:'3 × 30 s',rest:'Each side',cues:[
+          'Elbow under shoulder, body in a straight line, hips lifted.',
+          'Don\'t let your hips sink towards the floor.']},
+        {n:'Bird dog',rx:'3 × 10',rest:'10 each side',cues:[
+          'On hands and knees, reach one arm forward and the opposite leg back.',
+          'Keep your back flat and hips level. Pause, return, switch.']}
+      ]},
+      {h:'Finisher',t:'25 min',ex:[walk(25)]},
+      {h:'Cool-down',t:'5 min',list:gymCool}
+    ]},
+    {day:'Friday',short:'F',type:'upper',title:'Upper body B',sub:'Pull-ups and overhead press, then a shorter walk.',mins:65,sections:[
+      {h:'Warm-up',t:'7 min',list:gymWarm},
+      {h:'Main lifts',t:'40 min',ex:[
+        {n:'Pull-ups',rx:'4 × max',rest:'Clean reps only, rest 2 min',cues:[
+          'Start from a dead hang, hands just wider than shoulders, palms facing away.',
+          'Pull your shoulders down first, then pull your chest towards the bar.',
+          'Lower all the way with control.',
+          'Can\'t do 3 yet? Do negatives: jump to the top and lower yourself over 4–5 seconds, 4 sets of 3.']},
+        {n:'Barbell overhead press',rx:'4 × 6–8',rest:'Rest 2 min',kg:true,cues:[
+          'Bar resting on the front of your shoulders, grip just outside shoulder width.',
+          'Squeeze your glutes and stomach. Press the bar straight up, moving your head back slightly to let it pass.',
+          'Finish with the bar over your mid-foot and your head through your arms. Lower with control.']},
+        {n:'Barbell bent-over row',rx:'3 × 8–10',rest:'Rest 90 s',kg:true,cues:[
+          'Hinge forward to about 45°, back flat, knees soft.',
+          'Pull the bar to your lower ribs and squeeze your shoulder blades together.',
+          'Lower slowly without your back rounding.']},
+        {n:'Dumbbell bench press',rx:'3 × 10–12',rest:'Rest 75 s',kg:true,cues:[
+          'Lie on the bench, dumbbells beside your chest, shoulder blades pulled back.',
+          'Press up until your arms are straight, then lower slowly.']},
+        {n:'Rear-delt fly',rx:'3 × 15',rest:'Rest 45 s',kg:true,cues:[
+          'Hinge forward with light dumbbells hanging below your chest.',
+          'With a slight bend in your elbows, raise your arms out to the sides.',
+          'Good for posture after hours at a laptop.']},
+        {n:'Hammer curl + triceps extension',rx:'2 × 12',rest:'Back-to-back, rest 60 s',kg:true,cues:[
+          'Hammer curl: palms facing each other, curl the dumbbells up without swinging.',
+          'Triceps extension: hold one dumbbell with both hands overhead, lower it behind your head, straighten your arms.']},
+        {n:'Hollow hold',rx:'3 × 20–30 s',rest:'Rest 30 s',cues:[
+          'Lie on your back, press your lower back into the floor.',
+          'Lift your shoulders and straight legs slightly off the floor, arms overhead.',
+          'Bend your knees to make it easier.']}
+      ]},
+      {h:'Finisher',t:'15 min',ex:[walk(15)]},
+      {h:'Cool-down',t:'5 min',list:gymCool}
+    ]},
+    {day:'Saturday',short:'S',type:'out',title:'Outdoors',variants:{
+      steps:{label:'Steps circuit',sub:'Stairs and bodyweight. Alternate with the long run each Saturday.',mins:55,sections:[
+        {h:'Warm-up',t:'8 min',list:['1 km easy jog','10 leg swings each leg, 10 walking lunges, 10 arm circles each way']},
+        {h:'Circuit',t:'35 min',note:'Do all six moves, rest 2 min, repeat for 4 rounds (3 in week 1). Tick each move after the last round.',ex:[
+          {n:'Stair runs',rx:'× 4',rest:'Run up, walk down',cues:['Run up the steps on the balls of your feet, pumping your arms.','Walk down carefully. The walk down is your recovery.']},
+          {n:'Step-ups',rx:'12 each',rest:'Each leg',cues:['Use a high step around knee height.','Drive through the heel of the top foot. Don\'t push off with the bottom foot.']},
+          {n:'Push-ups',rx:'× 12',cues:['Hands on the ground, or on a step to make it easier.','Body in one straight line.']},
+          {n:'Jump squats',rx:'× 12',cues:['Squat down, jump up explosively, land softly with bent knees.','Swap for regular squats if the ground is hard or slippery.']},
+          {n:'Walking lunges',rx:'10 each',rest:'Each leg',cues:['Long steps, back knee close to the ground, torso upright.']},
+          {n:'Plank',rx:'45 s',cues:['Elbows under shoulders, glutes tight, straight line.']}
+        ]},
+        {h:'Breathing',t:'10 min',ex:[anulom,bhramari]}
+      ]},
+      run:{label:'Long run',sub:'Long, easy and outdoors. Alternate with the steps circuit each Saturday.',mins:70,sections:[
+        {h:'Warm-up',t:'5 min',list:['5 min brisk walk','10 leg swings each leg, 10 high knees, 10 butt kicks']},
+        {h:'Run',t:'60–70 min',ex:[
+          {n:'Long easy run',rx:'8–10 km',rest:'About 7:15–7:45 per km',cues:[
+            'This is about time on your feet, not speed. If you can\'t talk, slow down.',
+            'Start before 6:30 am to beat the heat and humidity.',
+            'Carry water or loop past a tap. Take electrolytes on longer runs.',
+            'Start at 8 km and build to 10–12 km over the following month if it feels good.']}
+        ]},
+        {h:'Stretch',t:'5 min',list:['Calves, hamstrings, quads and hip flexors, 45 s each']},
+        {h:'Breathing',t:'5 min',ex:[anulom]}
+      ]}
+    }},
+    {day:'Sunday',short:'S',type:'rest',title:'Rest day',sub:'Let your body absorb the week. Nothing hard today.',mins:30,sections:[
+      {h:'Move gently',t:'30 min',list:['20–30 min easy walk','10 min light stretching: hips, hamstrings, calves, chest','Anulom Vilom, 5 min']},
+      {h:'Set up the week',list:['Soak Monday\'s almonds and munakka tonight','Restock bananas, roasted chana and makhana','Every second Sunday, measure your waist at the navel']}
+    ]}
+  ];
+
+  function satDefault(){
+    var saved=store.get('sat:w'+WEEK);
+    if(saved==='steps'||saved==='run')return saved;
+    return WEEK%2===1?'steps':'run';
+  }
+
+  var plates=document.getElementById('plates');
+  var session=document.getElementById('session');
+  var sel=beforeStart?0:todayIdx;
+  var plateBtns=[];
+
+  DAYS.forEach(function(d,i){
+    var t=T[d.type];
+    var isToday=(i===todayIdx&&!beforeStart);
+    var b=document.createElement('button');
+    b.type='button';
+    b.className='plate'+(d.type==='rest'?' rest':'')+(isToday?' today':'');
+    b.style.setProperty('--c',t.c);
+    b.setAttribute('aria-label',d.day+', '+d.title+(isToday?', today':''));
+    b.innerHTML='<span class="disc" aria-hidden="true">'+d.short+'</span><small>'+(isToday?'Today':t.label)+'</small>';
+    b.addEventListener('click',function(){sel=i;render();});
+    plates.appendChild(b);
+    plateBtns.push(b);
+  });
+
+  function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+
+  function exHTML(e,id){
+    var done=store.get('done:w'+WEEK+':'+id)==='1';
+    var kg=store.get('kg:'+id)||'';
+    var h='<div class="ex'+(done?' done':'')+'">';
+    h+='<div class="ex-top"><input type="checkbox" id="c-'+id+'" data-id="'+id+'"'+(done?' checked':'')+'>';
+    h+='<label for="c-'+id+'"><span class="ex-name">'+e.n+'</span>'+(e.rest?'<span class="ex-rest">'+e.rest+'</span>':'')+'</label>';
+    h+='<span class="rx">'+e.rx+'</span></div>';
+    if(e.cues||e.kg){
+      h+='<details><summary>How to do it</summary><div class="how">';
+      if(e.cues)h+='<ul>'+e.cues.map(function(c){return '<li>'+c+'</li>';}).join('')+'</ul>';
+      if(e.swap)h+='<p class="swap"><strong>Swap:</strong> '+e.swap+'</p>';
+      if(e.kg)h+='<label class="kg">Weight used <input type="number" inputmode="decimal" min="0" step="0.5" value="'+esc(kg)+'" data-kg="'+id+'"> kg</label>';
+      h+='</div></details>';
+    }
+    return h+'</div>';
+  }
+
+  function render(){
+    plateBtns.forEach(function(b,i){b.setAttribute('aria-pressed',i===sel?'true':'false');});
+    var d=DAYS[sel], t=T[d.type];
+    session.style.setProperty('--c',t.c);
+    var sections=d.sections, sub=d.sub, mins=d.mins, variant=null;
+    if(d.variants){variant=satDefault();var v=d.variants[variant];sections=v.sections;sub=v.sub;mins=v.mins;}
+
+    var total=0;
+    sections.forEach(function(s){if(s.ex)total+=s.ex.length;});
+    var isToday=(sel===todayIdx&&!beforeStart);
+
+    var h='<div class="hero">';
+    h+='<p class="hero-day">'+(isToday?'Today, ':'')+d.day+'</p>';
+    h+='<h2>'+(variant?d.variants[variant].label:d.title)+'</h2>';
+    h+='<p class="sub">'+sub+'</p>';
+    h+='<dl class="stats"><div class="stat"><dt>Time</dt><dd>'+mins+' min</dd></div>';
+    if(total)h+='<div class="stat"><dt>Done</dt><dd id="donecount">0/'+total+'</dd></div>';
+    h+='</dl>';
+    if(total)h+='<div class="bar" aria-hidden="true"><span id="barfill"></span></div>';
+    h+='</div>';
+
+    if(beforeStart)h+='<div class="note"><strong>Starts Monday, 5 October</strong>Rest up this weekend and soak your almonds and munakka on Sunday night.</div>';
+    if(WEEK===1&&d.type!=='rest')h+='<div class="note"><strong>Week 1 is a recovery week</strong>Use weights that feel easy, about 60% effort. Keep Wednesday\'s run to 4 km and do 3 rounds of the Saturday circuit. From week 2, follow the plan as written.</div>';
+    if(WEEK%6===0&&d.type!=='rest')h+='<div class="note"><strong>Easier week</strong>Every sixth week is lighter so your body can catch up. Do 2 sets of each lift at last week\'s weights, and run about a quarter less.</div>';
+
+    if(d.variants){
+      h+='<div class="variant" role="group" aria-label="Saturday session">';
+      ['steps','run'].forEach(function(k){
+        h+='<button type="button" data-variant="'+k+'" aria-pressed="'+(k===variant)+'">'+d.variants[k].label+'</button>';
+      });
+      h+='</div>';
+    }
+
+    sections.forEach(function(s,si){
+      h+='<h3>'+s.h+(s.t?'<span>'+s.t+'</span>':'')+'</h3>';
+      if(s.note)h+='<p class="sec-note">'+s.note+'</p>';
+      if(s.list)h+='<ul class="plain">'+s.list.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>';
+      if(s.ex)h+=s.ex.map(function(e,ei){return exHTML(e,sel+(variant?variant:'')+'-'+si+'-'+ei);}).join('');
+    });
+
+    h+='<div class="progress" id="prog"></div>';
+    session.innerHTML=h;
+    updateProgress();
+  }
+
+  function updateProgress(){
+    var boxes=session.querySelectorAll('input[type=checkbox]');
+    var p=document.getElementById('prog');
+    if(!p)return;
+    if(!boxes.length){p.innerHTML='<span>Enjoy the rest. Back at it on Monday.</span>';return;}
+    var n=0;boxes.forEach(function(b){if(b.checked)n++;});
+    var dc=document.getElementById('donecount'),bf=document.getElementById('barfill');
+    if(dc)dc.textContent=n+'/'+boxes.length;
+    if(bf)bf.style.width=(n/boxes.length*100)+'%';
+    p.innerHTML='<span>'+(n===boxes.length?'Session complete. Nice work.':n+' of '+boxes.length+' done')+'</span>'+(n?'<button type="button" id="clear">Clear ticks</button>':'');
+  }
+
+  session.addEventListener('change',function(e){
+    var el=e.target;
+    if(el.matches('input[type=checkbox]')){
+      var k='done:w'+WEEK+':'+el.dataset.id;
+      if(el.checked)store.set(k,'1');else store.del(k);
+      el.closest('.ex').classList.toggle('done',el.checked);
+      updateProgress();
+    }
+  });
+  session.addEventListener('input',function(e){
+    var el=e.target;
+    if(el.dataset&&el.dataset.kg)store.set('kg:'+el.dataset.kg,el.value);
+  });
+  session.addEventListener('click',function(e){
+    var v=e.target.closest('[data-variant]');
+    if(v){store.set('sat:w'+WEEK,v.dataset.variant);render();return;}
+    if(e.target.id==='clear'){
+      session.querySelectorAll('input[type=checkbox]').forEach(function(b){
+        store.del('done:w'+WEEK+':'+b.dataset.id);b.checked=false;b.closest('.ex').classList.remove('done');
+      });
+      updateProgress();
+    }
+  });
+
+  var tabs=document.querySelectorAll('.tabs button');
+  tabs.forEach(function(b){
+    b.addEventListener('click',function(){
+      tabs.forEach(function(x){x.setAttribute('aria-selected',x===b?'true':'false');});
+      document.querySelectorAll('[role=tabpanel]').forEach(function(p){p.hidden=p.id!==b.getAttribute('aria-controls');});
+    });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
