@@ -1,12 +1,12 @@
-# Six Mornings
+# Five Mornings
 
-A six-day training and nutrition plan for a basic gym: strength work, an easy run, an outdoor session, and simple vegetarian eating built around a campus mess.
+A five-day training and nutrition plan for a basic gym: two lower-body days, two upper-body days and an easy run, with weekends off, plus simple vegetarian eating built around a campus mess.
 
 **Open `index.html` in any browser.** On your phone it opens to today's session.
 
 ## What's inside
 
-- **Training:** a day-by-day plan (Mon–Sun) with sets, reps, rest times and short how-to notes for every exercise
+- **Training:** a day-by-day plan (Mon–Fri training, Sat–Sun rest) with sets, reps, rest times and short how-to notes for every exercise
 - **Progress:** tick off exercises as you go and log the weight you lifted; saved in your browser
 - **Food:** daily portions, a meal timeline, the plate rule and a protein reference table
 - **How it works:** progression rules, deload weeks, training in humidity, and when to back off
