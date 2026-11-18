@@ -1,16 +1,16 @@
 <div align="center">
 
-# 🔴 Five Mornings
+# 🔴 Uptime
 
-**Four lifts. One engine day. Weekends off.**
+**Four days a week. Lean, quick and strong. Showing up is the whole game.**
 
-A complete athletic training plan in a single HTML file.
+A complete athletic training plan in one page.
 Open it on your phone and it's already on today's session.
 
-![Single file](https://img.shields.io/badge/single_file-index.html-E5483A?style=for-the-badge)
-![No build](https://img.shields.io/badge/build_step-none-16191C?style=for-the-badge)
-![No accounts](https://img.shields.io/badge/accounts-none-34B470?style=for-the-badge)
-![Mobile first](https://img.shields.io/badge/mobile-first-4686EC?style=for-the-badge)
+![One page](https://img.shields.io/badge/one_page-index.html-FF6141?style=for-the-badge)
+![No build](https://img.shields.io/badge/build_step-none-0C0E10?style=for-the-badge)
+![No accounts](https://img.shields.io/badge/accounts-none-3DCB86?style=for-the-badge)
+![Works offline](https://img.shields.io/badge/works-offline-D6FF3D?style=for-the-badge)
 
 </div>
 
@@ -18,46 +18,66 @@ Open it on your phone and it's already on today's session.
 
 ## The week
 
-|    | Day     | Session                     |
-|----|---------|-----------------------------|
-| 🔴 | Mon     | **Lower A**: squat & jump   |
-| 🔵 | Tue     | **Push**                    |
-| 🟡 | Wed     | **Engine**: run & agility   |
-| 🟢 | Thu     | **Pull**                    |
-| 🔴 | Fri     | **Lower B**: hinge & bound  |
-| ⚪ | Sat–Sun | Off. Walk, stretch, reset.  |
+|    | Day | Session |
+|----|-----|---------|
+| 🔵 | Mon | **Strength A**: jump, squat, push, core |
+| 🔴 | Tue | **Track**: 5K intervals, then court footwork |
+| ⚪ | Wed | Rest. Walk and stretch. |
+| 🔵 | Thu | **Strength B**: pull-up ladder, deadlift, press, carry |
+| 🟠 | Fri | Optional: basketball, football or an easy run |
+| 🟢 | Sat | **Long run**: easy, then strides |
+| ⚪ | Sun | Rest, or the optional play day |
 
-Power first, heavy lift next, finisher last. Every sixth week is a deload.
+Six-week blocks: a baseline week to start, five weeks of building, then an easy week that ends in tests (5K, pull-up level, broad jump).
 
 ## What it does
 
-- **Tap a set, start your rest.** Logging takes two seconds, and the timer beeps and buzzes when it's time to go again.
-- **Knows when you've earned more weight.** Each lift shows what you did last time and tells you when to go heavier.
-- **Clocks for the hard stuff.** EMOM, 21-15-9 and AMRAP finishers each run their own timer, and your scores are saved so next week has something to beat.
-- **Form you can feel.** Step-by-step cues, a breathing cue, a muscle map and a demo link for every exercise.
-- **Progress you can see.** A trend line for every lift, plus a CSV export.
-- **Fuel, sorted.** Simple pre- and post-workout guidance built into every training day.
-- **Light and dark.** It follows your phone, or you can flip it yourself.
+- **One tap, next set.** A bar above the navigation always shows what's next and logs it in one tap, following supersets. Built for one hand, mid-workout.
+- **A rest timer you can read across the gym.** Huge digits, ±15 s, beeps for the last three seconds, buzzes, then flashes when it's time to go.
+- **Track timers.** Rep timer with target splits and automatic recovery, tempo blocks, a 5K stopwatch with laps, and a run clock. Every pace comes from your latest 5K.
+- **Clocks that survive.** Every timer works from timestamps and is saved, so a locked screen or a reload doesn't lose it.
+- **A pull-up ladder.** Five levels from negatives to ten in a row, each with a pass test that unlocks the next.
+- **Knows when you've earned more weight.** Each lift shows last time and tells you when to go heavier.
+- **Finishers with a score to beat.** EMOM, AMRAP and 21-15-9 clocks save your result.
+- **Teaches as you go.** A muscle map, what to feel, how to breathe, why it's there, a common mistake and a demo link for every exercise.
+- **Progress beyond the scale.** Uptime (the share of planned sessions you turn up for), a 7-day weight trend, waist, photo dates, tests and lift trends, plus a weekly verdict on whether to change anything.
+- **Break mode.** A busy week becomes the minimum dose that holds your strength and fitness.
+- **Fuel for a hostel mess.** Protein tally, five rules, the plate and a worked 120 g vegetarian day.
+- **Light and dark.** Follows your phone, or flip it yourself.
 
 ## Private by design
 
-No sign-up, no server, no analytics. Your log lives only in your browser on your device. Download the CSV now and then, because clearing your browser data clears your log.
+No sign-up, no server, no analytics. Your data lives only in your browser on your phone. Download a backup now and then from the Progress tab, because clearing your browser data clears your log. A backup restores in one tap.
+
+Logs from the earlier Five Mornings version are carried over automatically the first time Uptime opens.
 
 ## Run it
 
 Open `index.html` in any browser. That's it.
 
-To host it, push to GitHub, then go to **Settings → Pages → Deploy from a branch → `main` / `(root)`**. It will be live in a minute or two.
+To host it, push to GitHub, then go to **Settings → Pages → Deploy from a branch → `main` / `(root)`**. Once it's live, use your browser's **Add to Home Screen** and it runs full screen and offline.
 
 ## Make it yours
 
-The week count starts from one line near the top of the script:
+Every date comes from one line near the top of the script:
 
 ```js
-const START = new Date(2026, 9, 12); // 12 October 2026 (months are 0-indexed)
+const START=new Date(2026,10,23); // Monday 23 November 2026 (months are 0-indexed)
 ```
 
-Exercises, sets and reps all live in the `DAYS` array in the same file.
+- Exercises live in the `EX` library. Their ids are also the storage keys, so keep them stable.
+- Sessions are built by `strengthA`, `track`, `strengthB` and `longRun` from the week number, so blocks, easy weeks and tests take care of themselves.
+- The pull-up ladder is the `LADDER` table.
+
+## Files
+
+| File | What it is |
+|------|------------|
+| `index.html` | The whole app: markup, styles and script |
+| `sw.js` | Offline support |
+| `manifest.webmanifest` | Home-screen install |
+| `assets/` | The Archivo variable font (subset, self-hosted) and icons |
+| `docs/HISTORY.md` | How the site evolved, and what was tried and dropped |
 
 ---
 
