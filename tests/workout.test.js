@@ -212,33 +212,49 @@ test("store: sessions and activities feed the engine log", () => {
   assert.deepEqual(log.map((e) => e.session || e.kind), ["UA", "sport"]);
 });
 
-test("run: interval reps from the 5K pace, short has fewer reps, level up only when earned", () => {
-  const r = R.buildRun("interval", { level: 1, fiveK: 1710 });
-  assert.equal(r.steps.length, 6);
-  assert.equal(r.steps[0].targetSec, Math.round(((1710 / 5 - 15) * 400) / 1000));
-  assert.ok(R.buildRun("interval", { level: 1, short: true }).steps.length < 6);
-  assert.equal(R.buildRun("tempo", { level: 3, short: true }).steps.length, 1);
-  assert.equal(R.nextLevel("interval", 1, { allOnPace: true, feltOk: true }), 2);
-  assert.equal(R.nextLevel("interval", 1, { allOnPace: true, feltOk: false }), 1);
-  assert.equal(R.nextLevel("interval", 6, { allOnPace: true, feltOk: true }), 6);
+test("run: the time line reads common formats and nothing else", () => {
+  assert.deepEqual(R.parseTimeLine("10k 52:30"), { km: 10, sec: 3150 });
+  assert.deepEqual(R.parseTimeLine("5 km 24:10"), { km: 5, sec: 1450 });
+  assert.deepEqual(R.parseTimeLine("52:30 10K"), { km: 10, sec: 3150 });
+  assert.deepEqual(R.parseTimeLine("half 1:55:00"), { km: 21.1, sec: 6900 });
+  assert.deepEqual(R.parseTimeLine("21k 1:52:10"), { km: 21.1, sec: 6730 });
+  assert.equal(R.parseTimeLine("felt good"), null);
+  assert.equal(R.parseTimeLine("52:30"), null); // no distance
+  assert.equal(R.parseTimeLine("5k 9:00"), null); // not a real pace
+  assert.equal(R.parseTimeLine(""), null);
 });
 
-test("run: stopwatch reps, countdown blocks, recovery between", () => {
-  const run = R.newRun({ id: "r", type: "tempo", date: "2026-11-26", now: T0, settings: { runLevels: { tempo: 1 } } });
-  R.startStep(run, T0);
-  assert.equal(run.work.endAt, T0 + 8 * 60000);
-  R.finishStep(run, T0 + 9 * 60000); // ended while the screen was off: capped at the block
-  assert.equal(run.log[0].sec, 480);
-  assert.equal(run.rest.endAt, T0 + 8 * 60000 + 120000);
-  const iv = R.newRun({ id: "r", type: "interval", date: "2026-11-26", now: T0 });
-  R.startStep(iv, T0);
-  R.finishStep(iv, T0 + 100000);
-  assert.equal(iv.log[0].sec, 100);
-  assert.ok(R.onPace(iv.steps[0], 100));
-  assert.equal(R.toActivity(iv, { partial: true }).partial, true);
-});
-
-test("run: a time trial updates the 5K used for paces", () => {
+test("run: paces come from the latest time line, else an old time trial, else the baseline", () => {
   assert.equal(R.fiveKSec([], {}), PLAN.baseline.fiveKSec);
   assert.equal(R.fiveKSec([{ kind: "run", run: "time-trial", sec: 1650 }], {}), 1650);
+  assert.equal(R.fiveKSec([], { paceRef: { km: 5, sec: 1500 } }), 1500);
+  const from10k = R.fiveKSec([{ kind: "run", run: "time-trial", sec: 1650 }], { paceRef: { km: 10, sec: 3150 } });
+  assert.ok(from10k > 1480 && from10k < 1530, `10K 52:30 ≈ 5K 25:0x, got ${from10k}`);
+  const pc = R.paces(1500);
+  assert.equal(pc["5k"], 300);
+  assert.ok(pc["5k"] < pc["10k"] && pc["10k"] < pc["21k"]);
+  assert.deepEqual(pc.easy, [375, 400]);
+});
+
+test("run: one-line targets for each run", () => {
+  const t = (pick) => R.runTarget(pick, 1500);
+  assert.equal(t({ run: "interval", phase: "none" }).target, "6 × 800 m at 5:00/km, 2 min jog between");
+  assert.equal(t({ run: "tempo", phase: "none" }).target, "20 min at 5:15/km");
+  assert.equal(t({ run: "long", km: 9, phase: "none" }).target, "9 km easy at 6:15–6:40/km");
+  assert.match(t({ run: "long", km: 12, hold: true, phase: "none" }).target, /^12–14 km easy/);
+  assert.match(t({ run: "interval", phase: "build", distance: "10k" }).target, /^5 × 1 km/);
+  assert.match(t({ run: "tempo", phase: "taper", distance: "21k" }).target, /^10 min at/);
+  assert.equal(t({ run: "race", phase: "race", distance: "21k" }).name, "Half marathon race");
+  for (const run of ["interval", "tempo", "long", "shakeout", "race"]) assert.ok(!t({ run, km: 10, phase: "none" }).target.includes("\n"));
+});
+
+test("store: an old step-by-step run in progress becomes a logged run; new settings filled", () => {
+  const db = migrate({ v: 2, sessions: [], activities: [], settings: { runLevels: { interval: 3 } },
+    active: { kind: "run", id: "r1", run: "tempo", date: "2026-11-20", startedAt: T0, log: [{ i: 0, sec: 480 }], steps: [] } });
+  assert.equal(db.active, null);
+  assert.deepEqual(db.activities[0], { id: "r1", date: "2026-11-20", t: T0, kind: "run", run: "tempo", partial: true });
+  assert.equal(db.settings.race, null);
+  assert.equal(db.settings.runLevels.interval, 3); // old settings are kept, just unused
+  db.activities.push({ id: "r2", date: "2026-11-26", t: T0, kind: "run", run: "long", km: 9 });
+  assert.equal(engineLog(db).find((e) => e.run === "long").km, 9);
 });

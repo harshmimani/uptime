@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   addDays, nextSession, planToday, returnAdjustment, prescribe, rollingProgress, streak,
   weekLevel, windowStats, deloadStatus, detectStall, progression, doubleAllowed, setBusy, isBusy,
+  nextRunType, longRunKm, racePhase, runPick,
 } from "../js/engine.js";
 
 // Day 0 is a Monday, but nothing in the engine depends on that.
@@ -323,8 +324,13 @@ describe("Spacing and floating sessions", () => {
     assert.ok(["run", "conditioning"].includes(p.primary.type));
   });
 
-  test("runs alternate interval and tempo", () => {
+  test("the run slot cycles interval → tempo → long", () => {
     assert.equal(planToday([lift(0, "LB"), run(1, "interval")], {}, d(9)).options.find((o) => o.type === "run").run, "tempo");
+    assert.equal(nextRunType([], d(0)), "interval");
+    assert.equal(nextRunType([run(1, "tempo")], d(9)), "long");
+    assert.equal(nextRunType([run(1, "long", { km: 8 })], d(9)), "interval");
+    assert.equal(nextRunType([run(1, "time-trial")], d(9)), "interval"); // old logs don't break the cycle
+    assert.equal(nextRunType([run(1, "tempo"), run(2, "easy")], d(9)), "long"); // easy runs fill the conditioning slot
   });
 
   test("usually-busy weekday suggests the Short version", () => {
@@ -380,5 +386,66 @@ describe("Stall detection and progression", () => {
     assert.equal(p.kg, 22.5);
     const squat = { ex: "smith-machine-back-squat", role: "main", sets: 3, reps: [5, 8] };
     assert.equal(progression([s(0, 40, [8, 8, 8])], squat).kg, 42.5);
+  });
+});
+
+describe("Runs: long run build and race mode", () => {
+  test("long runs build 1 km at a time from 8 km, then hold at 12–14 km", () => {
+    assert.deepEqual(longRunKm([], d(0)), { km: 8, hold: false });
+    assert.deepEqual(longRunKm([run(0, "long", { km: 8 })], d(21)), { km: 9, hold: false });
+    assert.deepEqual(longRunKm([run(0, "long", { km: 12 })], d(21)), { km: 12, hold: true });
+    assert.deepEqual(longRunKm([run(0, "long", { km: 11 })], d(60)), { km: 9, hold: false }); // long gap: 2 km lower
+    assert.deepEqual(longRunKm([run(0, "long", { km: 19 })], d(21)), { km: 12, hold: true }); // after a race build
+  });
+
+  const race = (distance, inDays, from = 100) => ({ race: { distance, date: d(from + inDays) } });
+
+  test("race phases: none, build (8–12 weeks), taper (1–2 weeks), race week, race day", () => {
+    assert.equal(racePhase({}, d(0)).kind, "none");
+    assert.equal(racePhase(race("21k", 120), d(100)).kind, "none");
+    assert.equal(racePhase(race("21k", 84), d(100)).kind, "build");
+    assert.equal(racePhase(race("5k", 60), d(100)).kind, "none");
+    assert.equal(racePhase(race("21k", 14), d(100)).kind, "taper");
+    assert.equal(racePhase(race("10k", 10), d(100)).kind, "taper");
+    assert.equal(racePhase(race("10k", 6), d(100)).kind, "race-week");
+    assert.equal(racePhase(race("10k", 0), d(100)).kind, "race");
+    assert.equal(racePhase(race("10k", -1), d(100)).kind, "none"); // past race: back to normal
+  });
+
+  test("a 10K/21K build alternates quality and long runs, with longer long runs", () => {
+    const s = race("21k", 60);
+    assert.equal(nextRunType([run(90, "interval")], d(100), s), "long");
+    assert.equal(nextRunType([run(85, "interval"), run(90, "long", { km: 13 })], d(100), s), "tempo");
+    assert.equal(nextRunType([run(85, "tempo"), run(90, "long", { km: 13 })], d(100), s), "interval");
+    assert.deepEqual(longRunKm([run(90, "long", { km: 13 })], d(100), s), { km: 15, hold: false });
+    assert.deepEqual(longRunKm([run(90, "long", { km: 19 })], d(100), s), { km: 19, hold: false }); // capped
+    assert.equal(nextRunType([run(90, "interval")], d(100), race("5k", 40)), "tempo"); // 5K keeps the cycle
+  });
+
+  test("taper shortens the long run; race week is easy; race day is the race", () => {
+    assert.deepEqual(longRunKm([run(90, "long", { km: 19 })], d(100), race("21k", 12)), { km: 11, hold: false });
+    assert.equal(nextRunType([run(90, "interval")], d(100), race("10k", 4)), "shakeout");
+    const p = planToday([lift(99, "UA")], race("10k", 0), d(100));
+    assert.equal(p.primary.type, "run");
+    assert.equal(p.primary.run, "race");
+    assert.equal(runPick([], d(100), race("10k", 0)).distance, "10k");
+  });
+
+  test("no Lower the day before a race or a long run", () => {
+    // next lift is LA; race tomorrow
+    const p = planToday([lift(97, "UA"), run(98, "interval")], race("10k", 1), d(100));
+    assert.notEqual(p.primary.type, "lift");
+    assert.ok(lifts(p)[0].cautions.includes("lower-before-race"));
+    // Lower yesterday, long run next: the long run is flagged, not headlined
+    const q = planToday([run(80, "tempo"), lift(98, "UB"), lift(99, "LB")], {}, d(100));
+    const r = [q.primary, ...q.options].find((o) => o.type === "run");
+    assert.equal(r.run, "long");
+    assert.ok(r.cautions.includes("long-run-after-lower"));
+    assert.notEqual(q.primary.type, "run");
+  });
+
+  test("taper and race week suggest the Short version for lifts", () => {
+    assert.equal(planToday([lift(97, "LB")], race("21k", 10), d(100)).primary.short, true);
+    assert.equal(planToday([lift(97, "LB")], {}, d(100)).primary.short, undefined);
   });
 });

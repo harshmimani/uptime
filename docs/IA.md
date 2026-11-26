@@ -31,8 +31,8 @@ Bottom tabs (hidden during a workout)
 │              · Busy mode banner (only when on) or suggestion (only when due)
 │              · "Log something else"
 ├─ Progress    Rolling-week history · lifts (trend per exercise) · pull-up ladder
-│              · 5K and run paces · body (waist monthly, weight trend) · past sessions
-└─ Plan        Modes: Busy mode switch, No-gym · the rotation and where you are in it
+│              · body (waist monthly, weight trend) · past sessions (no run stats: Strava)
+└─ Plan        Modes: Busy mode switch, No-gym, Race mode (distance + date) · the rotation
                · Food · Learn (Fit not bulky, sleep, steps, Achilles, exercise library)
                · Settings (busy weekdays, export/import JSON, about)
 
@@ -188,7 +188,7 @@ The streak line reads "New streak starts this week · best 5 weeks", never "Stre
 | # | Screen | Primary action | Why it sits there | Taps |
 |---|---|---|---|---|
 | 1 | Home: **Log something else** under the Next-up card | Tap it | Visible every day without competing with Start. | 1 |
-| 2 | Sheet: Today / Yesterday (Today selected) and Basketball, Easy run, Bike or incline walk, Stair session, A run from the plan | Tap **Basketball** | Tapping the activity saves it straight away with defaults (today, 60 min for basketball). No Save button. | 2 |
+| 2 | Sheet: Today / Yesterday (Today selected) and Basketball, Easy run, Bike or incline walk, Stair session, Today's planned run | Tap **Basketball** | Tapping the activity saves it straight away with defaults (today, 60 min for basketball). No Save button. | 2 |
 | 3 | Home: "Basketball logged · 60 min, today · Edit · Undo". The card updates with the spacing rules as a suggestion. | — | Edit fixes duration or date; Undo removes it. | — |
 
 ---
@@ -247,4 +247,4 @@ Decided under the standing rule while building it:
 - Rest has −15 s, +15 s and Skip. Three short ticks in the last 3 seconds, then a two-tone chime and a buzz. No sound if rest ended while the phone was away.
 - The weight can also be typed (tap the number) for big jumps; typing never logs.
 - Timed sets (carries, planks, hangs) log themselves when the clock ends; per-side holds beep at halfway.
-- Runs: reps are stopwatches with a target time from the latest 5K; tempo blocks count down. Level goes up only if every rep was on pace and the user says the last one felt 8/10 or easier.
+- Runs (changed 26 Nov 2026, approved): no in-app run tracking, because Strava records runs. Home shows "Run · <name>" with the one-line target; the run screen repeats it with an optional time line and one **Done** (2 taps from Home, saved on tap with Undo, no check-in). A readable time line updates the paces; an unreadable one is said so in the toast and changes nothing. Race mode is set from the run screen ("Training for a race?") until Plan is built, then it moves to Plan › Modes.

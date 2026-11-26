@@ -3,7 +3,7 @@
 // Runs the real flows at 360 px, 390 px and a desktop width:
 //   check-in → set (warm-up, prefill, beat last time) → log → rest (−15/+15/skip) → swap → undo
 //   → All exercises → Full/Short → finish → summary; reopen mid-rest; > 90 min resume;
-//   run (rep, recovery, finish); log something else (save on tap, edit, undo).
+//   today's run (one-line target, optional time line, Done, Undo, race mode); log something else.
 // Checks: no console errors, no horizontal scroll, Log button in the bottom third and
 // ≥ 48 px, timers right after "time passes", every save lands in localStorage.
 import { createRequire } from "node:module";
@@ -57,7 +57,7 @@ const noHScroll = (pg) => pg.evaluate(() => document.documentElement.scrollWidth
 const db = (pg) => pg.evaluate(() => JSON.parse(localStorage.getItem("uptime2")));
 async function logBtnInThumbZone(pg) {
   return pg.evaluate(() => {
-    const b = document.querySelector("#log-btn, [data-act=checkin]");
+    const b = document.querySelector("#log-btn, [data-act=checkin], [data-act=run-done]");
     const r = b.getBoundingClientRect();
     return r.top > innerHeight * 0.6 && r.bottom <= innerHeight + 1 && r.height >= 48;
   });
@@ -236,27 +236,35 @@ async function runAndOther(label, viewport) {
   const { pg, ctx, errors } = await page(label, viewport, { seed: HISTORY });
   await pg.goto(base);
   await pg.click("[data-act=start-run]");
-  await pg.click("[data-act=checkin][data-v=Good]");
   await pg.waitForSelector("[data-screen=run]");
-  await shot(pg, `${label}-15-run-warmup`);
+  await shot(pg, `${label}-15-run`);
   check(await noHScroll(pg), `${label}: run screen has no horizontal scroll`);
-  check(await logBtnInThumbZone(pg), `${label}: run primary in the thumb zone`);
-  await pg.click("#log-btn");
-  await pg.waitForSelector("#run-clock");
-  await pg.clock.fastForward(105000);
-  await pg.waitForTimeout(300);
-  check((await pg.textContent("#run-clock")).startsWith("1:4"), `${label}: rep stopwatch runs from a timestamp`);
-  await shot(pg, `${label}-16-run-rep`);
-  await pg.click("#log-btn");
-  await pg.waitForSelector("#ring[data-kind=rest]");
-  await pg.waitForTimeout(500);
-  await shot(pg, `${label}-17-run-recovery`);
-  check((await db(pg)).active.log.length === 1, `${label}: rep saved`);
-  await pg.click("[data-act=finish-now]");
-  await pg.waitForSelector("[data-screen=run-summary]");
-  await pg.waitForTimeout(1200);
-  await shot(pg, `${label}-18-run-summary`);
-  check((await db(pg)).activities.some((a) => a.kind === "run" && a.partial), `${label}: run saved as partial`);
+  check(await logBtnInThumbZone(pg), `${label}: Done in the thumb zone`);
+  check((await pg.textContent(".run-target")).includes("6 × 800 m"), `${label}: first run is intervals with a one-line target`);
+  await pg.fill("#run-time", "10k 52:30");
+  check((await pg.textContent("#time-hint")).includes("5:15/km"), `${label}: time line is read back as a pace`);
+  await shot(pg, `${label}-16-run-time`);
+  await pg.click("[data-act=run-done]");
+  await pg.waitForSelector("[data-screen=home]");
+  let d = await db(pg);
+  check(d.activities.some((a) => a.kind === "run" && a.run === "interval" && a.time === "10k 52:30"), `${label}: run saved on one tap`);
+  check(d.settings.paceRef?.km === 10 && d.settings.paceRef?.sec === 3150, `${label}: time line updates the paces`);
+  check((await pg.textContent(".toast")).includes("Paces updated"), `${label}: toast confirms with Undo`);
+  await pg.click(".toast [data-act=undo-run]");
+  d = await db(pg);
+  check(!d.activities.some((a) => a.kind === "run") && d.settings.paceRef == null, `${label}: undo removes the run and the pace change`);
+
+  // race mode
+  await pg.click("[data-act=start-run]");
+  await pg.click("[data-act=race-open]");
+  await pg.click("[data-act=race-dist][data-d='21k']");
+  await pg.fill("#race-date", "2027-01-20");
+  await pg.click("[data-act=race-save]");
+  await shot(pg, `${label}-17-run-race`);
+  d = await db(pg);
+  check(d.settings.race?.distance === "21k" && d.settings.race?.date === "2027-01-20", `${label}: race saved`);
+  check((await pg.textContent(".run-target")).includes("3 × 2 km"), `${label}: race build leans toward the half`);
+  check(await noHScroll(pg), `${label}: race mode has no horizontal scroll`);
   await pg.click("[data-act=home]");
 
   await pg.click("[data-act=open-other]");
@@ -264,7 +272,7 @@ async function runAndOther(label, viewport) {
   await shot(pg, `${label}-19-other`);
   check(await noHScroll(pg), `${label}: log-something-else has no horizontal scroll`);
   await pg.click("[data-act=log-activity][data-ex=basketball]");
-  const d = await db(pg);
+  d = await db(pg);
   check(d.activities.some((a) => a.kind === "sport" && a.min === 60), `${label}: basketball saved on tap, 60 min`);
   await pg.click("[data-act=edit-activity]");
   await pg.click("[data-act=step][data-f=min][data-d='5']");

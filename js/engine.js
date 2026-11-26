@@ -11,7 +11,8 @@
 // this). Order within a day comes from `t` (ms timestamp) when present.
 //
 //   { date: "2026-11-26", session: "UA" }                  strength (UA LA UB LB, or busy FB1-3)
-//   { date, kind: "run", run: "interval" | "tempo" | "time-trial" }   the Run slot
+//   { date, kind: "run", run: "interval" | "tempo" | "long" | "shakeout" | "race", km? }   the Run slot
+//                                                         (older logs may hold "time-trial"; it still counts)
 //   { date, kind: "run", run: "easy" }                     fills the sport/conditioning slot
 //   { date, kind: "sport", ex: "basketball" }              fills the sport/conditioning slot (hard)
 //   { date, kind: "conditioning", ex: "bike-or-incline-walk" }  sport/conditioning slot
@@ -26,6 +27,7 @@
 //     deloads: ["YYYY-MM-DD"],                  // start date of each deload week taken
 //     busyWeekdays: [0-6],                      // optional, 0 = Sunday; gentle hints only
 //     streakAnchor: "YYYY-MM-DD",               // optional; defaults to the first logged session
+//     race: { distance: "5k" | "10k" | "21k", date: "YYYY-MM-DD" } | null,  // optional race mode
 //   }
 //
 // Interpretations (where CLAUDE.md leaves room):
@@ -43,7 +45,7 @@
 
 import PLAN from "./plan.js";
 
-export const ENGINE_VERSION = 1;
+export const ENGINE_VERSION = 2;
 
 const DAY_MS = 86400000;
 const DELOAD_DAYS = 7;
@@ -94,7 +96,7 @@ export function classify(entry, plan = PLAN) {
   }
   if (entry.kind === "run") {
     if (entry.run === "easy") return { slot: "cond", hard: entry.hard ?? false, cardio: true };
-    return { slot: "run", hard: entry.hard ?? true, cardio: true };
+    return { slot: "run", hard: entry.hard ?? entry.run !== "shakeout", cardio: true, long: entry.run === "long" || entry.run === "race" };
   }
   if (entry.kind === "sport") return { slot: "cond", hard: entry.hard ?? true, cardio: true, sport: true };
   if (entry.kind === "conditioning") {
@@ -164,17 +166,82 @@ export function nextSession(log, { busy = false } = {}, plan = PLAN) {
   return rot[0];
 }
 
-/** Interval and tempo alternate; a 5K time trial replaces the run every 6 weeks. */
-export function nextRunType(log, today, plan = PLAN) {
+// ------------------------------------------------------------------- runs
+
+/**
+ * Race mode phase on a date. settings.race = { distance, date } (optional).
+ * kind: "none" | "build" (last 8–12 weeks) | "taper" | "race-week" | "race" (race day).
+ */
+export function racePhase(settings = {}, today, plan = PLAN) {
+  const race = settings.race;
+  const R = plan.run.race;
+  if (!race?.date || !R.distances[race.distance] || race.date < today) return { kind: "none" };
+  const days = daysBetween(today, race.date);
+  const base = { distance: race.distance, date: race.date, daysToGo: days };
+  if (days === 0) return { ...base, kind: "race" };
+  if (days <= R.raceWeekDays) return { ...base, kind: "race-week" };
+  if (days <= R.taperDays[race.distance]) return { ...base, kind: "taper" };
+  if (days <= R.buildDays[race.distance]) return { ...base, kind: "build" };
+  return { ...base, kind: "none" };
+}
+
+const QUALITY = ["interval", "tempo"];
+
+/**
+ * The next run in the Run slot. Normally it cycles interval → tempo → long.
+ * In a 10K/21K race build, quality runs alternate with long runs. Race week
+ * gives easy shakeouts, race day gives the race. Busy mode: one tempo run.
+ */
+export function nextRunType(log, today, settings = {}, plan = PLAN) {
+  if (isBusy(settings, today)) return plan.run.busy;
+  const ph = racePhase(settings, today, plan);
+  if (ph.kind === "race") return "race";
+  if (ph.kind === "race-week") return "shakeout";
   const L = norm(log, plan).filter((e) => e.date <= today);
-  if (!L.length) return plan.run.order[0];
-  const trials = L.filter((e) => e.run === "time-trial");
-  const since = trials.length ? trials[trials.length - 1].date : L[0].date;
-  if (daysBetween(since, today) >= plan.run.timeTrial.everyDays) return "time-trial";
-  const runs = L.filter((e) => e.c.slot === "run" && plan.run.order.includes(e.run));
-  if (!runs.length) return plan.run.order[0];
-  const order = plan.run.order;
-  return order[(order.indexOf(runs[runs.length - 1].run) + 1) % order.length];
+  const cyc = ["build", "taper"].includes(ph.kind) ? plan.run.race.buildCycle[ph.distance] : plan.run.cycle;
+  const runs = L.filter((e) => e.c.slot === "run" && plan.run.cycle.includes(e.run));
+  if (!runs.length) return cyc[0];
+  const last = runs[runs.length - 1].run;
+  if (cyc.length === plan.run.cycle.length) return cyc[(cyc.indexOf(last) + 1) % cyc.length];
+  // alternating build: quality, long, the other quality, long
+  if (last !== "long") return "long";
+  const lastQ = [...runs].reverse().find((e) => QUALITY.includes(e.run))?.run;
+  return lastQ === "interval" ? "tempo" : "interval";
+}
+
+/**
+ * Distance of the next long run, in km. Adds a step per long run up to the
+ * hold range (12–14 km), or up to the race's longest in a build. A long gap
+ * starts lower; the taper cuts it to about 60% of the longest.
+ * Returns { km, hold } (hold: show the 12–14 km range).
+ */
+export function longRunKm(log, today, settings = {}, plan = PLAN) {
+  const lr = plan.run.long;
+  const R = plan.run.race;
+  const ph = racePhase(settings, today, plan);
+  const racing = ["build", "taper"].includes(ph.kind);
+  const cap = racing ? R.longMaxKm[ph.distance] : lr.holdKm[0];
+  if (ph.kind === "taper") return { km: Math.round(R.longMaxKm[ph.distance] * R.taperLongFactor), hold: false };
+  const L = norm(log, plan).filter((e) => e.date <= today && e.run === "long");
+  const last = L[L.length - 1];
+  let km;
+  if (!last) km = lr.startKm;
+  else {
+    const prev = last.km || lr.startKm;
+    if (daysBetween(last.date, today) > lr.gapDays) km = Math.max(lr.startKm, prev - lr.backOffKm);
+    else km = Math.min(Math.max(cap, lr.startKm), prev + (racing ? R.longStepKm[ph.distance] : lr.stepKm));
+    if (!racing && prev > cap) km = cap; // after a race build, back to the hold
+  }
+  return { km, hold: !racing && km >= lr.holdKm[0] };
+}
+
+/** Everything the UI needs to show the next run: { run, km?, hold?, phase, distance? }. */
+export function runPick(log, today, settings = {}, plan = PLAN) {
+  const run = nextRunType(log, today, settings, plan);
+  const ph = racePhase(settings, today, plan);
+  const pick = { run, phase: ph.kind, distance: ph.distance };
+  if (run === "long") Object.assign(pick, longRunKm(log, today, settings, plan));
+  return pick;
 }
 
 // --------------------------------------------------------- rolling week + levels
@@ -459,10 +526,12 @@ export function planToday(log, settings = {}, today, { checkIn } = {}, plan = PL
   const ret = returnAdjustment(L, today, plan);
   const deload = deloadStatus(L, settings, today, { pendingCheckIn: checkIn }, plan);
   const busyDay = (settings.busyWeekdays || []).includes(weekday(today));
+  const race = racePhase(settings, today, plan);
+  const raceTomorrow = racePhase(settings, addDays(today, 1), plan).kind === "race";
 
   // ---- what's due in the rolling week
   // Busy mode asks for 1 run of any kind; normally the Run slot needs a quality run.
-  const runDue = busy ? win.run + win.cond === 0 : win.run === 0;
+  const runDue = race.kind === "race" ? !t.run : busy ? win.run + win.cond === 0 : win.run === 0;
   const condDue = !busy && win.cond === 0 && win.run < 2;
 
   // ---- same-day rules
@@ -480,13 +549,15 @@ export function planToday(log, settings = {}, today, { checkIn } = {}, plan = PL
     if (legsTired) cautions.push("lower-after-hard-cardio");
     if (busy && y.liftKinds.includes("full")) cautions.push("full-body-back-to-back");
     if (busy && win.lifts >= 3) cautions.push("busy-week-cap");
+    if (raceTomorrow && ["lower", "full"].includes(nextDef.kind)) cautions.push("lower-before-race");
+    if (race.kind === "race") cautions.push("race-day");
     lift = {
       type: "lift",
       session: next,
       name: nextDef.name,
       kind: nextDef.kind,
       double: t.cardio || undefined,
-      short: !!(checkInAdvice(checkIn).suggestShort || busyDay) || undefined,
+      short: !!(checkInAdvice(checkIn).suggestShort || busyDay || (plan.run.race.liftShortInTaper && ["taper", "race-week"].includes(race.kind))) || undefined,
       adjust: {
         loadFactor: ret.loadFactor,
         setsDelta: ret.setsDelta,
@@ -503,8 +574,10 @@ export function planToday(log, settings = {}, today, { checkIn } = {}, plan = PL
     if (threeHard) cautions.push("third-hard-day");
     if (!t.lift && ["lower", "full"].includes(nextDef.kind) && !busy) cautions.push("better-after-lower");
     if (y.sport) cautions.push("day-after-sport");
-    const type = busy ? "tempo" : nextRunType(L, today, plan);
-    run = { type: "run", run: type, double: t.lift || undefined, cautions };
+    const pick = runPick(L, today, settings, plan);
+    // No Lower the day before a long run: so a long run isn't suggested the day after Lower.
+    if (pick.run === "long" && y.liftKinds.some((k) => k === "lower" || k === "full")) cautions.push("long-run-after-lower");
+    run = { type: "run", ...pick, double: t.lift || undefined, cautions };
   }
   let cond = null;
   if (condDue && cardioAllowed) {
@@ -520,7 +593,8 @@ export function planToday(log, settings = {}, today, { checkIn } = {}, plan = PL
   } else {
     const clean = (o) => o && o.cautions.length === 0;
     const floats = [cond, run].filter(Boolean);
-    if (threeHard) primary = cond || { type: "rest" };
+    if (race.kind === "race" && run) primary = run;
+    else if (threeHard) primary = cond || { type: "rest" };
     // A spacing rule flags the lift: another clean option, else rest. The lift stays offered.
     else if (lift && lift.cautions.length) primary = floats.find(clean) || { type: "rest" };
     else if (!busy && win.lifts >= 4 && floats.length) primary = floats.find(clean) || floats[0];
@@ -540,6 +614,7 @@ export function planToday(log, settings = {}, today, { checkIn } = {}, plan = PL
     streak: streak(L, settings, today, plan),
     returnAdjustment: ret,
     deload,
+    race,
     hints: busyDay ? ["busy-weekday"] : [],
   };
 }

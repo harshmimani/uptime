@@ -75,7 +75,7 @@ const plan = {
     },
     checkpoint: {
       everyDays: 42,
-      includes: ["five-k-time-trial", "pull-up-max-test", "deload"],
+      includes: ["pull-up-max-test", "deload"],
       why: "Test while fresh: the deload week is also the test week.",
     },
     achilles: {
@@ -403,15 +403,10 @@ const plan = {
     "backpack-stair-step-up": { name: "Backpack stair step-up", kind: "single-leg", cue: "Loaded bag, drive through the heel." },
 
     // Conditioning and running
-    "a-skip": { name: "A-skip", kind: "drill", cue: "Knee up, foot strikes under your hip, quick rhythm." },
     "strides": { name: "Strides", kind: "run", cue: "Build to fast but relaxed over 15 s, walk back." },
     "easy-run": { name: "Easy run", kind: "run", cue: "Conversational: you can speak full sentences." },
-    "intervals-400": { name: "400 m repeats", kind: "run", cue: "Even pace on every rep." },
-    "intervals-600": { name: "600 m repeats", kind: "run", cue: "Even pace on every rep." },
-    "intervals-800": { name: "800 m repeats", kind: "run", cue: "Even pace on every rep." },
-    "intervals-1000": { name: "1 km repeats", kind: "run", cue: "Even pace on every rep." },
     "tempo": { name: "Tempo run", kind: "run", cue: "Comfortably hard: a few words at a time." },
-    "five-k-time-trial": { name: "5K time trial", kind: "run", cue: "Start controlled, push the last kilometre." },
+    "five-k-time-trial": { name: "5K time trial", kind: "run", cue: "Kept so old logs still have a name." },
     "basketball": { name: "Basketball", kind: "sport", cue: "Counts as hard conditioning." },
     "bike-or-incline-walk": { name: "Bike or incline walk", kind: "conditioning", cue: "Steady, slightly out of breath." },
     "stair-session": { name: "Stair session", kind: "conditioning", cue: "Walk or jog up, walk down, steady rhythm." },
@@ -598,48 +593,60 @@ const plan = {
   },
 
   // ----------------------------------------------------------------- running
+  // One run slot per rotation. Strava records the runs; Uptime only says what
+  // today's run is (one line) and takes one tap for Done. An optional line like
+  // "10k 52:30" updates the paces and nothing else.
   run: {
     perRotation: 1,
-    minutes: [35, 45],
-    order: ["interval", "tempo"], // alternate
-    warmup: [
-      { text: "10 min easy jog" },
-      { ex: "a-skip", sets: 2, distM: 20 },
-      { ex: "strides", sets: 4, sec: [15, 15] },
-    ],
-    cooldown: "5 min easy jog or walk",
-    // Paces = latest 5K pace (s/km) + offset. Effort words for running without a watch.
+    // The run slot cycles so 5K speed, 10K/21K strength and endurance all stay maintained.
+    cycle: ["interval", "tempo", "long"],
+    busy: "tempo", // Busy mode: one tempo run, cycle untouched
+    names: { interval: "Intervals", tempo: "Tempo run", long: "Long easy run", shakeout: "Easy shakeout", race: "Race day" },
+    warmup: "10 min easy jog and 4 strides first.",
+    // Paces come from your latest time line, turned into a 5K-equivalent with
+    // Riegel's formula (T2 = T1 × (d2/d1)^1.06). Seconds per km.
     paces: {
-      basis: "latest 5K time trial, or baseline.fiveKSec",
-      easy: { offsetSecPerKm: [75, 100], effort: "You can talk in full sentences." },
-      tempo: { offsetSecPerKm: 15, effort: "Comfortably hard. A few words at a time." },
-      interval: { offsetSecPerKm: -15, effort: "Hard but even. Last rep should match the first." },
+      riegel: 1.06,
+      tempoOffset: 15,      // 5K pace + 15 s/km: comfortably hard
+      easyOffset: [75, 100], // 5K pace + 75–100 s/km: full sentences
     },
+    // reps × distance at a race pace; `at`: "5k" | "10k" | "21k" | "tempo"
     interval: {
-      levels: [
-        { level: 1, ex: "intervals-400", reps: 6, distM: 400, recoverySec: 90 },
-        { level: 2, ex: "intervals-400", reps: 8, distM: 400, recoverySec: 90 },
-        { level: 3, ex: "intervals-600", reps: 5, distM: 600, recoverySec: 120 },
-        { level: 4, ex: "intervals-800", reps: 4, distM: 800, recoverySec: 120 },
-        { level: 5, ex: "intervals-800", reps: 5, distM: 800, recoverySec: 120 },
-        { level: 6, ex: "intervals-1000", reps: 4, distM: 1000, recoverySec: 150 },
-      ],
+      base: { text: "6 × 800 m", at: "5k", jog: "2 min jog between" },
+      "5k": { text: "6 × 800 m", at: "5k", jog: "2 min jog between" },
+      "10k": { text: "5 × 1 km", at: "10k", jog: "90 s jog between" },
+      "21k": { text: "3 × 2 km", at: "21k", jog: "2 min jog between" },
+      taper: { text: "4 × 400 m", jog: "full recovery" }, // at race pace
     },
     tempo: {
-      ex: "tempo",
-      levels: [
-        { level: 1, blocksMin: [8, 8], recoverySec: 120 },
-        { level: 2, blocksMin: [10, 10], recoverySec: 120 },
-        { level: 3, blocksMin: [8, 8, 8], recoverySec: 120 },
-        { level: 4, blocksMin: [20], recoverySec: 0 },
-        { level: 5, blocksMin: [12, 12], recoverySec: 120 },
-        { level: 6, blocksMin: [25], recoverySec: 0 },
-      ],
+      base: { text: "20 min", at: "tempo" },
+      "5k": { text: "20 min", at: "tempo" },
+      "10k": { text: "2 × 12 min", at: "10k", jog: "2 min easy between" },
+      "21k": { text: "30 min", at: "21k" },
+      taper: { text: "10 min" }, // at race pace
     },
-    advance: "Hit pace on every rep and the last one felt 8/10 or easier: next level. Otherwise repeat the level.",
-    afterTopLevel: { resetToLevel: 3, note: "A new time trial gives faster paces; go back to level 3." },
-    timeTrial: { ex: "five-k-time-trial", everyDays: 42, replacesRun: true },
-    spacing: "Avoid intervals or Lower the day after basketball when another option exists.",
+    long: {
+      startKm: 8,
+      stepKm: 1,       // each long run adds 1 km...
+      holdKm: [12, 14], // ...up to 12, then hold at 12–14 km
+      backOffKm: 2,     // more than `gapDays` since the last long run: start 2 km lower
+      gapDays: 35,
+    },
+    shakeout: "20–30 min easy + 4 strides",
+    // Optional race mode. Weeks before the race lean toward its distance, then taper.
+    race: {
+      distances: { "5k": 5, "10k": 10, "21k": 21.1 },
+      buildDays: { "5k": 56, "10k": 70, "21k": 84 }, // the last 8, 10, 12 weeks
+      taperDays: { "5k": 7, "10k": 10, "21k": 14 },
+      raceWeekDays: 6, // last 6 days: only easy shakeouts in the run slot
+      // In the build, 10K and 21K alternate a quality run with a long run.
+      buildCycle: { "5k": ["interval", "tempo", "long"], "10k": ["interval", "long", "tempo", "long"], "21k": ["interval", "long", "tempo", "long"] },
+      longMaxKm: { "5k": 12, "10k": 15, "21k": 19 },
+      longStepKm: { "5k": 1, "10k": 1, "21k": 2 },
+      taperLongFactor: 0.6, // taper long run ≈ 60% of the longest
+      liftShortInTaper: true,
+    },
+    spacing: "No Lower the day before a long run or race; avoid intervals or Lower the day after basketball when another option exists.",
   },
 
   // Fills the sport slot in the rotation. Basketball when it happens;

@@ -1,5 +1,6 @@
 // Workout section UI: check-in, one exercise in focus, rest timer, swaps, summary,
-// plus the run and "log something else" screens. Full screen, no tabs.
+// plus today's run (one line, one tap: Strava records the run) and "log something else".
+// Full screen, no tabs.
 //
 // Rendering: each screen is a template string painted into #app; clicks go through one
 // delegated listener on [data-act]. Timers never count down in JS: they read end
@@ -8,7 +9,7 @@
 
 import PLAN from "../plan.js";
 import * as E from "../engine.js";
-import { createStore, engineLog, exerciseHistory, isoDate, newId, lastActivity } from "../store.js";
+import { createStore, engineLog, exerciseHistory, isoDate, newId } from "../store.js";
 import * as M from "./model.js";
 import * as R from "./run.js";
 import { unlockAudio, sound, vibrate, KeepAwake } from "./feedback.js";
@@ -25,7 +26,7 @@ const hist = (ex) => exerciseHistory(db(), ex);
 
 const ui = {
   view: "home",
-  pending: null,     // check-in screen: { type: "lift"|"run", session|run, short, noGym, rough }
+  pending: null,     // check-in screen: { type: "lift", session, short, noGym, rough }
   summary: null,     // finish summary data
   finished: null,    // the workout just finished (for Resume)
   toast: null,       // { text, action, act, until }
@@ -34,7 +35,8 @@ const ui = {
   other: null,       // log something else: { date, savedId, editing }
   sheet: null,       // "swap" | "all" | null
   alerted: {},       // rest/work end timestamps already announced
-  ask: null,         // run summary question answered
+  run: null,         // today's run screen: { pick, t, raceOpen, raceDraft }
+  undoRun: null,     // { id, paceRef } to undo the last Done
 };
 
 // ------------------------------------------------------------------ helpers
@@ -117,7 +119,6 @@ function render({ focus = false } = {}) {
     : v === "resume" ? viewResume()
     : v === "summary" ? viewSummary()
     : v === "run" ? viewRun()
-    : v === "run-summary" ? viewRunSummary()
     : v === "other" ? viewOther()
     : viewHome();
   app.innerHTML = html + (ui.sheet ? viewSheet() : "");
@@ -156,8 +157,7 @@ function viewHome() {
   const def = E.sessionDef(p.next);
   const items = M.buildItems(p.next, { settings: db().settings, adjust: liftAdjust(p) });
   const ret = p.returnAdjustment;
-  const runType = E.nextRunType(L, today());
-  const run = R.buildRun(runType, { level: db().settings.runLevels?.[runType] ?? 1, fiveK: R.fiveKSec(db().activities, db().settings) });
+  const run = runInfo().t;
   let note = "";
   if (ret.tier === "short") note = `${ret.daysOff} days off, so today starts at about 90% of last time. Back to normal next session.`;
   else if (ret.tier === "long") note = "First week back: about 80% and one set fewer per exercise.";
@@ -180,7 +180,8 @@ function viewHome() {
           : `<button class="btn btn--primary" data-act="start-lift" data-session="${esc(p.next)}"><span class="btn__label">Start</span></button>`}
       </section>
       <div class="home-links">
-        <button class="btn btn--secondary btn--wide" data-act="start-run" data-run="${esc(runType)}"><span class="btn__label">Run · ${esc(run.name)}, ${esc(run.summary.split(" · ")[0])}</span></button>
+        <button class="btn btn--secondary btn--wide" data-act="start-run"><span class="btn__label">Run · ${esc(run.name)}</span></button>
+        <p class="meta" style="margin:0">${esc(run.target)}</p>
         <button class="btn btn--text" style="justify-self:start" data-act="open-other">Log something else</button>
       </div>
       <p class="disclaimer">${esc(PLAN.disclaimer)}</p>
@@ -196,15 +197,19 @@ function startLift(session) {
   ui.pending = { type: "lift", session, short: !!(p.primary?.short || p.hints.includes("busy-weekday")), noGym: false, adjust: liftAdjust(p), deload: p.deload };
   go("checkin", { vt: true });
 }
-function startRun(run) {
-  ui.pending = { type: "run", run, short: false };
-  go("checkin", { vt: true });
+function runInfo() {
+  const pick = E.runPick(engineLog(db()), today(), db().settings);
+  return { pick, t: R.runTarget(pick, R.fiveKSec(db().activities, db().settings)) };
+}
+function startRun() {
+  ui.run = { ...runInfo(), raceOpen: false, raceDraft: null };
+  go("run", { vt: true });
 }
 
 function viewCheckin() {
   const pd = ui.pending;
   let label, full, short, list, notes = [];
-  if (pd.type === "lift") {
+  {
     const def = E.sessionDef(pd.session);
     const f = M.buildItems(pd.session, { short: false, noGym: pd.noGym, adjust: pd.adjust, settings: db().settings });
     const s = M.buildItems(pd.session, { short: true, noGym: pd.noGym, adjust: pd.adjust, settings: db().settings });
@@ -217,17 +222,6 @@ function viewCheckin() {
     if (pd.adjust.deload) notes.push("Deload week: same exercises, about half the sets.");
     else if (pd.deload?.suggested) notes.push("A deload is due: same exercises, about half the sets, for a week.");
     if (pd.noGym) notes.push(PLAN.noGym.loadTip);
-  } else {
-    const lvl = db().settings.runLevels?.[pd.run] ?? 1;
-    const fiveK = R.fiveKSec(db().activities, db().settings);
-    const f = R.buildRun(pd.run, { level: lvl, fiveK });
-    const s = R.buildRun(pd.run, { level: lvl, short: true, fiveK });
-    label = `${f.name} · about ${PLAN.run.minutes[0]}–${PLAN.run.minutes[1]} min`;
-    full = f.summary;
-    short = s.summary;
-    const cur = pd.short ? s : f;
-    list = `<li><b>Warm-up</b><span>10 min</span></li><li><b>${esc(cur.summary)}</b><span></span></li><li><b>Cool-down</b><span>5 min</span></li>`;
-    notes.push(`${cur.effort}`);
   }
   return `<main class="scr" data-screen="checkin">
     <header class="scr__head vt-card">
@@ -261,16 +255,12 @@ function checkIn(v) {
   const pd = ui.pending;
   const rough = v === "Rough" && !pd.short;
   const short = pd.short || v === "Rough";
-  const id = newId(pd.type === "lift" ? "s" : "r");
-  if (pd.type === "lift") {
-    db().active = M.newWorkout({ id, sessionId: pd.session, date: today(), now: now(), checkIn: v, short, noGym: pd.noGym, adjust: pd.adjust, settings: db().settings });
-  } else {
-    db().active = R.newRun({ id, type: pd.run, date: today(), now: now(), checkIn: v, short, settings: db().settings, activities: db().activities });
-  }
+  const id = newId("s");
+  db().active = M.newWorkout({ id, sessionId: pd.session, date: today(), now: now(), checkIn: v, short, noGym: pd.noGym, adjust: pd.adjust, settings: db().settings });
   persist();
   awake.on();
-  go(pd.type === "lift" ? "set" : "run");
-  if (rough) toast(pd.type === "lift" ? "Short version on: first 3 exercises, 2 sets each." : "Short version on: fewer reps today.", "Switch to full", "to-full", 8000);
+  go("set");
+  if (rough) toast("Short version on: first 3 exercises, 2 sets each.", "Switch to full", "to-full", 8000);
 }
 
 // ---------------------------------------------------------------- set screen
@@ -448,25 +438,22 @@ function tick() {
 
   // a timed set or a tempo block that ran out: log it at its end time
   if (a.work?.endAt && t >= a.work.endAt) {
-    if (a.kind === "lift") finishTimedSet(a.work.endAt);
-    else finishRunStep(a.work.endAt);
+    finishTimedSet(a.work.endAt);
     return;
   }
   if (a.work && ring && time) {
     if (a.work.endAt) {
       const left = a.work.endAt - t;
       time.textContent = clock(left + 999);
-      const it = a.kind === "lift" ? M.item(a, a.work.key) : null;
+      const it = M.item(a, a.work.key);
       const half = a.work.startAt + (a.work.endAt - a.work.startAt) / 2;
       if (it?.perSide && t >= half && !ui.alerted[`h${half}`]) { ui.alerted[`h${half}`] = 1; sound("tick", soundOn); vibrate(40); }
       if (sub) sub.textContent = it?.perSide ? (t >= half ? "Second side" : "First side") : "";
       beepCountdown(a.work.endAt, left, soundOn);
     }
   }
-  const rc = document.getElementById("run-clock");
-  if (rc && a.work) rc.textContent = clock(t - a.work.startAt);
   const logLbl = document.getElementById("log-label");
-  if (logLbl && a.kind === "lift" && a.work) {
+  if (logLbl && a.work) {
     logLbl.textContent = `Stop · log ${Math.max(1, Math.round((t - a.work.startAt) / 1000))} s`;
   }
 
@@ -502,7 +489,7 @@ function beepCountdown(endAt, left, soundOn) {
 setInterval(tick, 250);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) return;
-  if (ui.view === "set" || ui.view === "run") { syncRing(); tick(); }
+  if (ui.view === "set") { syncRing(); tick(); }
 });
 
 // ---------------------------------------------------------------- set actions
@@ -759,7 +746,7 @@ function setLength(short) {
 function finishWorkout(early) {
   const w = db().active;
   const partial = early || !M.isFinished(w);
-  const rec = w.kind === "lift" ? M.toSession(w, { partial, end: w.lastSetAt }) : null;
+  const rec = M.toSession(w, { partial, end: w.lastSetAt });
   const mine = (h) => h.date === w.date && h.t === w.startedAt;
   const before = (ex) => hist(ex).filter((h) => !mine(h));
   db().sessions.push(rec);
@@ -786,21 +773,19 @@ function finishNow() {
     toast("Nothing logged, so nothing saved.", "Back to it", "undo-leave", 8000);
     return;
   }
-  if (w.kind === "run") return finishRun(true);
   finishWorkout(true);
 }
 
 function resumeFinished() {
   const w = ui.finished;
   if (!w) return;
-  if (w.kind === "lift") db().sessions = db().sessions.filter((s) => s.id !== w.id);
-  else db().activities = db().activities.filter((a) => a.id !== w.id);
+  db().sessions = db().sessions.filter((s) => s.id !== w.id);
   db().active = w;
   ui.finished = null;
   persist();
   awake.on();
   ui.toast = null;
-  go(w.kind === "lift" ? "set" : "run");
+  go("set");
 }
 
 function weekBlock() {
@@ -860,184 +845,131 @@ function viewSummary() {
 function viewResume() {
   const w = db().active;
   const name = w.name;
-  const total = w.kind === "lift" ? M.totalSets(w) : w.steps.length;
-  const last = w.kind === "lift" ? M.exName(w.log[w.log.length - 1]?.ex) : w.steps[w.log.length - 1]?.label;
+  const total = M.totalSets(w);
+  const last = M.exName(w.log[w.log.length - 1]?.ex);
   const ago = now() - w.lastSetAt;
   const h = Math.floor(ago / 3600000), m = Math.round((ago % 3600000) / 60000);
   return `<main class="scr" data-screen="resume">
     <header class="scr__head"><span class="label">${esc(name)} · started ${new Date(w.startedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
       <h1 class="h1">${esc(name)} is still open</h1></header>
     <div class="scr__body">
-      <section class="card"><b>${w.log.length} of ${total} ${w.kind === "lift" ? "sets" : "steps"} logged</b>
+      <section class="card"><b>${w.log.length} of ${total} sets logged</b>
         <p class="meta" style="margin:0">Last: ${esc(last)}, ${h ? `${h} h ` : ""}${m} min ago</p></section>
       <p class="meta" style="margin:0">Pick up and the session continues as planned. Finish and it's saved as a partial session that counts toward your week.</p>
     </div>
     <div class="scr__foot"><div class="toast-slot" id="toast-slot" aria-live="polite"></div><div class="foot-actions">
-      <button class="btn btn--secondary btn--tall" data-act="finish-now">Finish with ${w.log.length} ${w.kind === "lift" ? "sets" : "steps"}</button>
+      <button class="btn btn--secondary btn--tall" data-act="finish-now">Finish with ${w.log.length} sets</button>
       <button class="btn btn--primary" data-act="pick-up"><span class="btn__label">Pick up where you left off</span></button>
     </div></div>
   </main>`;
 }
 
-// ---------------------------------------------------------------- runs
+// ---------------------------------------------------------------- today's run
+// Strava records the run. Here: what it is, one line, one tap. The optional time line
+// ("10k 52:30") only updates the target paces.
+
+const RACE_LABEL = { "5k": "5K", "10k": "10K", "21k": "Half marathon" };
+
+function raceLine() {
+  const ph = E.racePhase(db().settings, today());
+  const r = db().settings.race;
+  if (!r?.date || r.date < today()) return "";
+  const days = E.daysBetween(today(), r.date);
+  const when = days === 0 ? "today" : days < 14 ? `in ${days} ${days === 1 ? "day" : "days"}` : `in ${Math.floor(days / 7)} weeks`;
+  const what = { build: `Runs lean toward the ${r.distance === "21k" ? "half" : RACE_LABEL[r.distance]}.`, taper: "Taper: shorter runs, stay sharp.", "race-week": "Race week: easy runs only.", race: "Good luck.", none: "The race build starts closer to the day." }[ph.kind];
+  return `${RACE_LABEL[r.distance]} race ${when} (${shortDate(r.date)}). ${what}`;
+}
 
 function viewRun() {
-  const r = db().active;
-  const i = R.runCursor(r);
-  const stepDef = r.steps[Math.min(i, r.steps.length - 1)];
-  const fiveK = R.fiveKSec(db().activities, db().settings);
-  const pc = R.paces(fiveK);
-  const segs = r.steps.map((s, k) => `<i class="${k < r.log.length ? "done" : k === i ? "cur" : ""}" style="--fill:${k === i && r.work ? .5 : 0}"></i>`).join("");
-  const last = lastActivity(db(), (a) => a.kind === "run" && a.run === r.run && !a.partial);
-  const what = r.run === "tempo" ? "block" : r.run === "time-trial" ? "5K" : "rep";
-  let main = "";
-  if (r.phase === "warmup") {
-    main = `<section class="card" aria-labelledby="rw-h"><h2 class="label" id="rw-h">Warm-up · about 15 min</h2>
-      <ul class="checklist">${PLAN.run.warmup.map((x) => `<li>${x.text ? esc(x.text) : `${esc(M.exName(x.ex))}: ${x.sets} × ${x.distM ? `${x.distM} m` : `${x.sec[0]} s`}`}</li>`).join("")}</ul></section>`;
-  }
-  if (r.work) {
-    main += r.work.endAt
-      ? timerBoxHTML({ kind: "work", label: stepDef.label, next: `Tempo pace about ${R.mmss(pc.tempo)}/km` })
-      : `<section class="timerbox" aria-label="${esc(stepDef.label)} running"><div class="row between"><span class="label">${esc(stepDef.label)}${stepDef.distM ? ` · ${stepDef.distM} m` : ""}</span><span class="meta">Target ${R.mmss(stepDef.targetSec)}</span></div>
-          <div class="clock num" id="run-clock" role="timer" aria-live="off"></div></section>`;
-  } else if (r.rest) {
-    main += timerBoxHTML({ kind: "rest", label: "Easy jog", next: `Next: ${r.steps[i]?.label}` });
-  }
-  const paceCard = `<div class="paces">
-      <div class="stat"><span class="label">${r.run === "interval" ? `Each ${stepDef.distM} m` : r.run === "tempo" ? "Tempo pace" : "Your last 5K"}</span><span class="stat__num num">${r.run === "interval" ? R.mmss(stepDef.targetSec) : r.run === "tempo" ? `${R.mmss(pc.tempo)}` : R.mmss(fiveK)}</span></div>
-      <div class="stat"><span class="label">Pace per km</span><span class="stat__num num">${R.mmss(r.run === "interval" ? pc.interval : r.run === "tempo" ? pc.tempo : pc.base)}</span></div>
-    </div>`;
-  const rows = r.log.map((l, k) => {
-    const s = r.steps[l.i];
-    const ok = R.onPace(s, l.sec);
-    return `<li class="${k === r.log.length - 1 && ui.justLogged ? "enter" : ""}"><span>${esc(s.label)}</span><b class="num">${R.mmss(l.sec)}${ok && s.targetSec ? ` <span class="ok">on pace</span>` : ""}</b></li>`;
-  }).join("");
-  const label = r.work
-    ? r.work.endAt ? `End ${what} early` : r.run === "time-trial" ? "Finish 5K" : `${stepDef.label.split(" of ")[0]} done`
-    : i >= r.steps.length ? "Finish" : `Start ${r.run === "time-trial" ? "5K" : stepDef.label.split(" of ")[0].toLowerCase()}`;
+  const { t, pick } = ui.run;
+  const race = db().settings.race;
+  const rl = raceLine();
+  const d = ui.run.raceDraft || { distance: race?.distance || "10k", date: race?.date || E.addDays(today(), 70) };
+  const raceCard = ui.run.raceOpen ? `<section class="card race" aria-labelledby="race-h">
+      <h2 class="label" id="race-h">Race mode</h2>
+      <p class="meta" style="margin:0">The last 8–12 weeks lean toward the distance, then a 1–2 week taper. Optional.</p>
+      <div class="chips" role="group" aria-label="Race distance">${Object.entries(RACE_LABEL).map(([k, v]) => `<button type="button" class="chip" data-act="race-dist" data-d="${k}" aria-pressed="${d.distance === k}">${k === "21k" ? "21K" : esc(v)}</button>`).join("")}</div>
+      <div class="field"><label class="label" for="race-date">Race date</label><input id="race-date" type="date" min="${today()}" value="${esc(d.date)}"></div>
+      <div class="row"><button class="btn btn--secondary grow" data-act="race-save">Save race</button>${race ? `<button class="btn btn--secondary grow" data-act="race-clear">No race</button>` : ""}</div>
+    </section>` : "";
   return `<main class="scr" data-screen="run">
     <header class="scr__head vt-card">
-      <div class="row between"><span class="label">${esc(r.name)}${r.short ? " · Short" : ""}${r.level ? ` · level ${r.level}` : ""}</span><span class="meta num" id="elapsed"></span></div>
-      <div class="segs" aria-hidden="true">${segs}</div>
+      <div class="row between"><span class="label">${esc(shortDate(today()))} · Today's run</span><button class="btn btn--text" data-act="home">Not now</button></div>
+      <h1 class="h1" data-kt>${esc(t.name)}</h1>
     </header>
     <div class="scr__body">
       ${saveErrorBox()}
-      ${main}
-      <div><h1 class="ex-name">${esc(r.phase === "warmup" ? "Warm up, then go" : stepDef.label)}</h1>
-        <p class="meta cue">${esc(R.buildRun(r.run, { level: r.level ?? 1, fiveK }).effort)}</p></div>
-      ${paceCard}
-      ${last?.reps?.length ? `<p class="meta" style="margin:0">Last time: ${esc(last.reps.map((x) => R.mmss(x.sec)).join(", "))}</p>` : ""}
-      ${rows ? `<ul class="logged" aria-label="Done">${rows}</ul>` : ""}
+      <p class="run-target">${esc(t.target)}</p>
+      ${t.note ? `<p class="meta" style="margin:0">${esc(t.note)}</p>` : ""}
+      ${pick.run === "long" && !pick.hold ? `<p class="quiet">Each long run adds a little until ${PLAN.run.long.holdKm[0]}–${PLAN.run.long.holdKm[1]} km, then it holds.</p>` : ""}
+      <div class="field">
+        <label class="label" for="run-time">Your time (optional)</label>
+        <input id="run-time" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="10k 52:30" aria-describedby="time-hint">
+        <p class="quiet" id="time-hint" aria-live="polite">Only used to update your paces. Strava keeps the rest.</p>
+      </div>
+      ${rl ? `<p class="meta" style="margin:0">${esc(rl)} <button class="btn btn--text" data-act="race-open" aria-expanded="${ui.run.raceOpen}">Change</button></p>`
+        : `<button class="btn btn--text" style="justify-self:start" data-act="race-open" aria-expanded="${ui.run.raceOpen}">Training for a race?</button>`}
+      ${raceCard}
+      <p class="disclaimer">${esc(PLAN.disclaimer)}</p>
     </div>
     <div class="scr__foot">
       <div class="toast-slot" id="toast-slot" aria-live="polite"></div>
-      <div class="row"><button class="btn btn--secondary grow" data-act="finish-now">${r.log.length ? "Finish run" : "Leave"}</button>${r.rest ? `<button class="btn btn--secondary grow" data-act="rest-skip">Skip jog</button>` : ""}</div>
-      <button class="btn btn--primary" id="log-btn" data-act="run-step"><span class="btn__label" id="log-label">${esc(label)}</span>
-        <span class="btn__done" aria-hidden="true">${CHECK.replace("<svg", '<svg class="check"')}<span id="done-label">Logged</span></span></button>
+      <button class="btn btn--primary" data-act="run-done"><span class="btn__label">Done</span></button>
     </div>
   </main>`;
 }
 
-async function runStep(btn, ev) {
-  const r = db().active;
-  if (ui.lock) return;
-  unlockAudio();
-  if (r.work) return finishRunStep(now(), btn, ev);
-  if (R.runFinished(r)) return finishRun(false);
-  R.startStep(r, now());
-  persist();
-  ui.timerEnter = true;
-  render();
-  ui.timerEnter = false;
+function timeHint(text) {
+  const p = R.parseTimeLine(text);
+  if (!text.trim()) return "Only used to update your paces. Strava keeps the rest.";
+  if (!p) return 'Not sure what that is. Try "10k 52:30" or "half 1:55:00".';
+  return `${p.km} km in ${R.mmss(p.sec)} · ${R.mmss(p.sec / p.km)}/km. Paces update when you tap Done.`;
 }
 
-async function finishRunStep(t, btn, ev) {
-  const r = db().active;
-  if (!r?.work) return;
-  ui.lock = true;
-  const s = r.steps[r.work.i];
-  const auto = !btn;
-  const res = R.finishStep(r, t);
+function runDone() {
+  const { pick, t } = ui.run;
+  const text = (document.getElementById("run-time")?.value || "").trim();
+  const parsed = R.parseTimeLine(text);
+  const a = { id: newId("r"), date: today(), t: now(), kind: "run", run: pick.run };
+  if (pick.km) a.km = pick.km;
+  if (text) a.time = text;
+  ui.undoRun = { id: a.id, paceRef: db().settings.paceRef ?? null };
+  db().activities.push(a);
+  if (parsed) db().settings.paceRef = { ...parsed, date: today(), text };
   persist();
-  vibrate(auto ? [30, 60, 30] : 18);
-  if (auto && !document.hidden) sound("go", db().settings.sound !== false);
-  const l = r.log[r.log.length - 1];
-  say(`${s.label} done in ${R.mmss(l.sec)}`);
-  if (btn) {
-    if (ev?.clientX) { const b = btn.getBoundingClientRect(); btn.style.setProperty("--tap-x", `${ev.clientX - b.left}px`); btn.style.setProperty("--tap-y", `${ev.clientY - b.top}px`); }
-    document.getElementById("done-label").textContent = `${R.mmss(l.sec)}`;
-    btn.classList.add("is-done");
-    await wait(reducedMotion() ? 250 : 560);
+  vibrate(18);
+  sound("done", db().settings.sound !== false);
+  ui.run = null;
+  go("home");
+  const extra = parsed ? " Paces updated." : text ? " Couldn't read the time, so paces stay the same." : "";
+  toast(`${t.name} done.${extra}`, "Undo", "undo-run", 8000);
+  say(`${t.name} logged`);
+}
+
+function undoRun() {
+  const u = ui.undoRun;
+  if (!u) return;
+  db().activities = db().activities.filter((x) => x.id !== u.id);
+  db().settings.paceRef = u.paceRef;
+  ui.undoRun = null;
+  persist();
+  ui.toast = null;
+  render();
+  toast("Removed. Nothing was logged.");
+}
+
+function saveRace(clear) {
+  if (clear) db().settings.race = null;
+  else {
+    const d = ui.run.raceDraft || {};
+    const date = document.getElementById("race-date")?.value || d.date;
+    if (!date || date < today()) { toast("Pick a date from today on."); return; }
+    db().settings.race = { distance: d.distance || db().settings.race?.distance || "10k", date };
   }
-  ui.lock = false;
-  if (res.finished) return finishRun(false);
-  ui.justLogged = true;
-  ui.timerEnter = true;
-  render();
-  ui.justLogged = ui.timerEnter = false;
-  toast(`${s.label.split(" of ")[0]} · ${R.mmss(l.sec)}`, "Undo", "undo-run");
-}
-
-function finishRun(early) {
-  const r = db().active;
-  const last = lastActivity(db(), (a) => a.kind === "run" && a.run === r.run && !a.partial);
-  const act = R.toActivity(r, { partial: early || !R.runFinished(r) });
-  db().activities.push(act);
-  db().active = null;
   persist();
-  awake.off();
-  ui.finished = r;
-  ui.ask = null;
-  ui.summary = { ...R.summarizeRun(r, last), run: r, act };
-  sound("done", db().settings.sound !== false && !early);
-  go("run-summary");
-  if (early) toast(`Saved as partial · ${r.log.length} of ${r.steps.length}`, "Resume", "resume", 10000);
-}
-
-function viewRunSummary() {
-  const s = ui.summary;
-  const r = s.run;
-  const title = s.partial ? `${r.name} saved` : `${r.name} done`;
-  const tt = r.run === "time-trial" && r.log[0];
-  let vs = "";
-  if (s.vsLast) {
-    const d = Math.round(s.vsLast.delta);
-    vs = d < 0 ? `<b class="green">${R.mmss(-d)} faster</b> than last time` : d > 0 ? `${R.mmss(d)} slower than last time. Heat, sleep and wind all count.` : "Same as last time.";
-  }
-  const lvls = r.run !== "time-trial" ? PLAN.run[r.run].levels.length : 0;
-  const ask = !s.partial && r.level && r.level < lvls && s.allOnPace;
-  return `<main class="scr" data-screen="run-summary">
-    <header class="scr__head"><span class="label">${esc(shortDate(r.date))} · ${s.act.min} min</span></header>
-    <div class="scr__body">
-      <svg class="done-mark ${s.partial ? "done-mark--partial" : ""}" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27"/><path d="M20 33l8 8 16-17"/></svg>
-      <h1 class="h1" data-kt>${esc(title)}</h1>
-      ${tt ? `<div class="stat rise"><span class="label">5K time</span><span class="stat__num num" style="font-size:var(--fs-num)">${R.mmss(r.log[0].sec)}</span><span class="meta">New paces are set from this time.</span></div>`
-        : `<div class="stats">
-          <div class="stat rise" style="--d:1"><span class="label">${r.run === "tempo" ? "Blocks" : "Reps"}</span><span class="stat__num num" data-count="${s.reps}">0</span></div>
-          <div class="stat rise" style="--d:2"><span class="label">On pace</span><span class="stat__num num ${s.hits ? "green" : ""}" data-count="${s.hits}">0</span></div>
-          <div class="stat rise" style="--d:3"><span class="label">Average</span><span class="stat__num num">${R.mmss(s.avg)}</span></div>
-        </div>`}
-      ${vs ? `<p class="meta rise" style="--d:4;margin:0">${vs}</p>` : ""}
-      ${ask ? `<section class="card ask rise" style="--d:4" aria-labelledby="ask-h"><h2 class="label" id="ask-h">Every ${r.run === "tempo" ? "block" : "rep"} on pace</h2>
-          ${ui.ask == null ? `<p style="margin:0">Did the last one feel 8/10 or easier?</p>
-          <div class="row"><button class="btn btn--secondary" data-act="run-felt" data-ok="1">Yes</button><button class="btn btn--secondary" data-act="run-felt" data-ok="0">No, harder</button></div>`
-          : `<p class="meta" style="margin:0">${ui.ask ? `<b class="green" style="color:var(--c-green)">Next time: level ${r.level + 1}.</b> ${esc(R.buildRun(r.run, { level: r.level + 1 }).summary)}` : "Same level next time. Own it, then move up."}</p>`}
-        </section>` : !s.partial && r.level ? `<p class="meta" style="margin:0">${esc(PLAN.run.advance)}</p>` : ""}
-      <div class="rise" style="--d:5">${weekBlock()}</div>
-      <p class="disclaimer">${esc(PLAN.disclaimer)}</p>
-    </div>
-    <div class="scr__foot"><div class="toast-slot" id="toast-slot" aria-live="polite"></div>
-      <button class="btn btn--primary" data-act="home"><span class="btn__label">Done</span></button></div>
-  </main>`;
-}
-
-function runFelt(ok) {
-  const r = ui.summary.run;
-  ui.ask = ok;
-  const lv = R.nextLevel(r.run, r.level, { allOnPace: ui.summary.allOnPace, feltOk: ok });
-  db().settings.runLevels = { ...db().settings.runLevels, [r.run]: lv };
-  persist();
+  ui.run = { ...runInfo(), raceOpen: false, raceDraft: null };
   render();
+  toast(clear ? "Race mode off." : "Race saved. Your runs follow it.");
 }
 
 // ---------------------------------------------------------------- log something else (sport, easy run, conditioning)
@@ -1045,8 +977,6 @@ function runFelt(ok) {
 function viewOther() {
   const o = ui.other;
   const saved = o.savedId ? db().activities.find((a) => a.id === o.savedId) : null;
-  const L = engineLog(db());
-  const runType = E.nextRunType(L, today());
   const opts = PLAN.conditioning.options.map((c) => `<button class="opt opt--row" data-act="log-activity" data-ex="${esc(c.ex)}">
       <span><b>${esc(M.exName(c.ex))}</b><br><span>${esc(c.note || M.exCue(c.ex))}</span></span><span class="num">${c.minutes[0]} min</span></button>`).join("");
   const when = (d, label) => `<button class="chip" type="button" data-act="${saved ? "edit-date" : "pick-date"}" data-d="${d}" aria-pressed="${(saved ? saved.date : o.date) === d}">${label}</button>`;
@@ -1060,7 +990,7 @@ function viewOther() {
           <div class="row" style="margin-top:4px"><button class="btn btn--text" data-act="edit-activity" aria-expanded="${!!o.editing}">Edit</button><button class="btn btn--text" data-act="undo-activity">Undo</button></div></div></div>
         ${o.editing ? `<section class="card" aria-label="Edit">${stepper({ id: "min", value: saved.min, unit: "minutes", label: "Minutes", step: 5, min: 5 })}${dates}<p class="quiet">Changes save as you make them.</p></section>` : ""}`
       : `${dates}<div class="act-list">${opts}
-          <button class="opt opt--row" data-act="start-run" data-run="${esc(runType)}"><span><b>A run from the plan</b><br><span>${esc(R.RUN_NAMES[runType])}, with timers and paces</span></span><span class="num">~40 min</span></button></div>
+          <button class="opt opt--row" data-act="start-run"><span><b>Today's planned run</b><br><span>${esc(runInfo().t.name)}: ${esc(runInfo().t.target)}</span></span><span></span></button></div>
         <p class="quiet">Tap one and it's saved straight away with the usual time. You can edit it after.</p>`}
     </div>
     <div class="scr__foot"><div class="toast-slot" id="toast-slot" aria-live="polite"></div>
@@ -1101,7 +1031,7 @@ app.addEventListener("click", (ev) => {
   switch (act) {
     case "home": ui.summary = null; ui.finished = null; ui.toast = null; awake.off(); go("home"); break;
     case "start-lift": startLift(el.dataset.session); break;
-    case "start-run": startRun(el.dataset.run); break;
+    case "start-run": startRun(); break;
     case "open-other": ui.other = { date: today(), savedId: null, editing: false }; go("other"); break;
     case "pick-length": ui.pending.short = el.dataset.short === "1"; render(); break;
     case "toggle-nogym": ui.pending.noGym = !ui.pending.noGym; render(); break;
@@ -1114,13 +1044,6 @@ app.addEventListener("click", (ev) => {
     case "checkin": checkIn(el.dataset.v); break;
     case "to-full":
       if (w?.kind === "lift") setLength(false);
-      else if (w?.kind === "run") {
-        w.steps = R.buildRun(w.run, { level: w.level ?? 1, fiveK: R.fiveKSec(db().activities, db().settings) }).steps;
-        w.short = false;
-        persist();
-        ui.toast = null;
-        render();
-      }
       break;
     case "step":
       if (el.dataset.f === "min") {
@@ -1143,12 +1066,20 @@ app.addEventListener("click", (ev) => {
     case "toggle-sound": db().settings.sound = db().settings.sound === false; persist(); render(); if (db().settings.sound) { unlockAudio(); sound("tick"); } break;
     case "finish-now": ui.sheet = null; finishNow(); break;
     case "resume": resumeFinished(); break;
-    case "undo-leave": if (ui.lastDiscarded) { db().active = ui.lastDiscarded; ui.lastDiscarded = null; persist(); awake.on(); go(db().active.kind === "lift" ? "set" : "run"); } break;
-    case "pick-up": awake.on(); go(w.kind === "lift" ? "set" : "run"); break;
+    case "undo-leave": if (ui.lastDiscarded) { db().active = ui.lastDiscarded; ui.lastDiscarded = null; persist(); awake.on(); go("set"); } break;
+    case "pick-up": awake.on(); go("set"); break;
     case "retry-save": if (persist()) { const b = document.getElementById("save-error"); if (b) b.hidden = true; } break;
-    case "run-step": runStep(el, ev); break;
-    case "undo-run": if (w?.kind === "run") { R.undoStep(w); persist(); ui.toast = null; render(); } break;
-    case "run-felt": runFelt(el.dataset.ok === "1"); break;
+    case "run-done": runDone(); break;
+    case "undo-run": undoRun(); break;
+    case "race-open": ui.run.raceOpen = !ui.run.raceOpen; render(); break;
+    case "race-dist": {
+      const date = document.getElementById("race-date")?.value;
+      ui.run.raceDraft = { ...(ui.run.raceDraft || { date: db().settings.race?.date || E.addDays(today(), 70) }), distance: el.dataset.d, ...(date ? { date } : {}) };
+      render();
+      break;
+    }
+    case "race-save": saveRace(false); break;
+    case "race-clear": saveRace(true); break;
     case "log-activity": logActivity(el.dataset.ex); break;
     case "pick-date": ui.other.date = el.dataset.d; render(); break;
     case "edit-activity": ui.other.editing = !ui.other.editing; render(); break;
@@ -1172,6 +1103,12 @@ app.addEventListener("change", (ev) => {
 });
 app.addEventListener("keydown", (ev) => {
   if (ev.target.id === "v-kg" && ev.key === "Enter") ev.target.blur();
+  if (ev.target.id === "run-time" && ev.key === "Enter") ev.target.blur();
+});
+app.addEventListener("input", (ev) => {
+  if (ev.target.id !== "run-time") return;
+  const h = document.getElementById("time-hint");
+  if (h) h.textContent = timeHint(ev.target.value);
 });
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape" && ui.sheet) closeSheet();
@@ -1192,17 +1129,15 @@ function boot() {
     if (a.date < today()) {
       // never finished: saved as partial under its own date (CLAUDE.md, Partial sessions)
       if (a.log.length) {
-        if (a.kind === "lift") db().sessions.push(M.toSession(a, { partial: true }));
-        else db().activities.push(R.toActivity(a, { partial: true }));
-        const total = a.kind === "lift" ? M.totalSets(a) : a.steps.length;
-        ui.bootToast = `Saved ${dayName(a.date)}'s ${a.name} as partial (${a.log.length} of ${total} ${a.kind === "lift" ? "sets" : "steps"}).`;
+        db().sessions.push(M.toSession(a, { partial: true }));
+        ui.bootToast = `Saved ${dayName(a.date)}'s ${a.name} as partial (${a.log.length} of ${M.totalSets(a)} sets).`;
       }
       db().active = null;
       persist();
     } else if (a.lastSetAt && now() - a.lastSetAt > M.RESUME_AFTER_MS) {
       ui.view = "resume";
     } else {
-      ui.view = a.kind === "lift" ? "set" : "run";
+      ui.view = "set";
       awake.on();
     }
   }
@@ -1210,7 +1145,7 @@ function boot() {
   render({ focus: false });
   if (ui.bootToast) toast(ui.bootToast, null, null, 8000);
   const s = new URLSearchParams(location.search);
-  if (!a && s.get("start") === "run") startRun(E.nextRunType(engineLog(db()), today()));
+  if (!a && s.get("start") === "run") startRun();
   else if (!a && s.get("start") === "lift") startLift(todayPlan().next);
   else if (!a && s.get("start") === "other") { ui.other = { date: today(), savedId: null, editing: false }; go("other"); }
 }

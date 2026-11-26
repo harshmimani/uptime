@@ -1,36 +1,11 @@
-// Run model: the planned run (interval, tempo or 5K time trial) as pure functions.
-// Paces come from the latest 5K (plan.run.paces); levels from plan.run.interval/tempo.
+// Runs, kept light: Strava records them, Uptime only says what today's run is.
 //
-// A run in progress (saved as `db.active`, like a lift):
-//   {
-//     kind: "run", id, run: "interval" | "tempo" | "time-trial", level, date, startedAt, checkIn, short,
-//     steps: [{ label, distM?, sec?, targetSec?, recoverySec }],
-//     phase: "warmup" | "main",
-//     log: [{ i, sec, t }],                    // one per finished rep / block / trial
-//     work: { i, startAt, endAt|null } | null, // endAt null = stopwatch (reps, trial); set = countdown (tempo block)
-//     rest: { startAt, endAt } | null,
-//     lastSetAt
-//   }
+// - runTarget(): the one-line target for a run the engine picked (js/engine.js nextRunType).
+// - parseTimeLine(): reads an optional "10k 52:30" so the target paces stay current.
+// - Paces come from a 5K-equivalent time (Riegel), from that line or the plan baseline.
+// Pure functions: no DOM, no storage, no clock.
 
 import PLAN from "../plan.js";
-
-export const RUN_NAMES = { interval: "Intervals", tempo: "Tempo run", "time-trial": "5K time trial", easy: "Easy run" };
-
-/** Latest 5K in seconds: the last time trial, else onboarding, else the plan baseline. */
-export function fiveKSec(activities = [], settings = {}, plan = PLAN) {
-  for (let i = activities.length - 1; i >= 0; i--) {
-    const a = activities[i];
-    if (a.kind === "run" && a.run === "time-trial" && a.sec > 0 && !a.partial) return a.sec;
-  }
-  return settings.fiveKSec || plan.baseline.fiveKSec;
-}
-
-/** Seconds per km for each effort, from a 5K time. */
-export function paces(fiveK, plan = PLAN) {
-  const p = fiveK / 5;
-  const c = plan.run.paces;
-  return { base: p, easy: c.easy.offsetSecPerKm.map((o) => p + o), tempo: p + c.tempo.offsetSecPerKm, interval: p + c.interval.offsetSecPerKm };
-}
 
 export const mmss = (s) => {
   s = Math.max(0, Math.round(s));
@@ -40,114 +15,90 @@ export const mmss = (s) => {
   return h ? `${h}:${String(m).padStart(2, "0")}:${r}` : `${m}:${r}`;
 };
 
-/** The run as steps. Short: fewer reps, or the first tempo block only. */
-export function buildRun(type, { level = 1, short = false, fiveK = PLAN.baseline.fiveKSec } = {}, plan = PLAN) {
+export const runName = (type, plan = PLAN) => plan.run.names[type] || (type === "easy" ? "Easy run" : type === "time-trial" ? "5K time trial" : "Run");
+
+const DIST_WORDS = { half: 21.1, hm: 21.1, "half-marathon": 21.1, halfmarathon: 21.1, marathon: 42.2 };
+
+/**
+ * "10k 52:30", "5 km 24:10", "21.1k 1:55:00", "half 1:52:10", "52:30 10k".
+ * Returns { km, sec } or null. Distance 1–43 km, time h:mm:ss or mm:ss.
+ */
+export function parseTimeLine(text) {
+  if (!text) return null;
+  const s = String(text).toLowerCase().replace(",", ".").trim();
+  const t = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!t) return null;
+  const sec = t[3] != null ? Number(t[1]) * 3600 + Number(t[2]) * 60 + Number(t[3]) : Number(t[1]) * 60 + Number(t[2]);
+  const rest = s.replace(t[0], " ");
+  let km = null;
+  const d = rest.match(/(\d+(?:\.\d+)?)\s*(k|km)\b/);
+  if (d) km = Number(d[1]);
+  else for (const [w, v] of Object.entries(DIST_WORDS)) if (new RegExp(`\\b${w}\\b`).test(rest)) km = v;
+  if (km === 21) km = 21.1;
+  if (!km || km < 1 || km > 43 || sec < 120) return null;
+  const pace = sec / km;
+  if (pace < 150 || pace > 720) return null; // 2:30–12:00 per km
+  return { km, sec };
+}
+
+/** Time for `toKm` predicted from a result over `fromKm` (Riegel). */
+export const riegel = (sec, fromKm, toKm, plan = PLAN) => sec * (toKm / fromKm) ** plan.run.paces.riegel;
+
+/** The 5K-equivalent time in seconds: latest time line, else an old time trial, else onboarding, else baseline. */
+export function fiveKSec(activities = [], settings = {}, plan = PLAN) {
+  if (settings.paceRef?.sec && settings.paceRef?.km) return Math.round(riegel(settings.paceRef.sec, settings.paceRef.km, 5, plan));
+  for (let i = activities.length - 1; i >= 0; i--) {
+    const a = activities[i];
+    if (a.kind === "run" && a.run === "time-trial" && a.sec > 0 && !a.partial) return a.sec;
+  }
+  return settings.fiveKSec || plan.baseline.fiveKSec;
+}
+
+/** Seconds per km for each target. */
+export function paces(fiveK, plan = PLAN) {
+  const c = plan.run.paces;
+  const per = (km) => riegel(fiveK, 5, km, plan) / km;
+  const p5 = fiveK / 5;
+  return { "5k": p5, "10k": per(10), "21k": per(21.1), tempo: p5 + c.tempoOffset, easy: c.easyOffset.map((o) => p5 + o) };
+}
+
+const pace = (s) => `${mmss(s)}/km`;
+
+/**
+ * The run as one line. `pick` comes from the engine: { run, km?, phase?, distance? }.
+ * Returns { type, name, target, note }.
+ */
+export function runTarget(pick, fiveK = PLAN.baseline.fiveKSec, plan = PLAN) {
+  const type = pick.run;
   const pc = paces(fiveK, plan);
+  const R = plan.run;
+  const taper = pick.phase === "taper";
+  const focus = pick.phase === "build" || taper ? pick.distance : "base";
+  const racePace = pick.distance ? pc[pick.distance] : pc["5k"];
+  const out = { type, name: runName(type, plan), target: "", note: "" };
   if (type === "interval") {
-    const lv = plan.run.interval.levels.find((l) => l.level === level) || plan.run.interval.levels[0];
-    const reps = short ? Math.max(3, Math.ceil(lv.reps * 0.6)) : lv.reps;
-    const targetSec = Math.round((pc.interval * lv.distM) / 1000);
-    return {
-      type, level: lv.level, ex: lv.ex, name: RUN_NAMES.interval,
-      summary: `${reps} × ${lv.distM} m · ${lv.recoverySec} s easy jog between`,
-      effort: plan.run.paces.interval.effort, pace: pc.interval,
-      steps: Array.from({ length: reps }, (_, i) => ({ label: `Rep ${i + 1} of ${reps}`, distM: lv.distM, targetSec, recoverySec: i < reps - 1 ? lv.recoverySec : 0 })),
-    };
+    const v = taper ? { ...R.interval.taper, at: pick.distance } : R.interval[focus] || R.interval.base;
+    out.target = `${v.text} at ${pace(pc[v.at])}, ${v.jog}`;
+    out.note = R.warmup;
+  } else if (type === "tempo") {
+    const v = taper ? { ...R.tempo.taper, at: pick.distance } : R.tempo[focus] || R.tempo.base;
+    out.target = `${v.text} at ${pace(pc[v.at])}${v.jog ? `, ${v.jog}` : ""}`;
+    out.note = R.warmup;
+  } else if (type === "long") {
+    const [lo, hi] = R.long.holdKm;
+    const km = pick.hold ? `${lo}–${hi} km` : `${pick.km} km`;
+    out.target = `${km} easy at ${mmss(pc.easy[0])}–${pace(pc.easy[1])}`;
+    out.note = "Conversational the whole way. Walk breaks are fine.";
+  } else if (type === "shakeout") {
+    out.target = R.shakeout;
+    out.note = "Race week: stay fresh.";
+  } else if (type === "race") {
+    const label = { "5k": "5K", "10k": "10K", "21k": "Half marathon" }[pick.distance];
+    if (label) out.name = `${label} race`;
+    out.target = `Goal pace about ${pace(racePace)}. Start a little slower.`;
+    out.note = "Add your time below and the paces update.";
+  } else {
+    out.target = "Easy, conversational.";
   }
-  if (type === "tempo") {
-    const lv = plan.run.tempo.levels.find((l) => l.level === level) || plan.run.tempo.levels[0];
-    const blocks = short ? lv.blocksMin.slice(0, 1) : lv.blocksMin;
-    return {
-      type, level: lv.level, ex: plan.run.tempo.ex, name: RUN_NAMES.tempo,
-      summary: blocks.length > 1 ? `${blocks.length} × ${blocks[0]} min · ${lv.recoverySec / 60} min easy between` : `${blocks[0]} min steady`,
-      effort: plan.run.paces.tempo.effort, pace: pc.tempo,
-      steps: blocks.map((m, i) => ({ label: blocks.length > 1 ? `Block ${i + 1} of ${blocks.length}` : "Tempo", sec: m * 60, recoverySec: i < blocks.length - 1 ? lv.recoverySec : 0 })),
-    };
-  }
-  return {
-    type: "time-trial", level: null, ex: plan.run.timeTrial.ex, name: RUN_NAMES["time-trial"],
-    summary: "5 km, as fast as you can hold", effort: "Start controlled, push the last kilometre.", pace: pc.base,
-    steps: [{ label: "5K", distM: 5000, targetSec: fiveK, recoverySec: 0 }],
-  };
-}
-
-export function newRun({ id, type, date, now, checkIn, short = false, settings = {}, activities = [] }, plan = PLAN) {
-  const level = type === "time-trial" ? null : settings.runLevels?.[type] ?? 1;
-  const r = buildRun(type, { level, short, fiveK: fiveKSec(activities, settings, plan) }, plan);
-  return {
-    kind: "run", id, run: r.type, level: r.level, name: r.name, date, startedAt: now, checkIn, short,
-    steps: r.steps, phase: "warmup", log: [], work: null, rest: null, lastSetAt: null,
-  };
-}
-
-export const runCursor = (r) => r.log.length; // index of the next step
-export const runFinished = (r) => r.log.length >= r.steps.length;
-
-/** Start the next rep / block / trial. Blocks count down; reps and the trial are stopwatches. */
-export function startStep(r, now) {
-  const i = runCursor(r);
-  const s = r.steps[i];
-  if (!s) return;
-  r.phase = "main";
-  r.rest = null;
-  r.work = { i, startAt: now, endAt: s.sec ? now + s.sec * 1000 : null };
-}
-
-/** Finish the running step (tap, or the countdown ending at `now`). Starts recovery. */
-export function finishStep(r, now) {
-  if (!r.work) return { finished: runFinished(r) };
-  const s = r.steps[r.work.i];
-  const end = r.work.endAt ? Math.min(now, r.work.endAt) : now;
-  const sec = Math.max(1, Math.round((end - r.work.startAt) / 1000));
-  r.log.push({ i: r.work.i, sec, t: end });
-  r.lastSetAt = end;
-  r.work = null;
-  r.rest = s.recoverySec ? { startAt: end, endAt: end + s.recoverySec * 1000 } : null;
-  return { finished: runFinished(r) };
-}
-
-export function undoStep(r) {
-  const l = r.log.pop();
-  if (!l) return null;
-  r.rest = null;
-  r.work = null;
-  r.lastSetAt = r.log.length ? r.log[r.log.length - 1].t : null;
-  return l;
-}
-
-/** On pace = within 2 s of the target for reps; blocks are by effort, so any full block counts. */
-export const onPace = (step, sec) => (step.targetSec ? sec <= step.targetSec + 2 : sec >= (step.sec ?? 0) - 5);
-
-export function toActivity(r, { partial = false } = {}) {
-  const total = r.log.reduce((a, l) => a + l.sec, 0);
-  const a = {
-    id: r.id, date: r.date, t: r.startedAt, kind: "run", run: r.run, level: r.level ?? undefined, checkIn: r.checkIn,
-    short: r.short || undefined, partial: partial || undefined,
-    min: Math.max(1, Math.round(((r.lastSetAt ?? r.startedAt) - r.startedAt) / 60000)),
-    reps: r.log.map((l) => ({ sec: l.sec })),
-  };
-  if (r.run === "time-trial" && r.log[0]) a.sec = r.log[0].sec;
-  if (!total) delete a.reps;
-  return a;
-}
-
-/** The run summary, against the last run of the same type and level. */
-export function summarizeRun(r, last) {
-  const hits = r.log.filter((l) => onPace(r.steps[l.i], l.sec)).length;
-  const avg = r.log.length ? r.log.reduce((a, l) => a + l.sec, 0) / r.log.length : 0;
-  let vsLast = null;
-  if (last?.reps?.length) {
-    const lastAvg = last.reps.reduce((a, x) => a + x.sec, 0) / last.reps.length;
-    if (r.run === "time-trial") vsLast = { last: last.sec, delta: (r.log[0]?.sec ?? 0) - last.sec };
-    else if (r.run === "interval" && last.level === r.level) vsLast = { last: lastAvg, delta: avg - lastAvg };
-  }
-  const allOnPace = r.log.length === r.steps.length && hits === r.steps.length;
-  return { reps: r.log.length, planned: r.steps.length, hits, avg, vsLast, allOnPace, partial: r.log.length < r.steps.length };
-}
-
-/** Level for next time, from the plan's rule: every rep on pace and the last one felt 8/10 or easier. */
-export function nextLevel(type, level, { allOnPace, feltOk }, plan = PLAN) {
-  if (type === "time-trial" || level == null) return level;
-  const max = plan.run[type].levels.length;
-  return allOnPace && feltOk ? Math.min(max, level + 1) : level;
+  return out;
 }

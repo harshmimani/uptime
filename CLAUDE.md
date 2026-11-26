@@ -41,10 +41,11 @@ When the two conflict, choose what the user is most likely to actually stick wit
 
 - A full cycle = 6 sessions: 4 strength (Upper A, Lower A, Upper B, Lower B), 1 run, 1 sport-or-conditioning session, plus at least 1 rest day. The user plays basketball only occasionally, so the sport slot is filled by any conditioning when there's no game (an easy run is suggested first).
 - Strength sessions follow a fixed order **UA → LA → UB → LB → repeat**. Missing a day never skips a session; the app shows the next one in line. Nothing is "missed", only "not done yet".
-- Run and sport/conditioning float: done any day they fit, and the app suggests good slots.
+- Run and sport/conditioning float: done any day they fit, and the app suggests good slots. What the run slot holds is under **Running**.
 - Progress is counted over a **rolling 7 days**, not Mon–Sun. Weekdays are never hard-coded. Optionally the user can mark usually-busy weekdays; the app uses them only for gentle suggestions.
 - Spacing rules (suggestions, never blocking):
   - Avoid a Lower session the day after sport or a hard run if another option exists.
+  - No Lower session the day before a long run or race (the app doesn't suggest a long run the day after Lower, and flags Lower the day before race day).
   - Consecutive strength days are fine because upper/lower alternate.
   - Avoid 3 hard days in a row.
   - A same-day double is allowed only as run/sport + Upper, never two lifting sessions.
@@ -69,6 +70,20 @@ When the two conflict, choose what the user is most likely to actually stick wit
 - **Deload** every 6–8 weeks, or after 3+ "Rough" check-ins within one rotation: same exercises, about half the sets.
 - Every exercise has an easier swap, a harder swap, and a no-equipment swap.
 - Units: kg.
+
+## Running
+
+The user runs 5K, 10K and 21K and **Strava records every run**. Uptime never duplicates Strava: no run stats, charts, splits, timers or PB tracking.
+
+- The single run slot cycles **intervals → tempo → long easy run**, so all three distances stay maintained. The long run adds 1 km each time from 8 km up to 12 km, then holds at 12–14 km. More than 5 weeks since the last long run: start 2 km lower.
+- Targets are one line, with paces from the user's latest time (5K-equivalent via Riegel's formula; the plan baseline until then). Intervals 6 × 800 m at 5K pace; tempo 20 min at 5K pace + 15 s/km; long runs at 5K pace + 75–100 s/km.
+- Run day in the app: what today's run is, its one-line target, one tap **Done** (saves straight away, with Undo). An optional single text line for a time (e.g. "10k 52:30", "half 1:55:00") is used **only** to update the target paces.
+- **Race mode (optional):** the user sets a race distance (5K, 10K or 21K) and date.
+  - The last 8 (5K), 10 (10K) or 12 (21K) weeks lean toward the distance: race-pace intervals and tempo, and for 10K/21K quality runs alternate with long runs that build to about 15 km (10K) or 19 km (21K).
+  - Taper: the last 7 (5K), 10 (10K) or 14 (21K) days, with shorter runs and a long run at about 60% of the longest; lifts suggest the Short version. The last 6 days are easy shakeouts only. Race day shows the race.
+  - After race day the cycle returns to normal by itself.
+- Busy mode: one tempo run a week; the cycle waits.
+- Numbers live in `js/plan.js` under `run`.
 
 ## Modes
 
@@ -97,7 +112,7 @@ When the two conflict, choose what the user is most likely to actually stick wit
 - Home content, in priority order:
   1. Today's "Next up" session with one large Start button.
   2. Rolling-week progress and streak.
-  3. One standout stat (e.g. pull-up max, best 5K, total kg lifted).
+  3. One standout stat (e.g. pull-up max, total kg lifted). Never a run stat: Strava has those.
   - Plus, only when relevant: the Busy mode banner or suggestion (see Modes), and a quiet "Log something else" link under Next up.
 - **Signature moment:** tapping Start morphs the Next-up card into the Workout screen (View Transitions API with a graceful fallback). It should feel like one continuous motion, not a page jump.
 - The full intro animation plays only on the first open of the day; after that, Home appears instantly. If a workout is in progress, the app opens straight to it and skips Home.

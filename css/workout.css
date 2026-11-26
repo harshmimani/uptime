@@ -177,14 +177,18 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 .week__level { margin: 0; font-size: var(--fs-lead); font-weight: var(--fw-bold); }
 .streak-line { display: flex; justify-content: space-between; gap: var(--sp-3); border-top: 1px solid var(--c-line); padding-top: var(--sp-3); font-size: var(--fs-small); color: var(--c-text-2); }
 .streak-line b { color: var(--c-green); }
-.ask { display: grid; gap: var(--sp-2); }
-.ask .row .btn { flex: 1; }
 
-/* ---------------------------------------------------------------- runs */
-.clock { font-size: clamp(4rem, 22vw, 6.5rem); font-weight: var(--fw-black); font-stretch: var(--fstretch-display); letter-spacing: var(--tracking-display); line-height: 1; text-align: center; }
-.paces { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
-.paces .stat__num { font-size: var(--fs-h2); }
-.logged .ok { color: var(--c-green); font-weight: var(--fw-semibold); }
+/* ---------------------------------------------------------------- runs: one line, one tap */
+.run-target { margin: 0; font-size: var(--fs-lead); font-weight: var(--fw-bold); line-height: 1.3; font-variant-numeric: tabular-nums; }
+.field { display: grid; gap: var(--sp-1); }
+.field input {
+  min-height: var(--hit-key); padding: 0 var(--sp-3); border: 1.5px solid var(--c-line-strong); border-radius: var(--r-sm);
+  background: var(--c-surface-1); color: var(--c-text); font: inherit; font-size: var(--fs-lead); font-variant-numeric: tabular-nums;
+  width: 100%; box-sizing: border-box; color-scheme: dark;
+}
+.field input::placeholder { color: var(--c-text-3); }
+.field input:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
+.race { display: grid; gap: var(--sp-3); }
 
 /* ---------------------------------------------------------------- launcher (stand-in for Home) */
 .next .btn--primary { margin-top: var(--sp-2); }

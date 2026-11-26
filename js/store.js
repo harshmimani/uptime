@@ -11,11 +11,13 @@
 //     v: 2,
 //     sessions: [{ id, date, t, end, session, name, checkIn, short, noGym, deload, reduced,
 //                  partial, items: [{ key, ex, role, sets: [{ kg?, reps?, sec?, t }] }] }],
-//     activities: [{ id, date, t, kind: "run" | "sport" | "conditioning", run?, ex?, min,
-//                    level?, checkIn?, short?, reps?: [{ sec }], sec?, partial? }],
+//     activities: [{ id, date, t, kind: "run" | "sport" | "conditioning", run?, ex?, min?,
+//                    km?, time?: "10k 52:30" }],          // older runs may also hold level, reps, sec, partial
 //     settings: { modeLog: [], deloads: [], busyWeekdays: [], sound: true,
 //                 swapsAlways: { planExerciseId: swappedExerciseId },
-//                 ladderLevel, jumpBlock, runLevels: { interval, tempo } },
+//                 ladderLevel, jumpBlock,
+//                 race: { distance: "5k" | "10k" | "21k", date } | null,
+//                 paceRef: { km, sec, date, text } | null },   // latest time line, sets run paces
 //     active: null | the workout in progress (see js/workout/model.js),
 //     legacy: { from: "uptime1", at, sets: { "date|exerciseId": [{ t, kg, reps }] } } | absent
 //   }
@@ -39,7 +41,8 @@ export function emptyDB(plan = PLAN) {
       swapsAlways: {},
       ladderLevel: plan.baseline.ladderLevel,
       jumpBlock: 1,
-      runLevels: { interval: 1, tempo: 1 },
+      race: null,
+      paceRef: null,
     },
     active: null,
   };
@@ -85,9 +88,14 @@ export function migrate(raw, legacy = null, plan = PLAN, now = Date.now()) {
   db.sessions = Array.isArray(db.sessions) ? db.sessions : [];
   db.activities = Array.isArray(db.activities) ? db.activities : [];
   db.settings = { ...base.settings, ...(db.settings || {}) };
-  db.settings.runLevels = { ...base.settings.runLevels, ...(db.settings.runLevels || {}) };
   db.settings.swapsAlways = { ...(db.settings.swapsAlways || {}) };
   if (db.active === undefined) db.active = null;
+  // Runs are no longer tracked step by step: an old run in progress becomes a logged run.
+  if (db.active?.kind === "run") {
+    const r = db.active;
+    if (r.log?.length) db.activities.push({ id: r.id, date: r.date, t: r.startedAt, kind: "run", run: r.run, partial: true });
+    db.active = null;
+  }
   return db;
 }
 
@@ -150,7 +158,7 @@ export function engineLog(db) {
     out.push({ date: s.date, t: s.t, session: s.session, checkIn: s.checkIn, short: s.short || undefined, deload: s.deload || undefined });
   }
   for (const a of db.activities) {
-    if (a.kind === "run") out.push({ date: a.date, t: a.t, kind: "run", run: a.run, checkIn: a.checkIn });
+    if (a.kind === "run") out.push({ date: a.date, t: a.t, kind: "run", run: a.run, km: a.km, checkIn: a.checkIn });
     else if (a.kind === "sport") out.push({ date: a.date, t: a.t, kind: "sport", ex: a.ex });
     else if (a.kind === "conditioning") out.push({ date: a.date, t: a.t, kind: "conditioning", ex: a.ex });
   }
