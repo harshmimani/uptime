@@ -704,6 +704,129 @@ const plan = {
     deload: "Every 6 weeks with the checkpoint, or sooner after 3 Rough check-ins in one rotation. Same exercises, about half the sets.",
     achilles: "Pain 3/10 or less that settles by the next morning is fine. More than that: jumps and intervals are swapped for one rotation.",
   },
+
+  // ------------------------------------------------------------------- fuel
+  // Fat loss while training, built on normal Indian meals: home food or a mess.
+  // Guidance only: no calorie or food tracking anywhere in the app.
+  // Protein numbers are rough per serving so they're easy to remember.
+  food: {
+    intro: "Lean out slowly while you get stronger: a small, steady deficit, plenty of protein, and normal food you can keep eating for years.",
+    protein: {
+      perKg: [1.6, 2.0],     // g per kg bodyweight a day
+      perMeal: [25, 40],     // g, over 3–4 meals
+      fallbackKg: 70,        // used for the example until a bodyweight is logged
+      why: "Protein keeps you full on less food and tells your body to keep muscle while fat comes off.",
+    },
+    rules: [
+      { title: "A small deficit, not a diet", text: "Eat a little less than you burn: about one roti or one small katori of rice fewer a day, and fewer extras. Losing about 0.25–0.5% of bodyweight a week is the goal; faster costs strength." },
+      { title: "Protein at every meal", text: "Build each meal around a protein first, then add the rest. 3–4 meals of 25–40 g gets most people to the target." },
+      { title: "Half the plate is sabzi or salad", text: "Vegetables fill the plate for very few calories. Take the sabzi first and the second helping of it, not of rice." },
+      { title: "Carbs around training", text: "Keep roti or rice in the meal before and after you train, so sessions stay strong. Trim them at the meals furthest from training." },
+      { title: "Watch the hidden extras", text: "Sugar in chai, juices, cold drinks, fried snacks, sweets and oily gravies add up fast. Keep them to a few times a week, not a few times a day." },
+      { title: "Drink water, salt after sweat", text: "Water through the day. After a sweaty session, salted buttermilk or nimbu paani does the job of an electrolyte drink." },
+    ],
+    // g of protein per everyday serving (approximate)
+    sources: {
+      veg: [
+        { name: "Paneer", serving: "100 g (a palm-sized block)", g: 18 },
+        { name: "Hung curd or Greek yogurt", serving: "1 bowl, 200 g", g: 18 },
+        { name: "Soya chunks", serving: "30 g dry (1 katori cooked)", g: 15 },
+        { name: "Tofu", serving: "100 g", g: 12 },
+        { name: "Besan chilla", serving: "2 chillas (50 g besan)", g: 11 },
+        { name: "Milk", serving: "1 glass, 250 ml", g: 8 },
+        { name: "Curd (dahi)", serving: "1 katori, 200 g", g: 7 },
+        { name: "Dal, rajma or chole", serving: "1 katori cooked", g: 7 },
+        { name: "Sprouted moong", serving: "1 bowl, 100 g", g: 7 },
+      ],
+      nonVeg: [
+        { name: "Chicken (breast or curry pieces)", serving: "100 g cooked meat", g: 27 },
+        { name: "Fish", serving: "100 g cooked", g: 22 },
+        { name: "Mutton", serving: "100 g cooked (fattier: keep to once or twice a week)", g: 25 },
+        { name: "Eggs", serving: "2 whole eggs", g: 12 },
+        { name: "Egg whites", serving: "4 whites", g: 14 },
+      ],
+      either: [
+        { name: "Whey protein", serving: "1 scoop in water or milk", g: 24, note: "Handy within an hour after training, or when a meal is low. A supplement, not a must." },
+      ],
+    },
+    // Plates by hand size, so they work at home and in a mess without weighing anything.
+    plates: [
+      { name: "Home thali", items: ["Half the plate: sabzi or salad", "A quarter: protein (paneer, chicken, eggs, or a big katori of dal with curd)", "A quarter: 2 rotis or 1 katori of rice", "A katori of curd or a glass of buttermilk on the side"] },
+      { name: "Mess meal", items: ["Take the protein option first: paneer, egg, chicken, or a double serving of dal", "2 rotis instead of 4, or one serving of rice, not both piled high", "Fill up on sabzi and salad", "Add curd or buttermilk if it's there; skip the fried side most days"] },
+      { name: "Breakfast", items: ["Eggs, paneer bhurji or besan chilla", "With 1–2 rotis, toast, or a bowl of poha or upma", "A glass of milk or a bowl of curd", "Poha or upma alone is light on protein: add curd, milk or whey"] },
+      { name: "After training", items: ["A glass of milk or a scoop of whey", "With a banana or other fruit", "Then a normal meal within a couple of hours"] },
+      { name: "Snack, if you're hungry", items: ["Fruit with curd", "Sprouts chaat", "A glass of buttermilk", "Boiled eggs or a paneer slice"] },
+    ],
+    checks: [
+      "Look at your weekly average weight (Progress), not one day's number: daily weight swings 1–2 kg with water and salt.",
+      "Weekly average steady for 3 weeks and the waist isn't moving: trim one more roti or one extra a day.",
+      "Lifts dropping two weeks running and always tired: eat a little more, especially around training. Strength comes first.",
+      "Exams or a packed week: eat at maintenance and keep protein up. Lean out again when life is calmer.",
+    ],
+    note: "Rough numbers to guide choices, not to count. If you have a medical condition, follow your doctor's advice first.",
+  },
+
+  // ------------------------------------------------------------------ learn
+  // Short explainers: why the plan works the way it does. Plain words, a minute each.
+  learn: [
+    {
+      id: "rotation", title: "Why the routine rotates",
+      lead: "You never miss a session. The next one simply waits for you.",
+      points: [
+        "Strength sessions always go in the same order: Upper A, Lower A, Upper B, Lower B, then again. A missed day doesn't skip a session; the app shows the next one in line.",
+        "A calendar plan breaks the first time life gets busy, and a broken plan is how people quit. A rotation bends instead.",
+        "Upper and lower alternate, so training two days in a row is fine: one half rests while the other works.",
+        "Progress is counted over the last 7 days, not Monday to Sunday, so there's no \"week is ruined\" moment.",
+        "No catch-up: never cram missed sessions together. Doing the next one is enough.",
+      ],
+    },
+    {
+      id: "double-progression", title: "Double progression",
+      lead: "Add reps first, then weight. That's the whole rule.",
+      points: [
+        "Each exercise has a rep range, like 5–8. Keep the same weight and add reps session by session.",
+        "When every set reaches the top of the range, go up the smallest jump: 2.5 kg on squats and deadlifts, 1–2.5 kg on upper-body lifts, or the next dumbbell. Reps drop back to the bottom of the range.",
+        "Most sets stop with 1–3 good reps left. You get stronger without grinding, and form stays clean.",
+        "Two sessions in a row with no progress: drop about 10% and build back up, or switch rep range for a few weeks. Stalls are normal, not failure.",
+        "The app does the maths: it prefills the weight and tells you when you've earned a jump.",
+      ],
+    },
+    {
+      id: "short-busy", title: "Short version and Busy mode",
+      lead: "Something always beats nothing. Both modes exist so you never have to skip.",
+      points: [
+        "Short version: the first 3 exercises with 2 sets each, under 30 minutes. Pick it any day you're short on time or energy. Check in as Rough and the app suggests it.",
+        "The first exercises are the main lifts, so a Short session keeps the work that matters most.",
+        "Busy mode is for a stretch of weeks: exams, deadlines, travel. You get 2–3 full-body sessions of about 40 minutes plus one run.",
+        "Your rotation waits while Busy mode is on, and carries on where it stopped when you turn it off.",
+        "Two full-body sessions a week holds almost all of your strength and fitness for weeks. Busy weeks keep the streak alive.",
+      ],
+    },
+    {
+      id: "deloads", title: "Deloads",
+      lead: "A planned easy week so you come back stronger, not worn down.",
+      points: [
+        "Every 6–8 weeks, or after 3 Rough check-ins within one rotation, do a deload: the same exercises at about half the sets.",
+        "Hard training builds fatigue faster than you notice. An easy week lets it clear, and strength usually shows up afterwards.",
+        "Keep the weights about the same and do fewer sets. You keep the skill and the habit; the fatigue goes.",
+        "The deload week is also the best time to test a pull-up max or run a hard time line, because you're fresh.",
+        "Coming back from a break works the same way: 7–13 days off starts at about 90%; 14 or more starts at 80% with a set fewer for the first week.",
+      ],
+    },
+    {
+      id: "form", title: "Form cues",
+      lead: "A few cues that apply to every lift, then the one cue that matters most for each main lift.",
+      points: [
+        "Brace before each rep: breathe in, tighten your stomach as if someone's about to poke it, then move.",
+        "Control the lowering: about 2 seconds down. Fast up, slow down.",
+        "Full range you can control. Stop the set when form changes, not when you can't move the weight.",
+        "Leave 1–3 reps in the tank on most sets. Never grind main lifts to failure.",
+        "Pain that's sharp, or more than 3/10 and not settled by next morning: swap the exercise for its easier option and tell a physio if it keeps happening.",
+      ],
+      // Exercise ids whose cue is shown under these points (cues live in `exercises`).
+      exercises: ["smith-machine-back-squat", "barbell-deadlift", "dumbbell-bench-press", "standing-dumbbell-overhead-press", "pull-up", "negative-pull-up", "bulgarian-split-squat", "farmer-carry"],
+    },
+  ],
 };
 
 // Deep-freeze so no screen can mutate plan content by accident.

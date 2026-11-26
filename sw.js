@@ -1,8 +1,8 @@
 /* Uptime service worker: the app keeps working with no signal at the gym or track.
    The page is fetched from the network first so updates arrive straight away,
    with the cached copy as the fallback. Static assets are served from the cache. */
-const CACHE = "uptime-v1";
-const ASSETS = ["./", "index.html", "manifest.webmanifest", "assets/archivo.woff2",
+const CACHE = "uptime-v2";
+const ASSETS = ["./", "index.html", "progress.html", "plan.html", "manifest.webmanifest", "assets/archivo.woff2",
   "assets/icon-192.png", "assets/icon-512.png", "assets/icon-maskable.png", "assets/apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
@@ -19,9 +19,10 @@ self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
   if (req.mode === "navigate") {
+    // Each page is cached under its own URL, so Progress and Plan open offline too.
     e.respondWith(fetch(req)
-      .then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put("index.html", copy)); return res; })
-      .catch(() => caches.match("index.html")));
+      .then(res => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); } return res; })
+      .catch(() => caches.match(req, { ignoreSearch: true }).then(hit => hit || caches.match("index.html"))));
     return;
   }
   e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {

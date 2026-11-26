@@ -12,7 +12,9 @@ import * as E from "../engine.js";
 import { createStore, engineLog, exerciseHistory, isoDate, newId } from "../store.js";
 import * as M from "./model.js";
 import * as R from "./run.js";
-import { unlockAudio, sound, vibrate, KeepAwake } from "./feedback.js";
+import { unlockAudio, sound, vibrate, setVibration, KeepAwake } from "./feedback.js";
+import { setUnits, units, wu as unitLabel, fromUnit, weightStep } from "../units.js";
+import { tabBar } from "../nav.js";
 import { splitLetters, playIn, countTo, reducedMotion, wait } from "../motion.js";
 
 const store = createStore();
@@ -47,6 +49,8 @@ const clock = (ms) => R.mmss(ms / 1000);
 const CHECK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>`;
 const dayName = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long" });
 const shortDate = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+/** The sport slot is named by the user (Settings › Sport); stored as "basketball" so old logs still match. */
+const actName = (ex) => (ex === "basketball" && db().settings.sportName ? db().settings.sportName : M.exName(ex));
 const say = (text) => { live.textContent = ""; setTimeout(() => (live.textContent = text), 30); };
 
 function persist() {
@@ -186,7 +190,7 @@ function viewHome() {
       </div>
       <p class="disclaimer">${esc(PLAN.disclaimer)}</p>
     </div>
-    <div class="scr__foot" style="background:none"><div class="toast-slot" id="toast-slot" aria-live="polite"></div></div>
+    <div class="scr__foot scr__foot--tabs"><div class="toast-slot" id="toast-slot" aria-live="polite"></div>${tabBar("home")}</div>
   </main>`;
 }
 
@@ -285,8 +289,8 @@ function targetLine(p, it) {
   if (t.kind === "beat" && t.last) {
     const lr = t.last.sec ?? t.last.reps;
     const unit = t.last.sec != null ? " s" : " reps";
-    goal = t.last.kg > 0 ? `Beat ${fmtKg(t.last.kg)} kg × ${lr}: ${lr + 1}${unit}, or more weight` : `Beat ${lr}${unit}: go for ${lr + 1}`;
-  } else if (t.kind === "up") goal = `Up from ${fmtKg(t.fromKg)} kg. Any set in range beats last time.`;
+    goal = t.last.kg > 0 ? `Beat ${fmtKg(t.last.kg)} ${unitLabel()} × ${lr}: ${lr + 1}${unit}, or more weight` : `Beat ${lr}${unit}: go for ${lr + 1}`;
+  } else if (t.kind === "up") goal = `Up from ${fmtKg(t.fromKg)} ${unitLabel()}. Any set in range beats last time.`;
   else if (t.kind === "easy") goal = t.lighter ? "Lighter day: about 90% of last time. Just move well." : ui.view === "set" && db().active?.adjust?.deload ? "Deload: same weights, fewer sets." : "Short version: no target, just get it done.";
   else goal = it.role === "main" || p.weighted ? "First time: pick a weight that leaves 1–3 reps in the tank." : "First time: note what you can do with good form.";
   const beatable = t.kind === "beat" || t.kind === "up";
@@ -295,15 +299,16 @@ function targetLine(p, it) {
 
 function stepper({ id, value, unit, label, step, input = false, min = 0 }) {
   const v = id === "kg" ? fmtKg(value) : String(value);
+  const stepName = id === "kg" ? `${units() === "lb" ? 5 : 2.5} ${unitLabel()}` : step;
   return `<div class="stepper" role="group" aria-label="${esc(label)}">
-    <button class="stepper__key" type="button" data-act="step" data-f="${id}" data-d="-${step}" aria-label="${esc(`${step} less`)}" ${value <= min ? "disabled" : ""}>−</button>
+    <button class="stepper__key" type="button" data-act="step" data-f="${id}" data-d="-${step}" aria-label="${esc(`${stepName} less`)}" ${value <= min ? "disabled" : ""}>−</button>
     <div class="stepper__value">
       ${input
-        ? `<input class="stepper__num num" id="v-${id}" inputmode="decimal" enterkeyhint="done" aria-label="${esc(label)} in kg" value="${esc(v)}">`
+        ? `<input class="stepper__num num" id="v-${id}" inputmode="decimal" enterkeyhint="done" aria-label="${esc(label)} in ${unitLabel()}" value="${esc(v)}">`
         : `<span class="stepper__num display num" id="v-${id}" aria-live="polite">${esc(v)}</span>`}
       <span class="stepper__unit">${esc(unit)}</span>
     </div>
-    <button class="stepper__key" type="button" data-act="step" data-f="${id}" data-d="${step}" aria-label="${esc(`${step} more`)}">+</button>
+    <button class="stepper__key" type="button" data-act="step" data-f="${id}" data-d="${step}" aria-label="${esc(`${stepName} more`)}">+</button>
   </div>`;
 }
 
@@ -317,7 +322,7 @@ function logLabel(w, p, v, it) {
   const what = last ? "Log last set" : `Log set ${p.n}`;
   if (v.sec != null) return w.work ? `Stop · log ${Math.max(1, Math.round((now() - w.work.startAt) / 1000))} s` : `Start ${v.sec * (it.perSide ? 2 : 1)} s${it.perSide ? ` · ${v.sec} per side` : ""}`;
   const reps = `${v.reps}${it.perSide ? " per side" : ""}`;
-  return v.kg != null && v.kg > 0 ? `${what} · ${reps} × ${fmtKg(v.kg)} kg` : `${what} · ${reps} reps`;
+  return v.kg != null && v.kg > 0 ? `${what} · ${reps} × ${fmtKg(v.kg)} ${unitLabel()}` : `${what} · ${reps} reps`;
 }
 
 function viewSet() {
@@ -339,7 +344,7 @@ function viewSet() {
   const wu = w.log.length === 0 ? M.warmup(w, hist) : null;
   const warmEnd = w.startedAt + PLAN.warmup.minutes * 60000;
   const steppers = [];
-  if (p.weighted) steppers.push(stepper({ id: "kg", value: v.kg, unit: p.unit, label: "Weight", step: M.KG_STEP, input: true }));
+  if (p.weighted) steppers.push(stepper({ id: "kg", value: v.kg, unit: p.unit, label: "Weight", step: weightStep(), input: true }));
   if (v.sec != null) steppers.push(stepper({ id: "sec", value: v.sec, unit: it.perSide ? "seconds per side" : "seconds", label: "Seconds", step: M.SEC_STEP, min: 5 }));
   else steppers.push(stepper({ id: "reps", value: v.reps, unit: it.perSide ? "reps per side" : "reps", label: "Reps", step: 1, min: 1 }));
   const timerBox = w.work
@@ -355,7 +360,7 @@ function viewSet() {
       ${wu ? `<section class="card" aria-labelledby="wu-h">
         <div class="row between"><h2 class="label" id="wu-h">Warm-up · ${wu.minutes} min</h2><span class="warm__time num" id="warm-left" data-end="${warmEnd}"></span></div>
         <ul class="checklist">${wu.general.map((g) => `<li>${esc(g)}</li>`).join("")}
-          ${wu.ramp ? `<li><b>Ramp-up on ${esc(wu.ramp.name)}:</b> ${wu.ramp.sets.map((s) => `${fmtKg(s.kg)} kg × ${s.reps}`).join(", ")}</li>` : `<li><b>Ramp-up:</b> ${esc(PLAN.warmup.ramp)}</li>`}
+          ${wu.ramp ? `<li><b>Ramp-up on ${esc(wu.ramp.name)}:</b> ${wu.ramp.sets.map((s) => `${fmtKg(s.kg)} ${unitLabel()} × ${s.reps}`).join(", ")}</li>` : `<li><b>Ramp-up:</b> ${esc(PLAN.warmup.ramp)}</li>`}
         </ul>
         <p class="quiet">Stays here until you log set 1.</p>
       </section>` : ""}
@@ -369,7 +374,7 @@ function viewSet() {
       <div class="setline"><b>Set ${p.n} of ${it.sets}</b><span class="meta">${esc(M.rangeText(it))}</span></div>
       ${targetLine(p, it)}
       ${p.prog.action === "reset" ? `<div class="notice"><div>${esc(PLAN.rules.stallAdvice)}</div></div>` : ""}
-      ${mine.length ? `<ul class="logged" aria-label="Logged sets">${mine.map((l, i) => `<li class="${i === mine.length - 1 && ui.justLogged ? "enter" : ""}"><span>Set ${l.n}${l.ex !== it.ex ? ` · ${esc(M.exName(l.ex))}` : ""}</span><b class="num">${l.sec != null ? `${l.sec} s` : `${l.reps}`}${l.kg ? ` × ${fmtKg(l.kg)} kg` : l.sec != null ? "" : " reps"}</b></li>`).join("")}</ul>` : ""}
+      ${mine.length ? `<ul class="logged" aria-label="Logged sets">${mine.map((l, i) => `<li class="${i === mine.length - 1 && ui.justLogged ? "enter" : ""}"><span>Set ${l.n}${l.ex !== it.ex ? ` · ${esc(M.exName(l.ex))}` : ""}</span><b class="num">${l.sec != null ? `${l.sec} s` : `${l.reps}`}${l.kg ? ` × ${fmtKg(l.kg)} ${unitLabel()}` : l.sec != null ? "" : " reps"}</b></li>`).join("")}</ul>` : ""}
     </div>
     <div class="scr__foot">
       <div class="toast-slot" id="toast-slot" aria-live="polite"></div>
@@ -978,7 +983,7 @@ function viewOther() {
   const o = ui.other;
   const saved = o.savedId ? db().activities.find((a) => a.id === o.savedId) : null;
   const opts = PLAN.conditioning.options.map((c) => `<button class="opt opt--row" data-act="log-activity" data-ex="${esc(c.ex)}">
-      <span><b>${esc(M.exName(c.ex))}</b><br><span>${esc(c.note || M.exCue(c.ex))}</span></span><span class="num">${c.minutes[0]} min</span></button>`).join("");
+      <span><b>${esc(actName(c.ex))}</b><br><span>${esc(c.note || M.exCue(c.ex))}</span></span><span class="num">${c.minutes[0]} min</span></button>`).join("");
   const when = (d, label) => `<button class="chip" type="button" data-act="${saved ? "edit-date" : "pick-date"}" data-d="${d}" aria-pressed="${(saved ? saved.date : o.date) === d}">${label}</button>`;
   const dates = `<div class="when" role="group" aria-label="When">${when(today(), "Today")}${when(E.addDays(today(), -1), "Yesterday")}</div>`;
   return `<main class="scr" data-screen="other">
@@ -986,7 +991,7 @@ function viewOther() {
       <h1 class="h1">Log something else</h1></header>
     <div class="scr__body">
       ${saveErrorBox()}
-      ${saved ? `<div class="notice notice--done${o.justSaved ? " rise" : ""}"><div><b>${esc(M.exName(saved.ex))} logged</b> · ${saved.min} min, ${saved.date === today() ? "today" : "yesterday"}. It counts toward your week.
+      ${saved ? `<div class="notice notice--done${o.justSaved ? " rise" : ""}"><div><b>${esc(actName(saved.ex))} logged</b> · ${saved.min} min, ${saved.date === today() ? "today" : "yesterday"}. It counts toward your week.
           <div class="row" style="margin-top:4px"><button class="btn btn--text" data-act="edit-activity" aria-expanded="${!!o.editing}">Edit</button><button class="btn btn--text" data-act="undo-activity">Undo</button></div></div></div>
         ${o.editing ? `<section class="card" aria-label="Edit">${stepper({ id: "min", value: saved.min, unit: "minutes", label: "Minutes", step: 5, min: 5 })}${dates}<p class="quiet">Changes save as you make them.</p></section>` : ""}`
       : `${dates}<div class="act-list">${opts}
@@ -1010,7 +1015,7 @@ function logActivity(ex) {
   ui.other.justSaved = true;
   render({ focus: false });
   ui.other.justSaved = false;
-  say(`${M.exName(ex)} logged`);
+  say(`${actName(ex)} logged`);
 }
 
 function editActivity(field, value) {
@@ -1098,7 +1103,7 @@ app.addEventListener("click", (ev) => {
 app.addEventListener("change", (ev) => {
   if (ev.target.id !== "v-kg") return;
   const v = parseFloat(String(ev.target.value).replace(",", "."));
-  if (Number.isFinite(v) && v >= 0 && v < 1000) setDraft("kg", Math.round(v * 4) / 4);
+  if (Number.isFinite(v) && v >= 0 && v < (units() === "lb" ? 2200 : 1000)) setDraft("kg", units() === "lb" ? fromUnit(v) : Math.round(v * 4) / 4);
   else updateControls();
 });
 app.addEventListener("keydown", (ev) => {
@@ -1124,6 +1129,8 @@ document.addEventListener("keydown", (ev) => {
 // ------------------------------------------------------------------ boot
 
 function boot() {
+  setUnits(db().settings.units);
+  setVibration(db().settings.vibrate);
   const a = db().active;
   if (a) {
     if (a.date < today()) {
@@ -1142,6 +1149,7 @@ function boot() {
     }
   }
   if (store.readOnly) ui.saveFailed = true;
+  if (store.migrated && !ui.bootToast) ui.bootToast = store.migrated.from === 1 ? "Found your log from the earlier app. Everything is kept, with a backup copy." : "Your data moved to the new format. A backup copy is kept.";
   render({ focus: false });
   if (ui.bootToast) toast(ui.bootToast, null, null, 8000);
   const s = new URLSearchParams(location.search);
