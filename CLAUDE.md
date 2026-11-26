@@ -107,6 +107,9 @@ When the two conflict, choose what the user is most likely to actually stick wit
 ## Visual direction
 
 - Dark base (near-black, not pure black), BCG green accent (**#29BA74** bright, **#197A56** deep), neutral greys, one warning colour. Green means progress/completion, so don't overuse it.
+- **Dark theme only** (approved 26 Nov 2026). No light theme.
+- **Primary buttons (Start, Log set) are off-white with near-black text, not green** (approved 26 Nov 2026). Green appears only for progress and completion: a logged set, rest over, the week ring, the streak, "next time goes up".
+- Tokens live in `css/tokens.css`, components in `css/components.css`; the style preview is `docs/style/index.html`. Every colour pair is checked for AA by `tests/contrast.test.js` (and `npm run check:style` in a browser).
 - Motion inspired by Active Theory: fluid, physical, purposeful. Every animation communicates state (set done, timer running, rotation advancing).
 - Mobile wow comes from craft: kinetic typography, a subtle animated green gradient or grain, numbers that count up, depth through layering and blur, using CSS `transform`/`opacity` only.
 - Desktop may additionally get one lazy-loaded ambient effect (canvas/WebGL) that never downloads on phones.
