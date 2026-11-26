@@ -1,48 +1,46 @@
-<div align="center">
-
-<img src="assets/icon-192.png" width="96" alt="">
-
 # Uptime
 
-**Open it, see what's next, start in one tap.**
-A training rotation for a busy life: strength, running and sport, built so a busy week never breaks the habit.
+A training app that tells you the next session to do and lets you start it in one tap. Live at **https://harshmimani.github.io/uptime/**
 
-</div>
+## Screenshots
+
+| Home (mobile) | Workout (mobile) |
+|---|---|
+| <img src="docs/screenshots/home-mobile.png" width="300" alt="Home: the Next up rotation dial with a Start button, the last 7 days and a pull-up stat"> | <img src="docs/screenshots/workout-mobile.png" width="300" alt="Workout: warm-up checklist above the first exercise, with a large Log set button"> |
+
+<img src="docs/screenshots/home-desktop.png" width="720" alt="Home on desktop">
+
+<sub>Screenshots use demo data.</sub>
+
+## The idea
+
+The routine is a rotation, not a calendar. One cycle has 4 strength sessions (Upper A → Lower A → Upper B → Lower B), 1 run and 1 sport or conditioning session. A missed day never skips anything, because the app just shows the next session in line. Progress is counted over a rolling 7 days, and a busy week that still hits the minimum keeps the streak going. It's built to keep training consistent through a busy, irregular schedule.
+
+## How it was built
+
+- **Harsh (me):** product owner. Defined the goals and requirements, reviewed every plan and design, and tested on my phone.
+- **Claude (claude.ai):** helped shape the requirements and wrote the prompt sequence.
+- **Claude Code:** audited the old version, wrote the `CLAUDE.md` rulebook, designed the training plan with me, and built, tested and optimised the app.
+- **GitHub** for version control, **GitHub Pages** for hosting.
+
+## Tech and performance
+
+- Plain HTML, CSS and JavaScript (ES modules). No framework, no build step, no dependencies in the app.
+- The whole plan lives in one data file (`js/plan.js`). Logs are stored on the device in versioned local storage with backups and JSON export.
+- **Offline and installable (PWA):** a service worker caches each release, a web manifest makes it installable, and a "New version, tap to refresh" prompt never appears mid-workout.
+- View Transitions API for the Start-to-Workout morph. On desktop, a small canvas effect is lazy-loaded and never downloads on phones.
+- Tests: Node's built-in test runner (`npm test`) and Playwright + Chromium browser checks (`tests/browser/`).
+- All JavaScript together is about 80 KB gzipped, against a 150 KB budget.
+
+Lighthouse 12, mobile preset (slow 4G, 4× CPU slowdown):
+
+| Page | Performance | Accessibility | Best practices | SEO |
+|---|---|---|---|---|
+| Home | 99 | 100 | 100 | 90 |
+| Workout | 100 | 100 | 100 | 100 |
+| Progress | 100 | 100 | 100 | 100 |
+| Plan | 100 | 100 | 100 | 100 |
 
 ---
 
-## How it trains
-
-- **A rotation, not a calendar.** Upper A → Lower A → Upper B → Lower B, then repeat, plus one run and one sport or conditioning session. Missing a day never skips a session: the app just shows the next one in line.
-- **Rolling 7 days.** Full, Good and Minimum weeks. The streak counts every week that reaches Minimum, so a busy week keeps it alive.
-- **Short version** of every session (≤30 min), suggested when you check in as "Rough". **Busy mode** for exams and travel, **No-gym** versions of every exercise.
-- **Double progression** with small jumps, automatic deloads, and an easier, harder and no-equipment swap for every exercise.
-- **Runs stay in Strava.** Uptime only says what today's run is (intervals → tempo → long run, with an optional race build-up) and logs it with one tap.
-
-## How it feels
-
-- One tap logs a set; the rest timer survives a locked screen, a call or a closed app.
-- A workout in progress is saved after every set and reopens on the same set.
-- Works fully offline once opened, installs to the home screen, and shows a small **"New version, tap to refresh"** when an update is ready (never mid-workout).
-- No account, no server, no analytics: everything stays on the phone. Export a backup from **Plan → Settings** now and then.
-
-## Files
-
-| Path | What it is |
-|------|------------|
-| `index.html`, `workout.html`, `progress.html`, `plan.html` | Home, the Workout, Progress and Plan |
-| `js/plan.js` | The whole training plan as data: exercises, sessions, runs, guidance |
-| `js/engine.js` | The rotation, weeks, streaks, spacing and run cycle |
-| `js/store.js` | Versioned storage with migrations and backups |
-| `sw.js`, `js/sw-client.js` | Offline support and the update prompt |
-| `css/` | Design tokens and components (preview: `docs/style/index.html`) |
-| `docs/` | Audit, information architecture, history, phone testing |
-| `tests/` | `npm test` (logic) and `tests/browser/` (real-browser checks) |
-
-Rules for anyone working on it: `CLAUDE.md`. Testing on a phone before release: `docs/PHONE-TESTING.md`.
-
----
-
-<div align="center">
-<sub>General fitness guidance, not medical advice. Listen to your body.</sub>
-</div>
+<sub>General fitness guidance, not medical advice.</sub>
