@@ -4,12 +4,13 @@
    and a fresh copy is fetched in the background, so an update shows on the next open.
    Pages are cached by path (no query), so workout.html?start=lift reuses workout.html.
    The desktop-only light effect is left out on purpose: phones must never download it. */
-const CACHE = "uptime-v2";
+const CACHE = "uptime-v3";
 const ASSETS = [
-  "./", "index.html", "workout.html", "manifest.webmanifest",
-  "css/tokens.css", "css/components.css", "css/home.css", "css/workout.css",
+  "./", "index.html", "workout.html", "progress.html", "plan.html", "manifest.webmanifest",
+  "css/tokens.css", "css/components.css", "css/home.css", "css/workout.css", "css/pages.css",
   "js/plan.js", "js/engine.js", "js/store.js", "js/motion.js",
-  "js/home/app.js", "js/home/model.js",
+  "js/units.js", "js/nav.js", "js/charts.js", "js/progress-data.js",
+  "js/home/app.js", "js/home/model.js", "js/pages/progress.js", "js/pages/plan.js",
   "js/workout/app.js", "js/workout/model.js", "js/workout/run.js", "js/workout/feedback.js",
   "assets/archivo.woff2", "assets/keep-awake.mp4",
   "assets/icon-192.png", "assets/icon-512.png", "assets/icon-maskable.png", "assets/apple-touch-icon.png",

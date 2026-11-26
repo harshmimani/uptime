@@ -28,8 +28,11 @@ try {
 <link rel="modulepreload" href="js/motion.js">
 <link rel="modulepreload" href="js/workout/model.js">
 <link rel="modulepreload" href="js/workout/run.js">
+<link rel="modulepreload" href="js/nav.js">
+<link rel="modulepreload" href="js/units.js">
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/pages.css">
 <link rel="stylesheet" href="css/home.css">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="assets/icon-192.png">
@@ -41,14 +44,7 @@ try {
 </head>
 <body>
 <main id="app" class="home" data-screen="home"></main>
-<nav class="tabbar" aria-label="Main">
-  <a class="tabbar__tab" href="index.html" aria-current="page">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 17.4A8.5 8.5 0 1 1 19.4 17.4"/><circle cx="12" cy="3.6" r="1.9" class="fill"/></svg><span>Home</span></a>
-  <a class="tabbar__tab" href="progress.html">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-6M12 20V9M19 20V4"/></svg><span>Progress</span></a>
-  <a class="tabbar__tab" href="plan.html">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 12h14M5 18h9"/></svg><span>Plan</span></a>
-</nav>
+<div class="tabbar" id="tabbar"></div>
 <div id="live" class="sr-only" aria-live="polite"></div>
 <noscript><p style="padding:16px">Uptime needs JavaScript to show your next session.</p></noscript>
 <script type="module" src="js/home/app.js" blocking="render"></script>

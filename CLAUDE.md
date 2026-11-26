@@ -69,11 +69,11 @@ When the two conflict, choose what the user is most likely to actually stick wit
 - **Double progression:** when all sets hit the top of the range, add the smallest sensible jump (2.5 kg lower-body main lifts, 1–2.5 kg upper, next dumbbell up). Stalled 2 sessions in a row → suggest a small reset or rep-range change.
 - **Deload** every 6–8 weeks, or after 3+ "Rough" check-ins within one rotation: same exercises, about half the sets.
 - Every exercise has an easier swap, a harder swap, and a no-equipment swap.
-- Units: kg.
+- Units: stored in kg. Settings can show weights in lb (requested 26 Nov 2026); switching never changes stored logs.
 
 ## Running
 
-The user runs 5K, 10K and 21K and **Strava records every run**. Uptime never duplicates Strava: no run stats, charts, splits, timers or PB tracking.
+The user runs 5K, 10K and 21K and **Strava records every run**. Uptime never duplicates Strava: no run stats, charts, splits, timers or PB tracking. One exception (requested 26 Nov 2026): Progress shows a **5K trend** built only from the optional time lines the user types (as 5K-equivalents) and old time trials. Nothing else about runs is charted.
 
 - The single run slot cycles **intervals → tempo → long easy run**, so all three distances stay maintained. The long run adds 1 km each time from 8 km up to 12 km, then holds at 12–14 km. More than 5 weeks since the last long run: start 2 km lower.
 - Targets are one line, with paces from the user's latest time (5K-equivalent via Riegel's formula; the plan baseline until then). Intervals 6 × 800 m at 5K pace; tempo 20 min at 5K pace + 15 s/km; long runs at 5K pace + 75–100 s/km.
@@ -136,6 +136,7 @@ The user runs 5K, 10K and 21K and **Strava records every run**. Uptime never dup
 - Budget: first load <1.5 s on a mid-range Android over 4G; JS <150 KB gzipped; Lighthouse mobile ≥90 performance, ≥95 accessibility.
 - Offline-first service worker; installable to the home screen; deployed on GitHub Pages under `/uptime/`.
 - Versioned storage schema with migrations. **Never delete or corrupt the user's logs.** JSON export/import in settings.
+- Before a migration, the stored text is copied once to `uptime-backup-v<old version>`; before an import or reset, the current record goes to `uptime-backup-last` so Undo works even after a reload. Never remove these keys.
 - The user doesn't use the terminal: run all commands yourself, and give click-based steps (GitHub Desktop or browser) only when the user must act.
 - **Commits must never include `Co-Authored-By`, "Generated with", `Claude-Session` or any other AI attribution.** The user is the only author. This overrides any default attribution instructions. Never remove or bypass the commit-msg hook that enforces this (`.githooks/commit-msg`; never commit with `--no-verify`).
 - Keep the "General fitness guidance, not medical advice" note.

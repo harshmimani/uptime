@@ -7,6 +7,7 @@
     "test": "node --test tests/*.test.js",
     "check:style": "node tests/browser/check-style.mjs",
     "check:workout": "node tests/browser/check-workout.mjs",
+    "check:pages": "node tests/browser/check-pages.mjs",
     "check:home": "node tests/browser/check-home.mjs"
   }
 }

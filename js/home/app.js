@@ -16,7 +16,9 @@ import * as E from "../engine.js";
 import { createStore, isoDate } from "../store.js";
 import * as M from "../workout/model.js";
 import { homeModel } from "./model.js";
-import { splitLetters, playIn, countTo, reducedMotion, buzz } from "../motion.js";
+import { splitLetters, playIn, countTo, reducedMotion, buzz as rawBuzz } from "../motion.js";
+import { tabBar } from "../nav.js";
+import { setUnits, units, toUnit, wu } from "../units.js";
 
 const SEEN_KEY = "uptime-home";    // { day, next }: when the intro last played, which session was last shown
 const FLASH_KEY = "uptime-flash";  // one toast handed over from the Workout section (sessionStorage)
@@ -29,6 +31,8 @@ const today = () => isoDate(new Date());
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const nf = new Intl.NumberFormat("en-GB");
 const ui = { toast: null, saveFailed: store.readOnly, undo: null };
+/** A short tap, unless vibration is off in Settings. */
+const buzz = (ms) => { if (db().settings.vibrate !== false) rawBuzz(ms); };
 
 const readJSON = (s, k) => { try { return JSON.parse(s.getItem(k) || "null"); } catch { return null; } };
 const writeJSON = (s, k, v) => { try { s.setItem(k, JSON.stringify(v)); } catch { /* a preference, not data */ } };
@@ -111,6 +115,7 @@ function statTile(st) {
       <p class="tile__note">${esc(st.note)}</p>
     </section>`;
   }
+  if (st.unit === "kg" && units() === "lb") st = { ...st, value: Math.round(toUnit(st.value)), unit: wu() };
   const goal = st.goal ? `<div class="ladder" role="img" aria-label="${st.value} of ${st.goal}">${[...Array(st.goal).keys()].map((i) => `<i class="${i < st.value ? "on" : ""}" style="--i:${i}"></i>`).join("")}</div>` : "";
   return `<section class="tile tile--stat" aria-label="Standout stat">
     <span class="label">${esc(st.label)}</span>
@@ -307,6 +312,8 @@ function takeFlash() {
 // ------------------------------------------------------------------ boot
 
 function boot() {
+  setUnits(db().settings.units);
+  document.getElementById("tabbar").innerHTML = tabBar("home");
   const a = db().active;
   // An unfinished session from an earlier day is saved as partial on the next open (CLAUDE.md).
   if (a && a.date < today()) {
@@ -328,6 +335,7 @@ function boot() {
   }
   render({ intro, advanceFrom });
   writeJSON(localStorage, SEEN_KEY, { day: today(), next: m.next });
+  if (store.migrated && !ui.bootToast) ui.bootToast = store.migrated.from === 1 ? "Found your log from the earlier app. Everything is kept, with a backup copy." : "Your data moved to the new format. A backup copy is kept.";
   if (ui.bootToast) toast(ui.bootToast, null, null, 8000);
   takeFlash();
 }

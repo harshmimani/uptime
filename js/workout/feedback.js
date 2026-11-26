@@ -40,7 +40,11 @@ export function sound(kind, enabled = true) {
 }
 
 // ------------------------------------------------------------------ vibration
+// Settings › Vibration turns every buzz off at once.
+let vibrationOn = true;
+export const setVibration = (on) => { vibrationOn = on !== false; };
 export const vibrate = (pattern = 18) => {
+  if (!vibrationOn) return;
   try { navigator.vibrate?.(pattern); } catch { /* not supported (iOS) */ }
 };
 

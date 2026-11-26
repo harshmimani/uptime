@@ -19,6 +19,7 @@
 //   }
 
 import PLAN from "../plan.js";
+import { fmtW, wu } from "../units.js";
 import { sessionDef, adjustSets, progression, roundDown } from "../engine.js";
 
 export const RESUME_AFTER_MS = 90 * 60 * 1000;
@@ -45,10 +46,10 @@ const UNIT_NOTES = ["per hand", "added to the bar", "total"];
 /** Short unit line under the weight: "kg per hand", "kg added to the bar". */
 export function kgNote(item, ex) {
   const n = ex === item.planEx ? item.start?.note : null;
-  if (UNIT_NOTES.includes(n)) return `kg ${n}`;
-  if (/^dumbbell|farmer|hammer|dumbbell-(bench|press)|incline-dumbbell|lateral-raise/.test(ex) && !/one-arm|suitcase|single-arm|snatch|calf/.test(ex)) return "kg per hand";
-  if (/cable|pallof|face-pull|pushdown|pulldown/.test(ex)) return "kg on the stack";
-  return "kg";
+  if (UNIT_NOTES.includes(n)) return `${wu()} ${n}`;
+  if (/^dumbbell|farmer|hammer|dumbbell-(bench|press)|incline-dumbbell|lateral-raise/.test(ex) && !/one-arm|suitcase|single-arm|snatch|calf/.test(ex)) return `${wu()} per hand`;
+  if (/cable|pallof|face-pull|pushdown|pulldown/.test(ex)) return `${wu()} on the stack`;
+  return wu();
 }
 /** Setup notes from the plan that aren't units ("bar at hip height", "light"). */
 export function setupNote(item, ex) {
@@ -334,9 +335,10 @@ export function lastTimeText(last) {
   const s = last.sets;
   const kgs = [...new Set(s.map((x) => x.kg).filter((k) => k > 0))];
   const vals = s.map((x) => (x.sec != null ? `${x.sec} s` : x.reps ?? "–")).join(", ");
-  return kgs.length === 1 ? `${fmtKg(kgs[0])} kg × ${vals}` : kgs.length ? s.map((x) => `${fmtKg(x.kg ?? 0)}×${x.reps ?? x.sec}`).join(", ") : vals;
+  return kgs.length === 1 ? `${fmtKg(kgs[0])} ${wu()} × ${vals}` : kgs.length ? s.map((x) => `${fmtKg(x.kg ?? 0)}×${x.reps ?? x.sec}`).join(", ") : vals;
 }
-export const fmtKg = (kg) => (kg == null ? "" : String(Math.round(kg * 100) / 100));
+/** Weight in the display unit (js/units.js); stored values are always kg. */
+export const fmtKg = (kg) => fmtW(kg);
 
 // ------------------------------------------------------------------ warm-up
 
@@ -413,7 +415,7 @@ export function summarize(w, history, historyAfter, plan = PLAN) {
     const p = progression(historyAfter(l.ex), { ...it, ex: l.ex }, plan);
     const vals = done.map((x) => (x.sec != null ? `${x.sec} s` : x.reps)).join(", ");
     const kgs = [...new Set(done.map((x) => x.kg).filter((k) => k > 0))];
-    const at = kgs.length === 1 ? ` at ${fmtKg(kgs[0])} kg` : "";
+    const at = kgs.length === 1 ? ` at ${fmtKg(kgs[0])} ${wu()}` : "";
     let line;
     if (it.ladder) {
       const lvl = plan.ladder.find((x) => x.level === it.ladder);
@@ -421,7 +423,7 @@ export function summarize(w, history, historyAfter, plan = PLAN) {
     } else if (w.short || w.adjust.deload || (w.adjust.loadFactor ?? 1) < 1) {
       line = { up: false, title: `${exName(l.ex, plan)}: ${vals}${at}`, detail: "Lighter day, so it doesn't count against progress." };
     } else if (p.action === "increase" && p.kg > (kgs[0] ?? 0)) {
-      line = { up: true, title: `${exName(l.ex, plan)} → ${fmtKg(p.kg)} kg`, detail: `${vals}${at}. Every set hit the top of the range.` };
+      line = { up: true, title: `${exName(l.ex, plan)} → ${fmtKg(p.kg)} ${wu()}`, detail: `${vals}${at}. Every set hit the top of the range.` };
     } else if (p.action === "increase" && it.sec) {
       line = { up: true, title: `${exName(l.ex, plan)} → ${Math.min(60, (it.sec[1] ?? 40) + 10)} s`, detail: `${vals}${at}. Add time, then weight.` };
     } else if (p.action === "increase") {

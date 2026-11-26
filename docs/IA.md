@@ -249,6 +249,22 @@ Decided under the standing rule while building it:
 - Timed sets (carries, planks, hangs) log themselves when the clock ends; per-side holds beep at halfway.
 - Runs (changed 26 Nov 2026, approved): no in-app run tracking, because Strava records runs. Home shows "Run · <name>" with the one-line target; the run screen repeats it with an optional time line and one **Done** (2 taps from Home, saved on tap with Undo, no check-in). A readable time line updates the paces; an unreadable one is said so in the toast and changes nothing. Race mode is set from the run screen ("Training for a race?") until Plan is built, then it moves to Plan › Modes.
 
+## Built: Progress and Plan (26 Nov 2026)
+
+`progress.html` and `plan.html` with the shared bottom tabs (`js/nav.js`; Home links to `index.html`). Code: `js/pages/progress.js`, `js/pages/plan.js`, pure numbers in `js/progress-data.js`, SVG charts in `js/charts.js` (no library), display units in `js/units.js`. Fuel and Learn content lives in `js/plan.js` under `food` and `learn`. Tests: `tests/progress.test.js`; browser check at 360, 390 and desktop: `npm run check:pages`.
+
+- **Storage v3.** Adds `body.weight`, Settings fields (`sportName`, `units`, `vibrate`) and the rest of the old app's logs (bodyweight, 5K time trials, ladder, broad jumps, waist, play days). On first load the old text is copied to `uptime-backup-v1` or `-v2`, then the migrated record is saved. Unknown fields are always kept.
+- **Progress**: streak (with best), rolling-week strip of the last 8 seven-day blocks (green = reached Minimum), top set per session for each main lift, pull-up max (strict pull-ups only), 5K-equivalent from typed time lines and old time trials, and weekly average bodyweight with a one-field log for today (Undo). Every chart has a tap/hover/arrow-key readout and a hidden table for screen readers.
+- **Plan › Modes**: Busy mode switch (Undo) and the rotation. **Fuel**: protein target from the latest bodyweight (1.6–2 g/kg), six rules for a small deficit, protein per serving (All / Veg / Non-veg), plate templates for home, mess, breakfast, after training and snacks, and checks for whether it's working. No tracking. **Learn**: rotation, double progression, Short version and Busy mode, deloads, form cues (main-lift cues come from `exercises`), Fit not bulky.
+- **Settings**: sport name (shown in Log something else; stored as `basketball` so old logs match), usually-busy weekdays, kg/lb, sound, vibration, export/import JSON, reset settings / clear bodyweight / erase everything. Imports and resets keep a copy first and offer Undo, plus a "Restore that copy" line that survives a reload.
+
+Decided under the standing rule:
+
+- Lift trend = heaviest set of each session (with its reps), because that's what the user sees on the bar; no estimated 1RM.
+- Bodyweight chart is grey, not green: a weight change isn't automatically progress.
+- Weekday chips go to two rows under 440 px so each stays ≥ 48 px.
+- "Erase everything" uses Undo and a kept copy, not a confirm dialog.
+
 ## Built: Home (26 Nov 2026)
 
 `index.html` is Home: the **Rotation Dial** (approved concept A, with concept B's kinetic type for the session name). The rotation is an arc of segments (UA → LA → UB → LB, or Busy mode's FB1–3): done this cycle in green, today's lit off-white with a marker, the rest quiet. A thin outer ring is the rolling 7 days (6 ticks). The session name sits inside the arc in big condensed type. Above the card: the week tile (count, level, what the next level needs, streak) and the standout stat. Under the dial: one note when relevant, the quiet run/sport line, **Start**, **Log something else**. Bottom tabs: Home, Progress (`progress.html`), Plan (`plan.html`).

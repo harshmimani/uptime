@@ -187,7 +187,7 @@ test("store: migrates old uptime1 strength sets once, never writes uptime1", () 
   assert.deepEqual(h[0].sets.map((s) => s.reps), [8, 7]);
   assert.equal(store.save().ok, true);
   assert.equal(st.map.get(LEGACY_KEY), JSON.stringify(old));
-  assert.equal(JSON.parse(st.map.get(KEY)).v, 2);
+  assert.equal(JSON.parse(st.map.get(KEY)).v, 3);
 });
 
 test("store: a failed write is reported, not swallowed; unreadable data is never overwritten", () => {
