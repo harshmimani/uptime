@@ -1,8 +1,33 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Uptime</title>
-<meta http-equiv="refresh" content="0; url=./">
-<script>location.replace("./")</script>
-<style>html{background:#0C0E10;color:#ddd;font:16px system-ui,sans-serif}a{color:#fff}</style>
-</head><body><p><a href="./">Open Uptime</a></p></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B0D0C" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#EEF1EF" media="(prefers-color-scheme: light)">
+<meta name="color-scheme" content="dark light">
+<script>try{var t=localStorage.getItem("uptime-theme");if(t==="light"||t==="dark"){document.documentElement.dataset.theme=t;document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.content=t==="light"?"#EEF1EF":"#0B0D0C"})}}catch(e){}</script>
+<meta name="description" content="Uptime workout: check in, log each set in one tap, rest timer, swaps and a finish summary.">
+<title>Uptime Workout</title>
+<style>@view-transition { navigation: auto; }</style>
+<link rel="preload" href="assets/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="modulepreload" href="js/workout/app.js">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/workout.css">
+<link rel="stylesheet" href="css/pages.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Uptime">
+</head>
+<body>
+<div id="app"></div>
+<div id="live" class="sr-only" aria-live="polite"></div>
+<noscript><p style="padding:16px">Uptime needs JavaScript to log your sets.</p></noscript>
+<script type="module" src="js/workout/app.js" blocking="render"></script>
+</body>
+</html>

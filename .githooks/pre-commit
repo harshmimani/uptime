@@ -1,0 +1,31 @@
+#!/bin/sh
+# pre-commit hook: stamps the service worker's VERSION (sw.js) from the content of every
+# app file being committed, so each change to the app ships as a new, complete offline
+# version and phones show "New version, tap to refresh". Nobody has to remember a bump.
+#
+# The version is a hash of the staged app files (pages, manifest, css/, js/, assets/) plus
+# sw.js without its VERSION line. Docs and tests don't count: they aren't part of the app.
+# Enabled per clone with:  git config core.hooksPath .githooks
+# Plain POSIX sh + git, so it runs in Git for Windows, GitHub Desktop, macOS and Linux.
+
+git cat-file -e :sw.js 2>/dev/null || exit 0
+
+version=$(
+  {
+    git ls-files -s -- '*.html' manifest.webmanifest css js assets ':(exclude)docs' ':(exclude)tests'
+    git show :sw.js | grep -v '^const VERSION = '
+  } | git hash-object --stdin | cut -c1-12
+)
+
+current=$(git show :sw.js | sed -n 's/^const VERSION = "\(.*\)";.*/\1/p')
+[ "$current" = "$version" ] && exit 0
+
+# Stamp the staged copy (so a partly staged sw.js keeps its unstaged edits out of the commit)
+blob=$(git show :sw.js | sed "s/^const VERSION = \".*\";/const VERSION = \"$version\";/" | git hash-object -w --stdin) || exit 1
+git update-index --cacheinfo "100644,$blob,sw.js" || exit 1
+
+# and the working copy, so it matches what was committed
+if [ -f sw.js ]; then
+  sed "s/^const VERSION = \".*\";/const VERSION = \"$version\";/" sw.js > sw.js.stamp-tmp && mv sw.js.stamp-tmp sw.js
+fi
+exit 0

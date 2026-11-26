@@ -1,0 +1,259 @@
+/* Home: the Rotation Dial, the week and the standout stat, plus the bottom tab bar.
+   Built only from css/tokens.css. Motion is transform and opacity only.
+   The intro runs under .is-intro (first open of the day); .is-advance plays only the
+   "rotation moves on" part. Without either class nothing on this page animates. */
+
+html, body { min-height: 100%; }
+[hidden] { display: none !important; }
+body { overscroll-behavior-y: none; }
+.row { display: flex; gap: var(--sp-2); align-items: center; }
+.green { color: var(--c-green); }
+.disclaimer { margin: 0; font-size: var(--fs-label); color: var(--c-text-3); }
+
+/* Cross-document view transitions: Home ↔ Workout ↔ the other tabs (css/workout.css opts in too). */
+@view-transition { navigation: auto; }
+
+/* ---------------------------------------------------------------- page */
+:root { --tab-h: 64px; }
+.home {
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  min-height: 100vh; min-height: 100dvh; max-width: 480px; margin: 0 auto;
+  padding: calc(var(--sp-3) + env(safe-area-inset-top)) max(var(--sp-4), env(safe-area-inset-right))
+    calc(var(--tab-h) + var(--sp-3) + env(safe-area-inset-bottom)) max(var(--sp-4), env(safe-area-inset-left));
+}
+.hm-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); min-height: 28px; }
+.hm-greet { font-size: var(--fs-small); color: var(--c-text-2); font-weight: var(--fw-medium); }
+
+.hm-banner { align-items: center; justify-content: space-between; padding-block: var(--sp-1); gap: var(--sp-2); }
+.hm-banner > span:first-child { padding-block: var(--sp-2); }
+.hm-banner .row { gap: 0; flex: none; }
+.hm-banner__act { color: var(--c-text); font-weight: var(--fw-bold); }
+.hm-nudge { grid-column: 1 / -1; }
+
+/* ---------------------------------------------------------------- glance tiles: week + stat */
+.hm-glance { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+.tile {
+  position: relative; display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0;
+  padding: var(--sp-3) var(--sp-4) var(--sp-4); border-radius: var(--r-lg);
+  background: var(--c-surface-1); box-shadow: var(--elev-1);
+}
+.tile__big { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: var(--sp-2); margin-top: 2px; }
+.tile__num { font-size: 2.5rem; font-weight: var(--fw-black); font-stretch: var(--fstretch-display); letter-spacing: var(--tracking-display); line-height: 1; }
+.tile__of { font-size: var(--fs-small); color: var(--c-text-2); font-weight: var(--fw-semibold); margin-left: -4px; }
+.tile__note { margin: 0; font-size: var(--fs-small); line-height: var(--lh-snug); color: var(--c-text-2);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.pill {
+  align-self: center; font-size: var(--fs-label); font-weight: var(--fw-bold); letter-spacing: .02em;
+  color: var(--c-green); padding: 2px 8px; border-radius: var(--r-pill); box-shadow: inset 0 0 0 1.5px var(--c-green-deep);
+}
+.streak { margin: auto 0 0; padding-top: var(--sp-1); font-size: var(--fs-small); font-weight: var(--fw-semibold); color: var(--c-text-3); }
+.streak--on { color: var(--c-green); }
+.tile__art { width: 100%; height: 28px; margin: var(--sp-1) 0; }
+.tile__art path { fill: none; stroke: var(--c-line-strong); stroke-width: 1.5; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
+.tile__art circle { fill: var(--c-text-3); }
+.ladder { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; margin: var(--sp-1) 0 2px; }
+.ladder i { height: 6px; border-radius: 2px; background: var(--c-surface-3); }
+.ladder i.on { background: var(--c-green); }
+
+/* ---------------------------------------------------------------- the Rotation Dial card */
+.dial-card {
+  position: relative; isolation: isolate; overflow: hidden; flex: 1 0 auto;
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-4) var(--sp-3); border-radius: var(--r-xl);
+  background: var(--c-surface-2); box-shadow: var(--elev-3);
+  view-transition-name: card;
+}
+.dial-card .next__glow { right: -60%; top: -70%; }
+.dial {
+  position: relative; container-type: inline-size;
+  width: min(100%, 360px, calc((100dvh - 500px) * 1.333)); min-width: min(100%, 236px); margin: 0 auto;
+}
+.dial__svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+/* rotation segments: done = green (progress), current = off-white (the action), upcoming = quiet */
+.dial__seg { fill: none; stroke-width: 11; stroke-linecap: round; }
+.dial__seg--upcoming { stroke: var(--c-surface-3); }
+.dial__seg--current { stroke: var(--c-text); }
+.dial__seg--done { stroke: var(--c-green); }
+.dial__code { font: var(--fw-bold) 11px/1 var(--font-sans); letter-spacing: .08em; text-anchor: middle; dominant-baseline: central; fill: var(--c-text-3); }
+.dial__code--current { fill: var(--c-text); }
+.dial__code--done { fill: var(--c-green); }
+/* rolling 7 days: six thin ticks round the outside */
+.dial__wk { fill: none; stroke: var(--c-line); stroke-width: 3.5; stroke-linecap: round; }
+.dial__wk--on { stroke: var(--c-green); }
+/* the marker sits on today's segment; drawn at 0° and turned into place */
+.dial__marker { transform-box: view-box; transform-origin: 160px 160px; transform: rotate(var(--a)); }
+.dial__dot { fill: var(--c-bg); stroke: var(--c-text); stroke-width: 3; }
+.dial__halo { fill: var(--c-text); opacity: .1; }
+
+.dial__center {
+  position: absolute; inset: 33% 14% 30%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: var(--sp-1); pointer-events: none;
+}
+.dial__label { color: var(--c-text-2); text-align: center; position: relative; }
+.dial__name {
+  margin: 0; max-width: 100%; white-space: nowrap;
+  font-size: clamp(2rem, calc(98cqi / var(--len)), 5rem);
+  letter-spacing: var(--tracking-display); line-height: .95;
+}
+.dial__name:focus { outline: none; }
+.dial__meta { margin: 0; font-size: var(--fs-small); line-height: var(--lh-snug); color: var(--c-text-2); max-width: 100%; text-wrap: balance; }
+
+.dial-card__foot { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: auto; }
+.dial-card__note { margin: 0 0 var(--sp-1); font-size: var(--fs-small); color: var(--c-text-2); text-align: center; text-wrap: balance; }
+.hm-start { margin-top: var(--sp-1); view-transition-name: cta; text-decoration: none; }
+.hm-other { align-self: center; text-decoration: none; }
+
+/* the quiet run/sport line: floats are done any day they fit */
+.float {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: var(--hit-min);
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4); border-radius: var(--r-md);
+  color: var(--c-text-2); text-decoration: none; background: var(--c-surface-1); box-shadow: inset 0 0 0 1px var(--c-line);
+  transition: transform var(--dur-instant) var(--ease-out);
+}
+.float:active { transform: scale(calc(1 - .02 * var(--motion-distance))); }
+.float__text { display: grid; font-size: var(--fs-small); line-height: var(--lh-snug); min-width: 0; }
+.float__lead { color: var(--c-text-3); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: var(--tracking-label); font-weight: var(--fw-semibold); }
+.float__name { color: var(--c-text); font-weight: var(--fw-semibold); }
+.float__detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ico { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* toasts sit above the tab bar */
+.toast-slot { position: fixed; left: 0; right: 0; bottom: calc(var(--tab-h) + var(--sp-3) + env(safe-area-inset-bottom)); z-index: 6;
+  display: grid; padding: 0 var(--sp-4); max-width: 480px; margin: 0 auto; pointer-events: none; }
+.toast-slot .toast { pointer-events: auto; }
+
+/* ---------------------------------------------------------------- bottom tabs
+   The tab bar itself is the shared one (js/nav.js, css/pages.css). Home pins it to the
+   bottom of the screen because the page is wider than one column on desktop. */
+.tabbar { position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; view-transition-name: tabbar; }
+.tabbar .tabs { position: static; margin: 0 auto; max-width: 480px; view-transition-name: none; }
+
+/* ---------------------------------------------------------------- short phones: keep Start on the first screen */
+@media (max-height: 700px) {
+  .home { gap: var(--sp-2); }
+  .tile { padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+  .tile__num { font-size: 2rem; }
+  .tile--stat:not(.tile--empty) .tile__note, .tile--week .tile__note { display: none; }
+  .tile--empty .tile__art { display: none; } /* on a short screen the words matter more than the art */
+  .dial { width: min(100%, 250px); min-width: 0; }
+  .dial-card { padding-top: var(--sp-3); gap: var(--sp-1); }
+  .dial-card__note { margin: 0; }
+  .float { min-height: var(--hit-min); padding-block: var(--sp-1); }
+  .float__detail { display: none; }
+}
+
+/* ---------------------------------------------------------------- desktop: the dial gets the stage */
+@media (min-width: 960px) {
+  .home {
+    max-width: 1080px; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr);
+    grid-template-rows: auto auto 1fr auto; column-gap: var(--sp-7); row-gap: var(--sp-4);
+    padding-top: var(--sp-9); padding-bottom: calc(var(--tab-h) + var(--sp-8));
+    min-height: auto;
+  }
+  .hm-head { grid-column: 1 / -1; }
+  .home > .notice { grid-column: 1 / -1; }
+  .dial-card { grid-column: 1; grid-row: 2 / span 3; padding: var(--sp-7) var(--sp-8) var(--sp-6); min-height: 560px; }
+  .dial { width: min(100%, 460px); }
+  .dial-card__foot { width: min(100%, 420px); margin-inline: auto; }
+  .hm-glance { grid-column: 2; grid-row: 2; grid-template-columns: 1fr; align-content: start; }
+  .tile { padding: var(--sp-5); }
+  .tile__num { font-size: var(--fs-num); }
+  .disclaimer { grid-column: 2; grid-row: 4; align-self: end; }
+}
+
+/* ================================================================= intro: first open of the day
+   Order: the frame rises in, the dial's segments light one by one, the marker sweeps to
+   today's session, the name sets itself, numbers count up. About 1.1 s in all.
+   Start is never part of it: it's tappable, still and opaque from the first frame. */
+.is-intro .hm-head, .is-intro .tile, .is-intro .hm-banner, .is-intro .dial__label, .is-intro .dial__meta,
+.is-intro .dial-card__note, .is-intro .float, .is-intro .hm-other {
+  animation: hm-rise var(--dur-hero) var(--ease-emphasized) both;
+}
+.is-intro .hm-head { animation-delay: 0ms; }
+.is-intro .tile:nth-child(1), .is-intro .hm-banner { animation-delay: 60ms; }
+.is-intro .tile:nth-child(2) { animation-delay: 120ms; }
+.is-intro .tile:nth-child(3) { animation-delay: 180ms; }
+.is-intro .dial__label { animation-delay: 200ms; }
+.is-intro .dial__meta { animation-delay: 520ms; }
+.is-intro .dial-card__note, .is-intro .float, .is-intro .hm-other { animation-delay: 380ms; }
+@keyframes hm-rise { from { opacity: 0; transform: translateY(calc(14px * var(--motion-distance))); } }
+
+.is-intro .dial-card { animation: hm-card var(--dur-hero) var(--ease-emphasized) 80ms both; }
+@keyframes hm-card { from { transform: translateY(calc(24px * var(--motion-distance))) scale(calc(1 - .02 * var(--motion-distance))); } }
+
+.is-intro .dial__seg, .is-intro .dial__code {
+  transform-box: view-box; transform-origin: 160px 160px;
+  animation: hm-seg var(--dur-slow) var(--ease-spring) both; animation-delay: calc(180ms + var(--i, 0) * 70ms);
+}
+.is-intro .dial__code { animation-name: hm-fade; animation-delay: calc(260ms + var(--i, 0) * 70ms); }
+@keyframes hm-seg { from { opacity: 0; transform: scale(calc(1 - .08 * var(--motion-distance))); } }
+@keyframes hm-fade { from { opacity: 0; } }
+.is-intro .dial__wk { animation: hm-fade var(--dur-slow) var(--ease-out) both; animation-delay: calc(420ms + var(--i, 0) * 50ms); }
+
+.is-intro .dial__marker, .is-advance .dial__marker {
+  animation: hm-marker var(--dur-hero) var(--ease-emphasized) both; animation-delay: 300ms;
+}
+.is-advance .dial__marker { animation-delay: 120ms; }
+@keyframes hm-marker { from { transform: rotate(var(--from)); } }
+.is-intro .dial__halo, .is-advance .dial__halo { animation: hm-halo 900ms var(--ease-out) 820ms both; transform-box: fill-box; transform-origin: center; }
+.is-advance .dial__halo { animation-delay: 640ms; }
+@keyframes hm-halo { 0% { opacity: 0; transform: scale(.6); } 40% { opacity: .28; } 100% { opacity: .1; transform: scale(1); } }
+.is-advance .dial__seg--current { animation: hm-fade var(--dur-slow) var(--ease-out) 500ms both; }
+.is-advance .dial__seg--done { animation: hm-fade var(--dur-slow) var(--ease-out) 160ms both; }
+
+/* the kinetic session name (concept B inside A): letters arrive narrow and widen into place */
+.dial__name.kt--stretch.play .ch {
+  animation: ch-stretch var(--dur-hero) var(--ease-emphasized) both;
+  animation-delay: calc(360ms + var(--i) * var(--stagger) * 1.4);
+  transform-origin: 50% 100%;
+}
+.is-advance .dial__name.kt--stretch.play .ch { animation-delay: calc(260ms + var(--i) * var(--stagger) * 1.4); }
+@keyframes ch-stretch {
+  from {
+    opacity: 0;
+    transform: translateY(calc(.28em * var(--motion-distance))) scaleX(calc(1 - .62 * var(--motion-distance))) scaleY(calc(1 + .12 * var(--motion-distance)));
+  }
+  60% { opacity: 1; }
+}
+.is-intro .ladder i.on { animation: hm-seg var(--dur-slow) var(--ease-spring) both; animation-delay: calc(500ms + var(--i) * 45ms); }
+
+/* fallback lift while the Workout page loads, where view transitions aren't supported */
+.is-leaving { transition: transform var(--dur-base) var(--ease-emphasized), opacity var(--dur-base) var(--ease-out); transform: scale(1.03); opacity: .6; }
+
+/* ================================================================= the morph (shared with css/workout.css)
+   The card grows into the Workout screen; Start becomes the check-in buttons; the tabs
+   drop away. Everything else cross-fades. */
+.vt-off { view-transition-name: none !important; }
+.vt-take { view-transition-name: card; }
+.float.vt-take, a.vt-take { view-transition-name: card; }
+::view-transition-group(card) { animation-duration: var(--dur-hero); animation-timing-function: var(--ease-emphasized); }
+::view-transition-image-pair(card) { border-radius: var(--r-xl); overflow: hidden; animation: vt-corner var(--dur-hero) var(--ease-emphasized) both; }
+@keyframes vt-corner { to { border-radius: 0; } }
+::view-transition-old(card) { animation: vt-out calc(var(--dur-hero) * .5) var(--ease-out) both; }
+::view-transition-new(card) { animation: vt-in var(--dur-hero) var(--ease-out) both; }
+::view-transition-group(cta) { animation-duration: var(--dur-hero); animation-timing-function: var(--ease-emphasized); }
+::view-transition-old(tabbar):only-child { animation: vt-drop var(--dur-base) var(--ease-in) both; }
+::view-transition-new(tabbar):only-child { animation: vt-rise var(--dur-slow) var(--ease-emphasized) 80ms both; }
+::view-transition-old(root) { animation: vt-out var(--dur-base) var(--ease-out) both; }
+::view-transition-new(root) { animation: vt-in var(--dur-slow) var(--ease-out) 60ms both; }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; } }
+@keyframes vt-drop { to { transform: translateY(100%); opacity: 0; } }
+@keyframes vt-rise { from { transform: translateY(100%); opacity: 0; } }
+
+/* ================================================================= reduced motion
+   Calm, still finished: nothing travels or scales. Elements cross-fade in once (first open of
+   the day), the marker is simply there, and the page change is a short cross-fade. */
+@media (prefers-reduced-motion: reduce) {
+  .grain, .next__glow { animation: none !important; }
+  .is-intro .dial-card { animation: none; }
+  .is-intro .dial__seg, .is-intro .dial__code, .is-intro .dial__wk, .is-intro .ladder i.on { animation-name: hm-fade; animation-duration: var(--dur-hero); animation-delay: 80ms; }
+  .is-intro .dial__marker, .is-advance .dial__marker { animation: hm-fade var(--dur-hero) var(--ease-out) 120ms both; }
+  .is-intro .dial__halo, .is-advance .dial__halo { animation: none; }
+  .dial__name.kt--stretch.play .ch, .is-advance .dial__name.kt--stretch.play .ch { animation: hm-fade var(--dur-hero) var(--ease-out) 120ms both; }
+  .is-leaving { transform: none; opacity: 1; }
+  .dial-card, .hm-start, .tabbar, .vt-take, .float.vt-take, a.vt-take { view-transition-name: none !important; }
+  ::view-transition-old(root) { animation: vt-out 200ms linear both; }
+  ::view-transition-new(root) { animation: vt-in 200ms linear both; }
+}

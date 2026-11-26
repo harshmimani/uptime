@@ -1,55 +1,69 @@
-/* Uptime service worker: the app keeps working with no signal at the gym or track.
-   The page is fetched from the network first so updates arrive straight away,
-   with the cached copy as the fallback. Static assets are served from the cache.
+/* Uptime service worker: the whole app works with no signal at the gym or track, and
+   opens instantly on repeat visits.
 
-   Rolling back from the redesign: phones that loaded the redesign have its worker and
-   its cache ("uptime-<hash>"). This worker installs over it straight away, deletes every
-   other cache, and reloads any open window so nothing keeps running the redesign. */
-const CACHE = "uptime-v5";
-const ASSETS = ["./", "index.html", "manifest.webmanifest", "assets/archivo.woff2",
-  "assets/icon-192.png", "assets/icon-512.png", "assets/icon-maskable.png", "assets/apple-touch-icon.png"];
+   Clean updates
+   - Every release is one complete, versioned cache. A new version downloads in the
+     background into its own cache; the running app keeps using the old one untouched, so
+     a page never mixes old HTML with new scripts.
+   - The new version waits. Each page shows a small "New version, tap to refresh" prompt
+     (js/sw-client.js), never during a workout; a tap activates it and reloads. If the
+     prompt is ignored, the new version starts the next time the app is fully closed.
+   - VERSION is stamped by .githooks/pre-commit from the content of every app file, so any
+     change to the app produces a new version without anyone remembering to bump it.
+   - Install fails as a whole if any file is missing, so a half-cached version never goes
+     live (tests/sw.test.js checks every file below exists and nothing is left out).
 
-// Both "reload" (install) and "no-cache" (pages) skip the browser's HTTP cache (GitHub
-// Pages sends max-age=600), so a stale copy of the redesign can never be served or cached.
-const isApp = url => /\/(index\.html)?$/.test(new URL(url).pathname);
-// Passing the request itself keeps its redirect mode, so a redirect still reaches the browser.
-const fresh = req => fetch(req, { cache: "no-cache" });
+   Pages are cached by path (no query), so workout.html?start=lift reuses workout.html.
+   The desktop-only light effect is left out on purpose: phones must never download it. */
+const VERSION = "1038fa638a72";
+const CACHE = `uptime-${VERSION}`;
+const ASSETS = [
+  "./", "index.html", "workout.html", "progress.html", "plan.html", "manifest.webmanifest",
+  "css/tokens.css", "css/components.css", "css/home.css", "css/workout.css", "css/pages.css",
+  "js/plan.js", "js/engine.js", "js/store.js", "js/motion.js", "js/sw-client.js",
+  "js/units.js", "js/nav.js", "js/charts.js", "js/progress-data.js", "js/muscles.js", "js/theme.js",
+  "js/home/app.js", "js/home/model.js", "js/pages/progress.js", "js/pages/plan.js",
+  "js/workout/app.js", "js/workout/model.js", "js/workout/run.js", "js/workout/feedback.js",
+  "assets/archivo.woff2", "assets/keep-awake.mp4",
+  "assets/icon-192.png", "assets/icon-512.png", "assets/icon-maskable.png", "assets/apple-touch-icon.png",
+  "assets/favicon.svg",
+];
 
-self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE)
-    .then(c => c.addAll(ASSETS.map(a => new Request(a, { cache: "reload" }))))
-    .then(() => self.skipWaiting()));
+self.addEventListener("install", (e) => {
+  // cache: "reload" skips the browser's HTTP cache (GitHub Pages sends max-age=600), so a
+  // new version never picks up a stale copy of a file.
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS.map((a) => new Request(a, { cache: "reload" }))))
+    // Taking over from the pre-redesign worker (caches "uptime-v1".."uptime-v3"): it had no
+    // update prompt to wait for, and the page is already the new one, so switch silently.
+    .then(() => caches.keys())
+    .then((keys) => { if (keys.some((k) => /^uptime-v\d+$/.test(k))) self.skipWaiting(); }));
 });
 
-self.addEventListener("activate", e => {
+// The page asks for this when the user taps the update prompt.
+self.addEventListener("message", (e) => {
+  if (e.data === "skip-waiting") self.skipWaiting();
+});
+
+self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys()
-    .then(async keys => {
-      // Any other "uptime-" cache that isn't "uptime-vN" belongs to the redesign.
-      const fromRedesign = keys.some(k => k.startsWith("uptime-") && !/^uptime-v\d+$/.test(k));
-      await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
-      await self.clients.claim();
-      if (!fromRedesign) return;
-      // Not awaited: the reload goes through this worker, which must finish activating first.
-      const wins = await self.clients.matchAll({ type: "window" });
-      wins.forEach(w => w.navigate(new URL("./", self.registration.scope).href).catch(() => {}));
-    }));
+    .then((keys) => Promise.all(keys.filter((k) => k.startsWith("uptime") && k !== CACHE).map((k) => caches.delete(k))))
+    .then(() => self.clients.claim()));
 });
 
-self.addEventListener("fetch", e => {
+self.addEventListener("fetch", (e) => {
   const req = e.request;
-  if (req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
+  const url = new URL(req.url);
+  if (req.method !== "GET" || url.origin !== location.origin) return;
   if (req.mode === "navigate") {
-    e.respondWith(fresh(req)
-      .then(res => {
-        // Only the app page itself replaces the offline copy, never a 404 or another page.
-        if (res.ok && isApp(req.url)) { const copy = res.clone(); caches.open(CACHE).then(c => c.put("index.html", copy)); }
-        return res;
-      })
-      .catch(() => caches.match("index.html")));
+    e.respondWith((async () => {
+      const c = await caches.open(CACHE);
+      const hit = await c.match(url.origin + url.pathname, { ignoreSearch: true });
+      if (hit) return hit;
+      try { return await fetch(req); } catch { return (await c.match("index.html")) || Response.error(); }
+    })());
     return;
   }
-  e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
-    if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
-    return res;
-  })));
+  // App files: from this version's cache. Anything else (docs, a file not in the app):
+  // the network, with the cache as a fallback.
+  e.respondWith(caches.open(CACHE).then(async (c) => (await c.match(req, { ignoreSearch: true })) || fetch(req)));
 });

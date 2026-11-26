@@ -1,0 +1,337 @@
+/* Uptime components, built only from css/tokens.css.
+   Motion uses transform and opacity only, so it stays on the compositor on a mid-range phone.
+   Forced-state classes (.is-hover, .is-focus, .is-active, .is-disabled) exist so the style
+   preview can show every state side by side; the app uses the real pseudo-classes. */
+
+/* ---------------------------------------------------------------- base */
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font: var(--fw-regular) var(--fs-body)/var(--lh-body) var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; }
+:focus-visible, .is-focus { outline: 2px solid var(--c-focus); outline-offset: 3px; }
+
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.label {
+  font-size: var(--fs-label); font-weight: var(--fw-semibold); text-transform: uppercase;
+  letter-spacing: var(--tracking-label); color: var(--c-text-3);
+}
+.meta { font-size: var(--fs-small); color: var(--c-text-2); }
+.display {
+  font-weight: var(--fw-black); font-stretch: var(--fstretch-display);
+  letter-spacing: var(--tracking-display); line-height: var(--lh-tight);
+}
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ---------------------------------------------------------------- buttons */
+.btn {
+  --btn-bg: transparent; --btn-ink: var(--c-text); --btn-edge: transparent; --btn-wash: var(--c-text);
+  position: relative; isolation: isolate; overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  min-height: var(--hit-min); min-width: var(--hit-min); padding: 0 var(--sp-5);
+  border: 1.5px solid var(--btn-edge); border-radius: var(--r-md);
+  background: var(--btn-bg); color: var(--btn-ink);
+  font-size: var(--fs-body); font-weight: var(--fw-semibold); letter-spacing: -.005em;
+  cursor: pointer; user-select: none; touch-action: manipulation;
+  transition: transform var(--dur-instant) var(--ease-out);
+}
+/* hover/press wash: an overlay whose opacity changes, never a repaint of the fill */
+.btn::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  background: var(--btn-wash); opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) { .btn:hover::after { opacity: .06; } }
+.btn.is-hover::after { opacity: .06; }
+.btn:active, .btn.is-active { transform: scale(calc(1 - .03 * var(--motion-distance))); }
+.btn:active::after, .btn.is-active::after { opacity: .12; transition-duration: var(--dur-instant); }
+
+.btn--primary {
+  --btn-bg: var(--c-action); --btn-ink: var(--c-on-action); --btn-wash: var(--c-on-action);
+  width: 100%; min-height: var(--hit-primary); font-size: var(--fs-lead); font-weight: var(--fw-bold);
+  border-radius: var(--r-lg);
+}
+.btn--secondary { --btn-edge: var(--c-line-strong); }
+.btn--text {
+  min-width: 0; padding: 0 var(--sp-2); font-weight: var(--fw-medium); color: var(--c-text-2); white-space: nowrap;
+  text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1.5px;
+}
+.btn--text:active, .btn--text.is-active { transform: none; }
+.btn--wide { width: 100%; }
+
+/* disabled: WCAG exempts inactive controls, but it should still be readable */
+.btn:disabled, .btn.is-disabled { cursor: not-allowed; transform: none; }
+.btn:disabled::after, .btn.is-disabled::after { opacity: 0; }
+.btn--primary:disabled, .btn--primary.is-disabled { --btn-bg: var(--c-surface-3); --btn-ink: var(--c-text-3); }
+.btn--secondary:disabled, .btn--secondary.is-disabled { --btn-edge: var(--c-line); --btn-ink: var(--c-text-3); }
+.btn--text:disabled, .btn--text.is-disabled { color: var(--c-text-3); text-decoration: none; }
+
+/* loading: label stays for screen readers, a spinner replaces it visually */
+.btn .btn__label { transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.btn .spinner {
+  position: absolute; width: 22px; height: 22px; border-radius: 50%;
+  border: 2.5px solid currentColor; border-right-color: transparent; opacity: 0;
+}
+.btn.is-loading { cursor: progress; }
+.btn.is-loading .btn__label { opacity: 0; }
+.btn.is-loading .spinner { opacity: 1; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { .btn.is-loading .spinner { animation-duration: 2s; } }
+
+/* done: a green disc grows from the tap point (default centre); the label becomes "Logged" */
+.btn .btn__done {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  color: var(--c-on-green); opacity: 0; transform: translateY(calc(8px * var(--motion-distance)));
+}
+.btn::before {
+  content: ""; position: absolute; z-index: -1; left: var(--tap-x, 50%); top: var(--tap-y, 50%);
+  width: 240%; aspect-ratio: 1; border-radius: 50%; background: var(--c-green);
+  transform: translate(-50%, -50%) scale(0); pointer-events: none;
+}
+.btn.is-done::before { transform: translate(-50%, -50%) scale(1); transition: transform var(--dur-slow) var(--ease-out); }
+.btn.is-done .btn__label { opacity: 0; transform: translateY(calc(-8px * var(--motion-distance))); }
+.btn.is-done .btn__done { opacity: 1; transform: none; transition: opacity var(--dur-base) var(--ease-out) 80ms, transform var(--dur-slow) var(--ease-spring) 80ms; }
+.btn.is-done .check { transform: scale(1) rotate(0); transition: transform var(--dur-slow) var(--ease-spring) 120ms; }
+.check { width: 22px; height: 22px; transform: scale(.4) rotate(-20deg); }
+@media (prefers-reduced-motion: reduce) {
+  .btn.is-done::before { transform: translate(-50%, -50%) scale(1); transition: none; opacity: 1; }
+}
+
+/* ---------------------------------------------------------------- switch (Busy mode) */
+.switch {
+  display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--hit-min); padding: 0 var(--sp-3) 0 var(--sp-2);
+  border: 1.5px solid var(--c-line-strong); border-radius: var(--r-pill); background: transparent;
+  color: var(--c-text-2); font-size: var(--fs-small); font-weight: var(--fw-semibold); cursor: pointer;
+}
+.switch__track { position: relative; width: 36px; height: 22px; border-radius: var(--r-pill); background: var(--c-surface-3); border: 1.5px solid var(--c-line-strong); }
+.switch__knob {
+  position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: var(--c-text-2);
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+.switch[aria-checked="true"] { color: var(--c-text); border-color: var(--c-text-2); }
+.switch[aria-checked="true"] .switch__track { background: var(--c-text); border-color: var(--c-text); }
+.switch[aria-checked="true"] .switch__knob { background: var(--c-bg); transform: translateX(14px); }
+
+/* ---------------------------------------------------------------- reps chips */
+.chips { display: flex; gap: var(--sp-2); }
+.chip {
+  position: relative; flex: 1; min-height: var(--hit-key); min-width: var(--hit-min);
+  border: 1.5px solid var(--c-line-strong); border-radius: var(--r-sm); background: transparent;
+  color: var(--c-text-2); font-size: var(--fs-lead); font-weight: var(--fw-bold); cursor: pointer;
+  transition: transform var(--dur-instant) var(--ease-out);
+}
+.chip:active { transform: scale(calc(1 - .05 * var(--motion-distance))); }
+.chip[aria-pressed="true"], .chip[aria-current="page"] { background: var(--c-text); border-color: var(--c-text); color: var(--c-bg); }
+
+/* ---------------------------------------------------------------- kg stepper */
+.stepper { display: grid; grid-template-columns: var(--hit-key) 1fr var(--hit-key); gap: var(--sp-2); align-items: center; }
+.stepper__key {
+  min-height: var(--hit-key); border-radius: var(--r-md); border: 0; background: var(--c-surface-3); color: var(--c-text);
+  font-size: 28px; line-height: 1; cursor: pointer; transition: transform var(--dur-instant) var(--ease-out);
+}
+.stepper__key:active { transform: scale(calc(1 - .06 * var(--motion-distance))); }
+.stepper__value { text-align: center; overflow: hidden; }
+.stepper__num { display: inline-block; font-size: var(--fs-num); line-height: var(--lh-tight); }
+.stepper__unit { display: block; font-size: var(--fs-small); color: var(--c-text-2); margin-top: 2px; }
+.stepper__num.up { animation: tick-up var(--dur-fast) var(--ease-out); }
+.stepper__num.down { animation: tick-down var(--dur-fast) var(--ease-out); }
+@keyframes tick-up { from { transform: translateY(calc(40% * var(--motion-distance))); opacity: 0; } }
+@keyframes tick-down { from { transform: translateY(calc(-40% * var(--motion-distance))); opacity: 0; } }
+
+/* ---------------------------------------------------------------- exercise progress segments */
+.segs { display: flex; gap: 3px; }
+.segs i { position: relative; flex: 1; height: 4px; border-radius: 2px; background: var(--c-surface-3); overflow: hidden; }
+.segs i::after {
+  content: ""; position: absolute; inset: 0; background: var(--c-green); transform: scaleX(0); transform-origin: left;
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+.segs i.cur::after { background: var(--c-text-2); transform: scaleX(var(--fill, 0)); }
+.segs i.done::after { background: var(--c-green); transform: scaleX(1); }
+
+/* ---------------------------------------------------------------- logged set rows */
+.logged { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.logged li {
+  display: flex; justify-content: space-between; align-items: center; padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--c-line); font-size: var(--fs-body); color: var(--c-text-2);
+}
+.logged li b { color: var(--c-text); font-weight: var(--fw-semibold); }
+.logged .tick { color: var(--c-green); font-weight: var(--fw-bold); }
+.logged li.enter { animation: row-in var(--dur-slow) var(--ease-emphasized) both; }
+@keyframes row-in {
+  from { opacity: 0; transform: translateY(calc(-12px * var(--motion-distance))) scale(calc(1 - .02 * var(--motion-distance))); }
+}
+
+/* ---------------------------------------------------------------- toast (undo, never a dialog) */
+.toast {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  min-height: var(--hit-min); padding: 0 var(--sp-2) 0 var(--sp-4); border-radius: var(--r-md);
+  background: var(--c-toast); color: var(--c-text); font-size: var(--fs-small);
+  box-shadow: var(--elev-3); backdrop-filter: blur(var(--blur-glass)); -webkit-backdrop-filter: blur(var(--blur-glass));
+}
+.toast .btn--text { color: var(--c-text); font-weight: var(--fw-bold); }
+.toast.enter { animation: toast-in var(--dur-base) var(--ease-emphasized) both; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(calc(16px * var(--motion-distance))); } }
+
+/* ---------------------------------------------------------------- notices */
+.notice {
+  display: flex; gap: var(--sp-3); align-items: flex-start; padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md); background: var(--c-surface-2); color: var(--c-text-2); font-size: var(--fs-small);
+}
+.notice b { color: var(--c-text); }
+.notice--warn { background: var(--c-warn-surface); color: var(--c-text); box-shadow: inset 3px 0 0 var(--c-warn); }
+.notice--warn b { color: var(--c-warn); }
+.notice--done { box-shadow: inset 3px 0 0 var(--c-green); }
+.notice--done b { color: var(--c-green); }
+
+/* ---------------------------------------------------------------- surfaces */
+.surface { background: var(--c-surface-1); border-radius: var(--r-lg); box-shadow: var(--elev-1); }
+.surface--raised { background: var(--c-surface-2); box-shadow: var(--elev-2); }
+
+/* ---------------------------------------------------------------- grain (static texture, jittered by transform) */
+.grain { position: absolute; inset: -50%; pointer-events: none; opacity: .07; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain 1.2s steps(6) infinite; }
+@keyframes grain {
+  0% { transform: translate(0, 0); } 20% { transform: translate(-6%, 4%); } 40% { transform: translate(5%, -7%); }
+  60% { transform: translate(-3%, 8%); } 80% { transform: translate(7%, 2%); } 100% { transform: translate(0, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .grain { animation: none; } }
+
+/* ---------------------------------------------------------------- Next-up card */
+.next {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-5) var(--sp-5) var(--sp-4);
+  border-radius: var(--r-xl); background: var(--c-surface-2); box-shadow: var(--elev-3);
+}
+/* the slow green light behind the title: a big blurred disc that drifts (transform only) */
+.next__glow {
+  position: absolute; z-index: -1; width: 140%; aspect-ratio: 1; right: -70%; top: -85%; border-radius: 50%;
+  background: radial-gradient(closest-side, var(--c-green-glow), transparent 70%);
+  animation: drift 14s var(--ease-in-out) infinite alternate;
+}
+@keyframes drift {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(-18%, 10%) scale(1.12); }
+}
+@media (prefers-reduced-motion: reduce) { .next__glow { animation: none; } }
+.next__title { margin: 0; font-size: var(--fs-title); }
+.next__meta { margin: 0; }
+.next__row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-2); }
+.next .btn--primary { margin-top: var(--sp-3); }
+
+/* kinetic type: letters rise into place, staggered. Words stay whole for screen readers. */
+.kt { display: inline-block; }
+.kt .ch { display: inline-block; white-space: pre; }
+.kt.play .ch {
+  animation: ch-in var(--dur-hero) var(--ease-emphasized) both;
+  animation-delay: calc(var(--i) * var(--stagger));
+}
+@keyframes ch-in {
+  from { opacity: 0; transform: translateY(calc(.55em * var(--motion-distance))) rotate(calc(4deg * var(--motion-distance))); }
+}
+.kt.leave .ch {
+  animation: ch-out var(--dur-base) var(--ease-in) both;
+  animation-delay: calc(var(--i) * var(--stagger) * .5);
+}
+@keyframes ch-out { to { opacity: 0; transform: translateY(calc(-.45em * var(--motion-distance))); } }
+
+/* ---------------------------------------------------------------- rest timer ring
+   Two clipped halves rotate (transform only). A CSS animation whose negative delay is
+   derived from the stored end timestamp runs the whole sweep on the compositor, so the
+   ring stays right after a screen lock without a JS tick. */
+.ring {
+  --size: 232px; --stroke: 12px; --dur: 105s; --delay: 0s; --arc: var(--c-text-2);
+  position: relative; width: var(--size); aspect-ratio: 1; border-radius: 50%; margin-inline: auto;
+}
+.ring__track, .ring__fill { position: absolute; inset: 0; border-radius: 50%; }
+.ring__track { border: var(--stroke) solid var(--c-surface-3); }
+.ring__half { position: absolute; inset: 0; }
+.ring__half--r { clip-path: inset(0 0 0 50%); }
+.ring__half--l { clip-path: inset(0 50% 0 0); }
+.ring__fill { border: var(--stroke) solid var(--arc); transition: border-color var(--dur-base) var(--ease-out); }
+.ring__half--r .ring__fill { clip-path: inset(0 50% 0 0); }
+.ring__half--l .ring__fill { clip-path: inset(0 0 0 50%); }
+.ring.run .ring__half--r .ring__fill { animation: ring-r var(--dur) linear var(--delay) both; }
+.ring.run .ring__half--l .ring__fill { animation: ring-l var(--dur) linear var(--delay) both; }
+.ring.paused .ring__fill { animation-play-state: paused !important; }
+@keyframes ring-r { 0% { transform: rotate(0); } 50%, 100% { transform: rotate(180deg); } }
+@keyframes ring-l { 0%, 50% { transform: rotate(0); } 100% { transform: rotate(180deg); } }
+.ring.over { --arc: var(--c-green); }
+.ring.over .ring__fill { transform: rotate(180deg); animation: none; }
+.ring__center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.ring__time { font-size: var(--fs-timer); }
+.ring.over .ring__time { color: var(--c-green); }
+.ring__pulse {
+  position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--c-green); opacity: 0; pointer-events: none;
+}
+.ring.over .ring__pulse { animation: pulse 1.1s var(--ease-out) 1; }
+@keyframes pulse {
+  0% { opacity: .9; transform: scale(1); }
+  100% { opacity: 0; transform: scale(calc(1 + .14 * var(--motion-distance))); }
+}
+
+/* ---------------------------------------------------------------- week ring (6 segments) */
+.week { display: flex; align-items: center; gap: var(--sp-4); }
+.week svg { width: 76px; height: 76px; flex: none; transform: rotate(-90deg); }
+.week .seg { fill: none; stroke-width: 7; stroke-linecap: round; }
+.week .seg--empty { stroke: var(--c-surface-3); }
+.week .seg--done { stroke: var(--c-green); opacity: 0; transform-origin: 38px 38px; transform: scale(.86); transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-spring); }
+.week .seg--done.on { opacity: 1; transform: scale(1); }
+.week__count { font-size: var(--fs-h1); font-weight: var(--fw-black); font-stretch: var(--fstretch-display); line-height: 1; }
+.week__count small { font-size: var(--fs-body); color: var(--c-text-2); font-weight: var(--fw-semibold); font-stretch: 100%; }
+
+/* ---------------------------------------------------------------- rotation strip */
+.rot { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); }
+/* three layers: static tiles, the sliding highlight, then the labels (transparent, so the highlight shows through) */
+.rot__tiles { position: absolute; inset: 0; z-index: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); }
+.rot__tiles i { border-radius: var(--r-md); background: var(--c-surface-1); }
+.rot__step {
+  position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 64px; border-radius: var(--r-md); color: var(--c-text-2); transition: color var(--dur-base) var(--ease-out);
+  font-weight: var(--fw-bold); font-size: var(--fs-lead);
+}
+.rot__step small { font-size: var(--fs-label); font-weight: var(--fw-semibold); color: var(--c-text-3); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.rot__step.done { color: var(--c-text); }
+.rot__step.done small { color: var(--c-green); }
+.rot__step.is-next { color: var(--c-bg); }
+.rot__step.is-next small { color: var(--c-bg); }
+/* the "next" highlight is one element that slides between steps */
+.rot__hl {
+  position: absolute; z-index: 0; top: 0; bottom: 0; left: 0; width: calc((100% - 3 * var(--sp-2)) / 4);
+  border-radius: var(--r-md); background: var(--c-text);
+  transform: translateX(calc(var(--pos, 0) * (100% + var(--sp-2))));
+  transition: transform var(--dur-hero) var(--ease-emphasized);
+}
+.rot__step .rot__tick { position: absolute; top: 6px; right: 8px; width: 14px; height: 14px; color: var(--c-green); opacity: 0; transform: scale(.4); }
+.rot__step.done .rot__tick { opacity: 1; transform: scale(1); transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-slow) var(--ease-spring); }
+
+/* ---------------------------------------------------------------- empty states */
+.empty { display: flex; flex-direction: column; gap: var(--sp-3); align-items: flex-start; padding: var(--sp-5); border-radius: var(--r-lg); border: 1.5px dashed var(--c-line-strong); }
+.empty__art { width: 100%; height: 72px; }
+.empty__art path { fill: none; stroke: var(--c-line-strong); stroke-width: 2; stroke-dasharray: 4 6; stroke-linecap: round; }
+.empty__art circle { fill: var(--c-text-3); }
+
+/* ---------------------------------------------------------------- update prompt (js/sw-client.js)
+   A small pill at the top: news, not an action you need mid-flow, so it stays out of the
+   thumb zone. Neutral, not green (an update isn't progress). */
+.update {
+  position: fixed; z-index: 60; left: 50%; top: calc(env(safe-area-inset-top, 0px) + var(--sp-2));
+  transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  min-height: var(--hit-min); padding: 0 var(--sp-5); max-width: calc(100vw - 2 * var(--sp-4));
+  border: 1px solid var(--c-line-strong); border-radius: var(--r-pill);
+  background: var(--c-toast); color: var(--c-text); box-shadow: var(--elev-3);
+  -webkit-backdrop-filter: blur(var(--blur-glass)); backdrop-filter: blur(var(--blur-glass));
+  font: inherit; font-size: var(--fs-small); font-weight: var(--fw-semibold); white-space: nowrap;
+  cursor: pointer; animation: update-in var(--dur-base) var(--ease-emphasized) both;
+}
+.update:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
+.update__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-text); }
+@keyframes update-in { from { opacity: 0; transform: translate(-50%, -12px); } }
+@media (prefers-reduced-motion: reduce) { .update { animation-name: update-fade; } }
+@keyframes update-fade { from { opacity: 0; } }

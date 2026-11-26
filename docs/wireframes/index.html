@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- wf:head-end -->
+<title>Uptime Wireframes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: three columns on a laptop (flows | phone | notes), stacked on a phone.
+   Low fidelity on purpose: greys only, one "hot" colour for tappable areas, one flag colour. */
+:root {
+  --bg: #eceef1; --panel: #ffffff; --ink: #1c1f23; --muted: #5a616b; --line: #c6ccd3;
+  --ph: #dfe3e8; --ph-ink: #4d545d; --phone: #f7f8fa; --frame: #2a2d32;
+  --btn: #2a2e34; --btn-ink: #ffffff; --btn2: #6b727c; --hot: #3d6fb6; --flag: #a4500f; --flag-bg: #fbeadb;
+  --scrim: rgba(20, 22, 26, .45);
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #15171a; --panel: #1e2125; --ink: #e6e8eb; --muted: #9ba2ab; --line: #3a3f46;
+  --ph: #2b2f35; --ph-ink: #b2b8c0; --phone: #101214; --frame: #3a3e45;
+  --btn: #d9dde2; --btn-ink: #15171a; --btn2: #8c939c; --hot: #7fa8e6; --flag: #f0a463; --flag-bg: #3a2a1c;
+  --scrim: rgba(0, 0, 0, .6); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #15171a; --panel: #1e2125; --ink: #e6e8eb; --muted: #9ba2ab; --line: #3a3f46;
+  --ph: #2b2f35; --ph-ink: #b2b8c0; --phone: #101214; --frame: #3a3e45;
+  --btn: #d9dde2; --btn-ink: #15171a; --btn2: #8c939c; --hot: #7fa8e6; --flag: #f0a463; --flag-bg: #3a2a1c;
+  --scrim: rgba(0, 0, 0, .6); color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--sans);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--hot); outline-offset: 2px; }
+
+.app { display: grid; grid-template-columns: 250px 380px minmax(0, 1fr); gap: 24px; max-width: 1280px; margin: 0 auto; align-items: start; }
+.title { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; }
+.title h1 { font-size: 18px; margin: 0; letter-spacing: -.01em; }
+.title p { margin: 0; color: var(--muted); }
+.title label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); cursor: pointer; }
+
+/* Flow list */
+.flows { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 16px; }
+.flows .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 4px; }
+.flowbtn { text-align: left; background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 8px 10px; cursor: pointer; display: grid; grid-template-columns: 22px 1fr auto; gap: 6px; align-items: baseline; }
+.flowbtn:hover { background: var(--panel); }
+.flowbtn[aria-current="true"] { background: var(--panel); border-color: var(--line); font-weight: 600; }
+.flowbtn .n { font-family: var(--mono); color: var(--muted); font-size: 12px; }
+.flowbtn .f { font-size: 11px; color: var(--flag); font-weight: 600; }
+
+/* Stage */
+.stage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.phone { width: 360px; max-width: 100%; height: min(760px, calc(100dvh - 150px)); min-height: 600px; border: 10px solid var(--frame); border-radius: 38px;
+  background: var(--phone); position: relative; overflow: hidden; }
+.screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.phone.thumb::after { content: "Thumb zone (bottom third)"; position: absolute; inset: auto 0 0 0; height: 34%; pointer-events: none; z-index: 30;
+  display: flex; align-items: flex-start; justify-content: center; padding-top: 6px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--hot);
+  border-top: 2px dashed var(--hot); background: repeating-linear-gradient(135deg, transparent 0 10px, color-mix(in srgb, var(--hot) 9%, transparent) 10px 20px); }
+.stepper { display: flex; gap: 8px; align-items: center; width: 360px; max-width: 100%; justify-content: space-between; }
+.stepper button { min-height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; }
+.stepper button:disabled { opacity: .4; cursor: default; }
+.stepper span { font-family: var(--mono); font-size: 12px; color: var(--muted); text-align: center; }
+
+/* Notes */
+.notes { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+.panel h2 { font-size: 16px; margin: 0 0 4px; text-wrap: balance; }
+.panel h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 0 4px; font-weight: 600; }
+.panel h3:first-child { margin-top: 0; }
+.panel p { margin: 0 0 6px; max-width: 62ch; }
+.panel ul { margin: 4px 0 0; padding-left: 18px; }
+.panel li { margin: 2px 0; }
+.steps { list-style: none; padding: 0; margin: 6px 0 0; display: flex; flex-direction: column; gap: 2px; }
+.steps button { width: 100%; text-align: left; background: transparent; border: 0; border-radius: 6px; padding: 6px 8px; cursor: pointer;
+  display: grid; grid-template-columns: 20px 1fr auto; gap: 8px; align-items: baseline; }
+.steps button:hover { background: var(--bg); }
+.steps button[aria-current="true"] { background: var(--bg); font-weight: 600; }
+.steps .k { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.steps .via { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.steps .t { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); }
+.pill.ok { color: var(--muted); }
+.pill.flag { color: var(--flag); background: var(--flag-bg); border-color: transparent; }
+.flagbox { background: var(--flag-bg); color: var(--ink); border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+.flagbox b { color: var(--flag); }
+.kv { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 6px 12px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+
+/* ---------- Inside the phone ---------- */
+.sb { display: flex; justify-content: space-between; padding: 8px 18px 2px; font: 600 11px var(--mono); color: var(--muted); flex: none; }
+.top { padding: 6px 16px 8px; flex: none; }
+.mid { flex: 1; overflow: auto; padding: 4px 16px 8px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.bottom { padding: 8px 16px 14px; display: flex; flex-direction: column; gap: 8px; flex: none; }
+.row { display: flex; align-items: center; gap: 8px; }
+.between { justify-content: space-between; }
+.wrap { flex-wrap: wrap; }
+.grow { flex: 1; }
+.label { font-size: 10px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); font-weight: 600; }
+.h1 { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
+.h2 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
+.h3 { font-size: 15px; font-weight: 600; }
+.small { font-size: 12px; }
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+.ph { background: var(--ph); color: var(--ph-ink); border: 1px dashed var(--line); border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  text-align: center; font-size: 11px; padding: 6px; flex: none; }
+.ring { width: 64px; height: 64px; border-radius: 50%; font-weight: 700; font-size: 12px; }
+.block { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.rowline { display: flex; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 8px; font-size: 13px; }
+.stat .big { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; line-height: 1; }
+.card { margin: 0 10px; border: 2px solid var(--ink); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 6px; background: var(--phone); flex: none; }
+.note { background: var(--ph); border-radius: 8px; padding: 8px 10px; font-size: 12px; }
+.btn { min-height: 48px; border-radius: 12px; border: 0; padding: 0 14px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn.primary { background: var(--btn); color: var(--btn-ink); min-height: 60px; font-size: 17px; width: 100%; }
+.btn.sec { background: transparent; border: 1.5px solid var(--btn2); }
+.btn.wide { width: 100%; }
+.btn.tall { min-height: 60px; font-size: 17px; }
+.btn.textonly { background: transparent; border: 0; text-decoration: underline; text-underline-offset: 3px; min-height: 48px; padding: 0 6px; font-weight: 500; }
+.btn[disabled] { opacity: .45; }
+.chips { display: flex; gap: 6px; }
+.chip { min-height: 48px; min-width: 48px; flex: 1; border-radius: 10px; border: 1.5px solid var(--btn2); background: transparent; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer; }
+.chip.on { background: var(--ink); color: var(--phone); border-color: var(--ink); }
+.stepperk { display: grid; grid-template-columns: 48px 1fr 48px; gap: 6px; align-items: center; }
+.stepperk .val { text-align: center; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stepperk .val small { font-size: 12px; color: var(--muted); font-weight: 500; }
+.sq { min-height: 48px; border-radius: 10px; border: 1.5px solid var(--btn2); background: transparent; font-size: 20px; cursor: pointer; }
+.whead { padding: 6px 16px 10px; flex: none; display: flex; flex-direction: column; gap: 4px; }
+.segs { display: flex; gap: 3px; }
+.segs i { flex: 1; height: 5px; border-radius: 3px; background: var(--ph); border: 1px solid var(--line); }
+.segs i.d { background: var(--ink); border-color: var(--ink); }
+.segs i.c { background: var(--btn2); border-color: var(--btn2); }
+.logged { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.logged div { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.timer { font-size: 56px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: -.03em; line-height: 1; }
+.timer.over { font-size: 26px; padding: 14px 0; }
+.restbox { border: 2px solid var(--ink); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.toast { position: absolute; left: 12px; right: 12px; bottom: var(--toast-bottom, 190px); background: var(--ink); color: var(--phone); border-radius: 10px; padding: 10px 12px; font-size: 12.5px; z-index: 20;
+  display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.toast u { font-weight: 700; text-underline-offset: 2px; }
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); flex: none; }
+.tab { min-height: 54px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: var(--muted); }
+.tab::before { content: ""; width: 18px; height: 18px; border-radius: 5px; border: 1.5px dashed var(--muted); }
+.tab.on { color: var(--ink); font-weight: 700; }
+.tab.on::before { border-style: solid; border-color: var(--ink); background: var(--ph); }
+.switch { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 10px; border-radius: 99px; border: 1.5px solid var(--btn2); background: transparent; cursor: pointer; font-size: 12px; font-weight: 600; }
+.switch .knob { width: 30px; height: 18px; border-radius: 99px; background: var(--ph); border: 1.5px solid var(--btn2); position: relative; }
+.switch .knob::after { content: ""; position: absolute; top: 1px; left: 1px; width: 13px; height: 13px; border-radius: 50%; background: var(--btn2); }
+.switch.on { background: var(--ink); color: var(--phone); border-color: var(--ink); }
+.switch.on .knob { background: var(--phone); }
+.switch.on .knob::after { left: 13px; background: var(--ink); }
+.scrim { position: absolute; inset: 0; background: var(--scrim); z-index: 10; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--phone); border-radius: 18px 18px 0 0; z-index: 11; padding: 10px 16px 16px; display: flex; flex-direction: column; gap: 8px; max-height: 86%; overflow: auto; }
+.sheet::before { content: ""; width: 40px; height: 4px; border-radius: 2px; background: var(--line); align-self: center; margin-bottom: 4px; }
+.opt { text-align: left; border: 1.5px solid var(--btn2); background: transparent; border-radius: 12px; padding: 10px 12px; min-height: 56px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.opt b { font-size: 15px; }
+.opt span { font-size: 12px; color: var(--muted); }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1.5px solid var(--btn2); border-radius: 10px; overflow: hidden; }
+.seg span { min-height: 44px; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; }
+.seg span.on { background: var(--ink); color: var(--phone); }
+.dots { display: flex; gap: 6px; }
+.dots i { width: 22px; height: 4px; border-radius: 2px; background: var(--line); }
+.dots i.on { background: var(--ink); }
+.lock { background: var(--frame); color: #eef0f2; }
+.lock .sb { color: #b7bcc3; }
+.lock .clock { font-size: 64px; font-weight: 300; text-align: center; margin-top: 60px; font-variant-numeric: tabular-nums; }
+.tag { align-self: flex-start; font-size: 11px; font-weight: 600; border: 1px solid var(--btn2); border-radius: 99px; padding: 2px 8px; }
+.list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.list li { border-bottom: 1px solid var(--line); padding-bottom: 8px; font-size: 13px; }
+.list li b { display: block; font-size: 14px; }
+.dim { opacity: .9; }
+.banner { margin: 0 16px 6px; padding: 4px 4px 4px 12px; border: 1.5px solid var(--ink); border-radius: 12px; font-weight: 600; font-size: 13px; flex: none; }
+
+/* Tappable highlight */
+.showhot .screen [data-go] { outline: 2px dashed var(--hot); outline-offset: 2px; }
+.showhot .screen .sheet [data-go], .showhot .screen .toast [data-go] { outline-offset: 0; }
+
+/* Signature transition (low-fi stand-in for the real one) */
+::view-transition-group(card) { animation-duration: .45s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+.fade-in { animation: fade .22s ease-out; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .fade-in { animation: none; } ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
+
+@media (max-width: 1080px) {
+  .app { grid-template-columns: 380px minmax(0, 1fr); }
+  .flows { grid-column: 1 / -1; position: static; flex-direction: row; flex-wrap: wrap; }
+  .flows .lbl { width: 100%; }
+  .flowbtn { grid-template-columns: auto auto auto; }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .phone { width: 100%; }
+}
+</style>
+<!-- wf:body-start -->
+</head>
+<body>
+
+<div class="app">
+  <header class="title">
+    <h1>Uptime wireframes · v0.2</h1>
+    <p>Low fidelity. Grey boxes are placeholders; the copy is real. Click the dashed controls, or use ← →.</p>
+    <label><input type="checkbox" id="hotToggle" checked> Show tappable</label>
+    <label><input type="checkbox" id="thumbToggle"> Show thumb zone</label>
+  </header>
+
+  <nav class="flows" id="flows" aria-label="Flows"></nav>
+
+  <main class="stage">
+    <div class="phone" id="phone"><div class="screen" id="screen" aria-live="polite"></div></div>
+    <div class="stepper">
+      <button id="prev" type="button">← Back</button>
+      <span id="stepLabel"></span>
+      <button id="next" type="button">Next →</button>
+    </div>
+  </main>
+
+  <section class="notes" id="notes" aria-label="Notes"></section>
+</div>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------- helpers
+const sb = (t = "07:42") => `<div class="sb" aria-hidden="true"><span>${t}</span><span>5G · 82%</span></div>`;
+const TABGO = { Home: "home", Progress: "", Plan: "plan" };
+const tabs = (a = "Home") => `<nav class="tabs" aria-label="Tabs">${["Home", "Progress", "Plan"].map(t => `<span class="tab ${t === a ? "on" : ""}" ${t !== a && TABGO[t] ? `data-go="${TABGO[t]}"` : ""}>${t}</span>`).join("")}</nav>`;
+const toast = (t, bottom) => t ? `<div class="toast" role="status" style="${bottom ? `--toast-bottom:${bottom}px` : ""}">${t}</div>` : "";
+const segs = (done, cur, total) => `<div class="segs" aria-label="Exercise ${cur} of ${total}">${Array.from({ length: total }, (_, i) => `<i class="${i < done ? "d" : i === done ? "c" : ""}"></i>`).join("")}</div>`;
+
+// ---------------------------------------------------------------- screen builders
+function home(o) {
+  return `${sb(o.time)}
+  <div class="top row between">
+    <div><div class="small muted">${o.date}</div><div class="h2">${o.greet}</div></div>
+  </div>
+  ${o.busy ? `<div class="banner row between"><span>Busy mode is on</span><button class="btn sec" style="min-height:40px" data-go="home-busy-off">Turn off</button></div>` : ""}
+  <div class="mid">
+    ${o.suggest ? `<section class="block"><div class="h3">Last two weeks were packed</div><div class="small muted">Busy mode keeps things going with 2–3 shorter full-body sessions and 1 run. Your rotation waits.</div><div class="row"><button class="btn sec grow">Not now</button><button class="btn primary grow" style="min-height:48px;font-size:15px;width:auto" data-go="home-busy">Turn on</button></div></section>` : ""}
+    ${o.line ? `<div class="note">${o.line}</div>` : ""}
+    <section class="block">
+      <div class="row" style="gap:12px">
+        <div class="ph ring">${o.ring}</div>
+        <div class="grow"><div class="label">Last 7 days</div><div class="h3">${o.level}</div><div class="small muted">${o.levelNote}</div></div>
+      </div>
+      <div class="rowline"><span>Streak</span><b>${o.streak}</b></div>
+    </section>
+    ${o.stat ? `<section class="block stat"><div class="label">${o.stat[0]}</div><div class="big">${o.stat[1]}</div><div class="small muted">${o.stat[2]}</div></section>`
+             : `<div class="ph" style="height:76px">One standout stat appears here after a few sessions (pull-up level, best 5K, total kg).</div>`}
+  </div>
+  <section class="card" style="view-transition-name:card">
+    <div class="label">${o.eyebrow || "Next up"}</div>
+    <div class="h1">${o.title}</div>
+    <div class="small muted">${o.meta}</div>
+    ${o.note ? `<div class="note">${o.note}</div>` : ""}
+    ${o.start ? `<button class="btn primary" data-go="${o.start}" data-vt>${o.startLabel || "Start"}</button>` : ""}
+    <div class="row between wrap">
+      ${o.or ? `<span class="small muted">${o.or}</span>` : `<span></span>`}
+      <button class="btn textonly" data-go="home-sport-sheet">Log something else</button>
+    </div>
+  </section>
+  <div style="height:10px;flex:none"></div>
+  ${toast(o.toast, o.toastBottom || 300)}
+  ${tabs()}`;
+}
+
+function checkin(o) {
+  return `${sb()}
+  <header class="whead" style="view-transition-name:card">
+    <div class="label">${o.session} · ${o.mins}</div>
+    <div class="h1">How do you feel today?</div>
+    <div class="small muted">Rough switches to the Short version. You can change it any time.</div>
+  </header>
+  <div class="mid">
+    ${o.note ? `<div class="note">${o.note}</div>` : ""}
+    <div class="ph" style="height:90px">Today's exercises, as a short list (names only)</div>
+    <button class="btn textonly" style="align-self:flex-start" data-go="${o.noGym || ""}">No gym today? Use the no-gym version</button>
+  </div>
+  <div class="bottom">
+    <button class="btn primary" data-go="${o.go}">Good</button>
+    <button class="btn primary" data-go="${o.go}">Okay</button>
+    <button class="btn sec tall wide" data-go="${o.rough || o.go}">Rough</button>
+  </div>`;
+}
+
+function setScreen(o) {
+  const chips = o.reps ? `<div><div class="label" style="margin-bottom:4px">Reps${o.perSide ? " per side" : ""}</div><div class="chips">${o.reps.map(r => `<button class="chip ${r === o.sel ? "on" : ""}">${r}</button>`).join("")}</div></div>` : "";
+  const kg = o.kg != null ? `<div class="stepperk"><button class="sq" aria-label="Less weight">−</button><div class="val num">${o.kg}<small> ${o.kgNote || "kg"}</small></div><button class="sq" aria-label="More weight">+</button></div>` : "";
+  const rest = o.rest ? `<div class="restbox">
+      <div class="row between"><span class="label">Rest</span><span class="small muted">Next: set ${o.setN} of ${o.of}</span></div>
+      <div class="timer num" data-rest>1:45</div>
+      <div class="row"><button class="btn sec grow">+15 s</button><button class="btn sec grow" data-go="${o.skipGo}">Skip rest</button></div>
+    </div>` : "";
+  return `${sb(o.time)}
+  <header class="whead" style="view-transition-name:card">
+    <div class="row between"><span class="label">${o.session} · ${o.pos}</span><span class="small muted num">${o.elapsed || "12:40"}</span></div>
+    ${segs(o.done, o.done, o.total)}
+  </header>
+  <div class="mid">
+    ${o.banner ? `<div class="note">${o.banner}</div>` : ""}
+    ${o.warm ? warmCard(o.warm) : ""}
+    ${rest}
+    ${o.tag ? `<span class="tag">${o.tag}</span>` : ""}
+    <div><div class="h2">${o.ex}</div><div class="small muted">${o.cue}</div></div>
+    <div class="row between"><span class="h3">Set ${o.setN} of ${o.of}</span><span class="small muted">${o.range}</span></div>
+    <div class="small muted">${o.last}</div>
+    ${o.hint ? `<div class="note">${o.hint}</div>` : ""}
+    ${o.logged && o.logged.length ? `<div class="logged">${o.logged.map(l => `<div><span>${l[0]}</span><span>${l[1]}</span></div>`).join("")}</div>` : ""}
+  </div>
+  ${toast(o.toast, 262)}
+  <div class="bottom">
+    ${kg}
+    ${chips}
+    <div class="row"><button class="btn sec grow" data-go="${o.swapGo || ""}">Swap</button><button class="btn sec grow">All exercises</button></div>
+    <button class="btn primary" data-go="${o.logGo}">${o.logLabel}</button>
+  </div>
+  ${o.sheet || ""}`;
+}
+
+function warmCard(w) {
+  return `<section class="restbox" aria-label="Warm-up">
+    <div class="row between"><span class="label">Warm-up · 5 min</span><span class="h3 num">4:12</span></div>
+    <ul class="list small" style="gap:4px">
+      <li>2 min easy cardio: jog, bike, or skipping in place</li>
+      <li>Leg swings, 10 each way · arm circles and pull-aparts, 10 each</li>
+      <li>10 slow calf raises${w.lower ? " · 5 squats, 5 lateral lunges per side" : ""}</li>
+      <li><b>Ramp-up:</b> ${w.ramp}</li>
+    </ul>
+    <div class="small muted">Stays here until you log set 1.</div>
+  </section>`;
+}
+
+function planScreen(on) {
+  return `${sb()}
+  <div class="top"><div class="h1">Plan</div></div>
+  <div class="mid">
+    <div class="label">Modes</div>
+    <section class="block">
+      <div class="row between"><div><div class="h3">Busy mode</div><div class="small muted">2–3 full-body sessions of about 40 min, plus 1 run. Your rotation waits.</div></div>
+        <button class="switch ${on ? "on" : ""}" data-go="${on ? "plan" : "plan-busy-on"}" aria-pressed="${on}"><span class="knob"></span></button></div>
+      ${on ? `<div class="toast" style="position:static">Busy mode on. Upper A waits for when you're back. <u>Undo</u></div>` : ""}
+      <div class="row between" style="border-top:1px solid var(--line);padding-top:8px"><div><div class="h3">No gym</div><div class="small muted">Bodyweight and backpack versions of every session.</div></div><span class="switch"><span class="knob"></span></span></div>
+    </section>
+    <div class="label">Your rotation</div>
+    <div class="ph" style="height:70px">UA → LA → UB → LB, run, sport · you are here: Upper A</div>
+    <div class="label">Food · Learn · Settings</div>
+    <div class="ph" style="height:90px">Fit, not bulky · Food · Sleep and steps · Achilles · Exercise library · Settings</div>
+  </div>
+  ${tabs("Plan")}`;
+}
+
+// ---------------------------------------------------------------- base data
+const HOME = { date: "Thu 26 Nov", greet: "Good morning", ring: "3 of 6", level: "Minimum week", levelNote: "One more lift makes it a Good week.",
+  streak: "4 weeks", stat: ["Best 5K", "28:30", "Goal: under 25:00. About 5–7 months with easy runs."],
+  title: "Upper A", meta: "Horizontal press, pull-ups · about 45 min · 7 exercises", start: "w-checkin" };
+
+const WARM_UA = { ramp: "7.5 kg × 5, 10 kg × 3, 12.5 kg × 3 on Dumbbell bench press." };
+const BENCH = { session: "Upper A", pos: "2 of 7", total: 7, done: 1, ex: "Dumbbell bench press", cue: "Shoulder blades pinned, lower to mid-chest.",
+  of: 3, range: "5–8 reps", kg: "15", kgNote: "kg per hand", reps: [5, 6, 7, 8], sel: 8,
+  last: "Last time: 15 kg × 8, 8, 7", swapGo: "w-swap" };
+
+// ---------------------------------------------------------------- screens
+// Each: name, primary action, why it sits there, html()
+const SCREENS = {
+  // Onboarding
+  "ob1": { name: "Onboarding 1 of 3 · Where you train", primary: "At a gym / No gym",
+    why: "The answer is the Continue button: one decision, one tap, both in the thumb zone. No separate Next.",
+    more: ["Old logs from the earlier app are migrated silently and confirmed in one line.", "Restore a backup is here for a new phone, and nowhere else in onboarding."],
+    html: () => `${sb()}
+      <div class="top"><div class="dots"><i class="on"></i><i></i><i></i></div></div>
+      <div class="mid">
+        <div class="ph" style="height:120px;font-size:13px">Wordmark + one quiet motion moment</div>
+        <div class="h1">Open it. See what's next. Start.</div>
+        <p class="muted" style="margin:0">Your sessions run in a loop. Miss a day and the next one just waits.</p>
+        <div class="note">Found your log from the earlier app. Everything is kept.</div>
+      </div>
+      <div class="bottom">
+        <div class="h3">Where do you usually train?</div>
+        <button class="btn primary" data-go="ob2">At a gym</button>
+        <button class="btn sec tall wide" data-go="ob2">No gym: bodyweight and a backpack</button>
+        <button class="btn textonly">Restore a backup</button>
+      </div>` },
+  "ob2": { name: "Onboarding 2 of 3 · Starting point", primary: "Continue",
+    why: "Both answers are prefilled from the plan's baseline (0 pull-ups, 28:30), so most people only confirm. Starting weights aren't asked: the first session calibrates them.",
+    html: () => `${sb()}
+      <div class="top"><div class="dots"><i class="on"></i><i class="on"></i><i></i></div></div>
+      <div class="mid">
+        <div class="h1">Where are you starting?</div>
+        <div class="label">Strict pull-ups in a row, today</div>
+        <div class="chips"><button class="chip on">0</button><button class="chip">1–3</button><button class="chip">4–7</button><button class="chip">8+</button></div>
+        <div class="small muted">Sets your pull-up ladder level.</div>
+        <div class="label" style="margin-top:8px">Recent 5K time</div>
+        <div class="stepperk"><button class="sq">−</button><div class="val num">28:30</div><button class="sq">+</button></div>
+        <button class="chip" style="flex:none;align-self:flex-start;padding:0 14px">Not sure</button>
+        <div class="small muted">Sets your run paces. The 5K check in week 6 updates it.</div>
+      </div>
+      <div class="bottom"><button class="btn primary" data-go="ob3">Continue</button></div>` },
+  "ob3": { name: "Onboarding 3 of 3 · Busy weekdays (optional)", primary: "Done (Skip has equal weight)",
+    why: "Optional, so Skip sits beside Done at the same size. The copy says up front that nothing is ever marked missed.",
+    html: () => `${sb()}
+      <div class="top"><div class="dots"><i class="on"></i><i class="on"></i><i class="on"></i></div></div>
+      <div class="mid">
+        <div class="h1">Any days that are usually packed?</div>
+        <div class="chips wrap">${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(d => `<button class="chip" style="flex:1 0 22%">${d}</button>`).join("")}</div>
+        <p class="small muted" style="margin:0">Optional. On those days the app suggests the Short version. Nothing is ever marked missed, and you can change this in Plan.</p>
+      </div>
+      <div class="bottom"><div class="row"><button class="btn sec tall grow" data-go="home-first">Skip</button><button class="btn primary grow" style="width:auto" data-go="home-first">Done</button></div></div>` },
+  "home-first": { name: "Home · first run", primary: "Start",
+    why: "Onboarding ends on the first workout, not a tour. Empty states say what will appear and when.",
+    html: () => home({ ...HOME, greet: "Let's start", ring: "0 of 6", level: "Your first week", levelNote: "2 lifts this week makes a Minimum week.",
+      streak: "Starts after your first week", stat: null,
+      note: "First session: the weights are starting suggestions. Adjust as you go and the app learns from this one." }) },
+
+  // Home + transition
+  "home": { name: "Home", primary: "Start (on the Next-up card)",
+    why: "The card is the largest element and anchors the bottom half, so Start lands under the thumb. Progress and the stat sit above it because they're glanced at, never tapped.",
+    more: ["Priority order from CLAUDE.md is kept for screen readers: Next up is announced first.", "Busy mode lives in Plan. When it's on, a small banner here has a one-tap Turn off.", "Log something else is visible every day but quieter than Start."],
+    html: () => home(HOME) },
+  "w-checkin": { name: "Workout · Check-in", primary: "Good / Okay / Rough",
+    why: "One tap answers and continues. All three are full-width in the thumb zone. Rough is outlined, not red: it's a valid answer, not a warning.",
+    more: ["Signature moment: the Next-up card's title becomes this header, and the Start button becomes these three buttons.", "No gym today? swaps every exercise to its no-equipment version for this session."],
+    html: () => checkin({ session: "Upper A", mins: "about 45 min", go: "w-set1", rough: "w-set1-short" }) },
+  "w-set1-short": { name: "First exercise · after Rough", primary: "Log set 1 · 8 × 15 kg",
+    why: "Rough applies the Short version straight away with an undo line, instead of asking a question. The warm-up card is the same 5 minutes. Never guilt-trip.",
+    html: () => setScreen({ ...BENCH, session: "Upper A · Short", total: 3, pos: "2 of 3", of: 2, setN: 1, warm: WARM_UA, logLabel: "Log set 1 · 8 × 15 kg", logGo: "w-rest",
+      toast: `<span>Short version on: first 3 exercises, 2 sets each. Under 30 min.</span><u>Switch to full</u>` }) },
+  // Sets
+  "w-set1": { name: "Workout · First exercise, warm-up card on top", primary: "Log set 1 · 8 × 15 kg",
+    why: "The warm-up is a checklist card at the top of the first exercise: read, not tapped through, and always visible until set 1 is logged. Logging set 1 ends it. The Log button is prefilled with today's target from double progression, so most sets are one tap. Weight and reps sit right above it in the thumb zone. Swap and All exercises are one row up: visible, but lighter, so they're not hit by accident.",
+    more: ["Different reps: tap the number, then Log (2 taps). A number never logs on its own.", "The card can't be collapsed or dismissed. If the first exercise is swapped, the card moves with it.", "The cue and last time are read between sets; the target hint tells you what earns the next jump."],
+    html: () => setScreen({ ...BENCH, setN: 1, warm: WARM_UA, logLabel: "Log set 1 · 8 × 15 kg", logGo: "w-rest",
+      hint: "Hit 8 on all 3 sets and next time goes up to 17.5 kg." }) },
+  "w-rest": { name: "Workout · Rest", primary: "Log set 2 (stays live)",
+    why: "Logging set 1 folds the warm-up card away and starts rest by itself. The Log button never moves, so the thumb learns one spot. +15 s and Skip rest sit in the timer card, away from Log.",
+    more: ["The timer is a real countdown here, built on an end time, like the app will be.", "Set 1 logged · Undo: undo instead of a confirm dialog."],
+    enter: () => { S.restEnd = Date.now() + 105000; },
+    html: () => setScreen({ ...BENCH, setN: 2, rest: true, skipGo: "w-set2", logged: [["Set 1", "8 × 15 kg"]],
+      logLabel: "Log set 2 · 8 × 15 kg", logGo: "w-rest2", toast: `<span>Set 1 logged</span><u>Undo</u>` }) },
+  "w-set2": { name: "Workout · Rest over, next set", primary: "Log set 2 · 8 × 15 kg",
+    why: "Same button in the same place. The rest card collapses to a line so the next set's info moves up.",
+    html: () => setScreen({ ...BENCH, setN: 2, logged: [["Set 1", "8 × 15 kg"]], banner: "Rest over. Set 2 when you're ready.",
+      logLabel: "Log set 2 · 8 × 15 kg", logGo: "w-rest2" }) },
+  "w-rest2": { name: "Workout · Rest after set 2", primary: "Log set 3",
+    why: "The loop repeats: log, rest, log.",
+    enter: () => { S.restEnd = Date.now() + 105000; },
+    html: () => setScreen({ ...BENCH, setN: 3, rest: true, skipGo: "w-set3", logged: [["Set 1", "8 × 15 kg"], ["Set 2", "8 × 15 kg"]],
+      logLabel: "Log set 3 · 8 × 15 kg", logGo: "w-row1", toast: `<span>Set 2 logged</span><u>Undo</u>` }) },
+  "w-set3": { name: "Workout · Last set of an exercise", primary: "Log set 3 · 8 × 15 kg",
+    why: "Logging the last set moves to the next exercise automatically. No Next exercise tap.",
+    html: () => setScreen({ ...BENCH, setN: 3, logged: [["Set 1", "8 × 15 kg"], ["Set 2", "8 × 15 kg"]], banner: "Rest over. Last set.",
+      logLabel: "Log set 3 · 8 × 15 kg", logGo: "w-row1" }) },
+  "w-row1": { name: "Workout · Next exercise", primary: "Log set 1 · 12 reps",
+    why: "Bodyweight exercise: no weight stepper, so the reps chips move down to sit right above Log.",
+    html: () => setScreen({ session: "Upper A", pos: "3 of 7", total: 7, done: 2, ex: "Smith machine inverted row", cue: "Body stiff as a plank, chest to the bar.",
+      setN: 1, of: 3, range: "8–12 reps · bar at hip height", reps: [9, 10, 11, 12], sel: 12, last: "Last time: 12, 11, 10", swapGo: "w-swap",
+      toast: `<span>Bench done: 8, 8, 8. Next time 17.5 kg.</span><u>Undo</u>`, logLabel: "Log set 1 · 12 reps", logGo: "w-last" }) },
+
+  // Interruption
+  "w-lock": { name: "Phone locked mid-rest", primary: "None",
+    why: "Nothing runs while the phone is locked, and nothing needs to: the rest timer is stored as an end time, and the workout was saved after the last set.",
+    more: ["A web app can't promise a sound while locked, so the screen wake lock keeps the screen on during rest. If you lock it yourself, reopening shows the right time."],
+    html: () => `<div class="screen lock">${sb("07:44")}
+      <div class="clock">07:44</div><div style="text-align:center;color:#b7bcc3">Thursday 26 November</div>
+      <div class="grow"></div>
+      <div class="bottom"><button class="btn sec tall wide" style="border-color:#8b9099;color:#eef0f2" data-go="w-reopen">Unlock and open Uptime</button></div></div>` },
+  "w-reopen": { name: "Reopen: straight back to the set", primary: "Log set 2 · 8 × 15 kg",
+    why: "The app skips Home because a workout is in progress, lands on the same set, and shows the correct time left. Zero taps to recover.",
+    more: ["You were away about a minute in this demo, so the timer shows less time than when you left.", "If rest ended while you were away, the card reads Rest over · 0:40 ago."],
+    enter: () => { S.restEnd = Date.now() + 32000; },
+    html: () => setScreen({ ...BENCH, setN: 2, rest: true, skipGo: "w-set2", logged: [["Set 1", "8 × 15 kg"]], time: "07:45",
+      logLabel: "Log set 2 · 8 × 15 kg", logGo: "w-rest2" }) },
+  "w-resume-long": { name: "Reopen more than 90 min after the last set", primary: "Pick up where you left off",
+    why: "After 90 minutes they've probably left the gym, so the app asks once. Both buttons keep every logged set; Finish saves a partial session that counts toward the week.",
+    more: ["Never answered and never finished: on the next day the app is opened, the session is saved as partial under its own date."],
+    html: () => `${sb("09:50")}
+      <header class="whead"><div class="label">Upper A · started 07:30</div><div class="h1">Upper A is still open</div></header>
+      <div class="mid">
+        <div class="block"><div class="h3">9 of 17 sets logged</div><div class="small muted">Last set: Smith machine inverted row, 2 h 10 min ago</div>${segs(3, 3, 7)}</div>
+        <p class="small muted" style="margin:0">Pick up and the session continues as planned. Finish and it's saved as a partial session that counts toward your week.</p>
+      </div>
+      <div class="bottom"><button class="btn sec tall wide" data-go="w-summary">Finish with 9 sets</button><button class="btn primary" data-go="w-row1">Pick up where you left off</button></div>` },
+
+  // Swap
+  "w-swap": { name: "Swap sheet", primary: "Tap an option",
+    why: "Three choices with their names and cues on one sheet: no second screen. Today only by default; history stays with each exercise.",
+    html: () => setScreen({ ...BENCH, setN: 1, warm: WARM_UA, logLabel: "Log set 1 · 8 × 15 kg", logGo: "w-rest",
+      sheet: `<div class="scrim" data-go="w-set1" aria-label="Close"></div><div class="sheet" role="dialog" aria-label="Swap exercise">
+        <div class="label">Swap Dumbbell bench press</div>
+        <button class="opt" data-go="w-set-swapped"><span>Easier</span><b>Dumbbell floor press</b><span>Elbows touch the floor softly, then press.</span></button>
+        <button class="opt" data-go="w-set-swapped"><span>Harder</span><b>Paused dumbbell bench press</b><span>3-s lower, 1-s pause on the chest.</span></button>
+        <button class="opt" data-go="w-set-swapped"><span>No equipment</span><b>Push-up</b><span>Body in one line, chest to a fist's height off the floor.</span></button>
+        <label class="row between small" style="min-height:48px"><span>Use this every time</span><span class="switch" style="min-height:32px"><span class="knob"></span></span></label>
+        <button class="btn sec wide" data-go="w-set1">Keep Dumbbell bench press</button>
+      </div>` }) },
+  "w-set-swapped": { name: "Set screen after a swap", primary: "Log set 1 · 8 × 15 kg",
+    why: "Back on the same set with the new exercise. The swap is labelled and undoable; logs are stored under the new exercise's own id.",
+    html: () => setScreen({ ...BENCH, ex: "Dumbbell floor press", cue: "Elbows touch the floor softly, then press.", setN: 1, tag: "Swapped for today", warm: { ramp: "7.5 kg × 5, 10 kg × 3, 12.5 kg × 3 on Dumbbell floor press." },
+      last: "No history yet. Starting at your bench weight.", logLabel: "Log set 1 · 8 × 15 kg", logGo: "w-rest",
+      toast: `<span>Swapped for Dumbbell floor press</span><u>Undo</u>` }) },
+
+  // Finish
+  "w-last": { name: "Last set of the session", primary: "Log last set · 10 per side",
+    why: "Logging the last set finishes the session. No separate Finish tap.",
+    more: ["Finishing early lives in All exercises → Finish now, with Resume as an undo on the summary."],
+    html: () => setScreen({ session: "Upper A", pos: "7 of 7", total: 7, done: 6, ex: "Pallof press", cue: "Ribs down, don't let the cable turn you.",
+      setN: 2, of: 2, range: "10 per side", perSide: true, kg: "10", kgNote: "kg on the stack", reps: [8, 9, 10], sel: 10,
+      last: "Last time: 10 kg × 10, 10", logged: [["Set 1", "10 × 10 kg"]], logLabel: "Log last set · 10 per side", logGo: "w-summary", swapGo: "w-swap",
+      banner: "Superset with the cable pulldown: that one's done." }) },
+  "w-summary": { name: "Summary", primary: "Done",
+    why: "Read standing up, so what changes next time comes first. One button back to Home, where the rotation visibly moves on.",
+    more: ["After the first ever session, an Add to Home Screen prompt appears here, once."],
+    html: () => `${sb("08:16")}
+      <header class="whead"><div class="label">Thu 26 Nov · 44 min · 17 sets</div><div class="h1">Upper A done</div></header>
+      <div class="mid">
+        <div class="label">Next time</div>
+        <ul class="list">
+          <li><b>Dumbbell bench press → 17.5 kg</b>8, 8, 8 at 15 kg. Every set hit the top of the range.</li>
+          <li><b>Negative pull-ups: one more session</b>4 × 3 at 5 s. Pass: 3 × 3, last one still slow.</li>
+          <li><b>Inverted row → bar one notch lower</b>12, 12, 12.</li>
+        </ul>
+        <div class="block"><div class="row between"><span class="h3">Good week reached</span><span class="small muted">4 of 6</span></div><div class="ph" style="height:14px;padding:0"></div><div class="small muted">Lower A and a sport session make it Full. Streak: 4 weeks.</div></div>
+        <button class="btn textonly" style="align-self:flex-start">Add a note</button>
+      </div>
+      <div class="bottom"><div class="small muted" style="text-align:center">Next up: Lower A</div><button class="btn primary" data-go="home-after">Done</button></div>` },
+  "home-after": { name: "Home · after today's session", primary: "None today (Log something else stays)",
+    why: "Two lifts on one day aren't allowed, so there's no Start. Next up is shown so tomorrow is clear, and the allowed same-day option (an easy run after Upper) is mentioned once.",
+    more: ["Motion: the card slides from Upper A to Lower A and the week count ticks from 3 to 4."],
+    html: () => home({ ...HOME, time: "08:17", ring: "4 of 6", level: "Good week", levelNote: "Lower A and a sport session make it Full.",
+      eyebrow: "Next up · tomorrow or later", title: "Lower A", meta: "Squat, jump · about 50 min · 7 exercises", start: null,
+      note: "Upper A done today. An easy run still fits today if you want one." }) },
+
+  // Return after gap
+  "home-return": { name: "Home · back after 10 days", primary: "Start",
+    why: "Nothing is missed: Next up is simply the next session in line. One line explains the lighter weights, then the app applies them silently.",
+    more: ["Streak line reads New streak starts this week · best 5 weeks. Never Streak lost.", "At 14+ days: First week back: about 80% and one set fewer per exercise."],
+    html: () => home({ ...HOME, date: "Sun 6 Dec", greet: "Welcome back", ring: "0 of 6", level: "Fresh week", levelNote: "2 lifts this week makes a Minimum week.",
+      streak: "New streak starts this week · best 5", title: "Lower B", meta: "Hinge, jump · about 50 min · 6 exercises", start: "w-checkin-lb",
+      note: "10 days off, so today's weights start at about 90% of last time. Back to normal next session." }) },
+  "w-checkin-lb": { name: "Check-in (back after a gap)", primary: "Good / Okay / Rough",
+    why: "Same check-in as always. Coming back should feel like any other day.",
+    html: () => checkin({ session: "Lower B", mins: "about 50 min", go: "w-set-return", rough: "w-set-return", note: "Weights today: about 90% of last time." }) },
+  "w-set-return": { name: "Set screen with return weights", primary: "Log set 1 · 6 × 62.5 kg",
+    why: "The reduction is already in the prefilled weight and labelled, so there's nothing to calculate mid-session. The ramp-up in the warm-up card uses today's reduced weight.",
+    html: () => setScreen({ session: "Lower B", pos: "2 of 6", total: 6, done: 1, ex: "Barbell deadlift", cue: "Bar against your shins, push the floor away.",
+      setN: 1, of: 3, range: "5–6 reps", kg: "62.5", kgNote: "kg total", reps: [5, 6], sel: 6, swapGo: "w-swap",
+      tag: "About 90% today", warm: { lower: true, ramp: "30 kg × 5, 45 kg × 3, 52.5 kg × 3 on Barbell deadlift." }, last: "10 days ago: 70 kg × 6, 6, 5", logLabel: "Log set 1 · 6 × 62.5 kg", logGo: "w-set-return" }) },
+
+  // Busy mode
+  "plan": { name: "Plan tab · Modes first", primary: "Busy mode switch",
+    why: "Busy mode is a weekly decision, not a daily one, so it lives in Plan with No-gym. Modes sit at the top of Plan so the switch is the first thing there.",
+    more: ["Food and Learn live further down Plan."],
+    html: () => planScreen(false) },
+  "plan-busy-on": { name: "Plan · Busy mode on", primary: "Home tab (Start is there)",
+    why: "Undo line instead of a confirm. The rotation is paused, not reset.",
+    html: () => planScreen(true) },
+  "home-busy": { name: "Home · Busy mode on", primary: "Start",
+    why: "Home leads with the busy session. A small banner at the top says Busy mode is on, with a one-tap Turn off, so getting back to the full rotation is effortless.",
+    html: () => home({ ...HOME, busy: true, level: "Busy week", levelNote: "2–3 full-body sessions and 1 run.", ring: "1 of 3",
+      title: "Full body 1", meta: "Jump, squat, pull-ups, press, carry · about 40 min · 5 exercises", start: "w-checkin" }) },
+  "home-busy-off": { name: "Home · after Turn off", primary: "Start",
+    why: "One tap back. The rotation resumes exactly where it stopped.",
+    html: () => home({ ...HOME, toast: `<span>Back to the rotation. Next up: Upper A.</span><u>Undo</u>` }) },
+  "home-busy-suggest": { name: "Home · Busy mode suggested", primary: "Start (Turn on in the card is 1 tap)",
+    why: "Two 7-day blocks in a row below Minimum. A gentle card, above the stat and below progress, never above Start's importance. Not now hides it until the next block. Never shown while Busy mode is on.",
+    html: () => home({ ...HOME, ring: "1 of 6", level: "Packed week", levelNote: "One more lift makes it a Minimum week.", streak: "New streak starts this week · best 5", stat: null, suggest: true }) },
+  "home-partial": { name: "Home · unfinished session saved as partial", primary: "Start",
+    why: "Opened on a later day without finishing: the session is saved as partial under its own date, counts toward the week, and the rotation has moved on. One line says so; nothing to answer.",
+    html: () => home({ ...HOME, date: "Wed 2 Dec", ring: "2 of 6", level: "Minimum week", levelNote: "One more lift makes it a Good week.",
+      line: "Saved Tuesday's Upper A as partial: 9 of 17 sets. It counts toward this week.", title: "Lower A", meta: "Squat, jump · about 50 min · 7 exercises" }) },
+
+  // Unplanned sport
+  "home-sport-sheet": { name: "Log something else (sheet)", primary: "Tap the activity",
+    why: "Tapping an activity saves it with sensible defaults (today, typical duration). Today is preselected; Yesterday is one tap before. No Save button.",
+    html: () => home(HOME) + `<div class="scrim" data-go="home" aria-label="Close"></div><div class="sheet" role="dialog" aria-label="Log something else">
+      <div class="h2">Log something else</div>
+      <div class="seg"><span class="on">Today</span><span>Yesterday</span></div>
+      <button class="opt" data-go="home-sport-done"><b>Basketball</b><span>Your sport session · 60 min</span></button>
+      <button class="opt" data-go="home-sport-done"><b>Easy run</b><span>Counts as conditioning · 30 min</span></button>
+      <button class="opt" data-go="home-sport-done"><b>Bike or incline walk</b><span>Conditioning · 30 min</span></button>
+      <button class="opt" data-go="home-sport-done"><b>Stair session</b><span>Conditioning · 20 min</span></button>
+      <button class="opt"><b>A run from the plan</b><span>Interval, tempo or 5K check · opens the run screen</span></button>
+    </div>` },
+  "home-sport-done": { name: "Home · after logging basketball", primary: "Start (Upper A still fits today)",
+    why: "The spacing rules apply right away, as a suggestion. Sport plus an Upper session may share a day, so Start stays; had Lower been next, the card would suggest tomorrow.",
+    html: () => home({ ...HOME, ring: "4 of 6", levelNote: "Upper A makes it a Good week.",
+      note: "Basketball covers this week's sport session. Upper A can still go today, or tomorrow.",
+      toast: `<span>Basketball logged · 60 min, today</span><span><u>Edit</u> · <u>Undo</u></span>` }) },
+};
+
+// ---------------------------------------------------------------- flows
+// taps = taps on the previous screen to get here.
+const FLOWS = [
+  { id: "onboarding", name: "First-run onboarding", verdict: "3 taps · one-time",
+    steps: [["ob1", "Open the app for the first time", 0], ["ob2", "Tap At a gym", 1], ["ob3", "Tap Continue", 1], ["home-first", "Tap Done or Skip", 1]] },
+  { id: "start", name: "Home → Start → transition", verdict: "1 tap",
+    steps: [["home", "Open the app", 0], ["w-checkin", "Tap Start (card morphs into the workout)", 1]] },
+  { id: "sets", name: "Check-in → set → rest → next set", verdict: "1 tap per set · first set 2 taps after Start",
+    steps: [["w-checkin", "From Start", 0], ["w-set1", "Tap Good (warm-up card on top)", 1], ["w-rest", "Tap Log set 1 (warm-up folds, rest starts)", 1], ["w-set2", "Wait, or tap Skip rest", 0], ["w-rest2", "Tap Log set 2", 1], ["w-set1-short", "Variant: tap Rough at check-in", 0]] },
+  { id: "interrupt", name: "Interruption: lock mid-rest", verdict: "0 taps to recover",
+    steps: [["w-rest", "Resting after set 1", 0], ["w-lock", "Press the side button", 0], ["w-reopen", "Unlock and open Uptime", 0], ["w-resume-long", "Variant: reopen after more than 90 min", 0], ["home-partial", "Variant: never finished, opened the next day", 0]] },
+  { id: "swap", name: "Swap an exercise", verdict: "2 taps",
+    steps: [["w-set1", "On the set screen", 0], ["w-swap", "Tap Swap", 1], ["w-set-swapped", "Tap Dumbbell floor press", 1]] },
+  { id: "finish", name: "Finish and see the summary", verdict: "2 taps (last set, Done)",
+    steps: [["w-last", "On the last set", 0], ["w-summary", "Tap Log last set", 1], ["home-after", "Tap Done", 1]] },
+  { id: "return", name: "Back after a 10-day gap", verdict: "Same taps as any day",
+    steps: [["home-return", "Open the app on 6 Dec", 0], ["w-checkin-lb", "Tap Start", 1], ["w-set-return", "Tap Good", 1]] },
+  { id: "busy", name: "Busy mode", verdict: "On: 2 taps (Plan) · Off: 1 tap (Home)",
+    steps: [["home", "On Home", 0], ["plan", "Tap Plan", 1], ["plan-busy-on", "Tap the Busy mode switch", 1], ["home-busy", "Tap Home", 1], ["home-busy-off", "Tap Turn off in the banner", 1], ["home-busy-suggest", "Variant: two packed weeks in a row", 0]] },
+  { id: "sport", name: "Log an unplanned sport session", verdict: "2 taps",
+    steps: [["home", "On Home", 0], ["home-sport-sheet", "Tap Log something else", 1], ["home-sport-done", "Tap Basketball (saves with defaults)", 1]] },
+];
+
+// ---------------------------------------------------------------- state + render
+const S = { f: 0, i: 0, free: null, restEnd: null };
+const screenEl = document.getElementById("screen");
+const phoneEl = document.getElementById("phone");
+
+function currentId() { return S.free || FLOWS[S.f].steps[S.i][0]; }
+
+function render(vt) {
+  const id = currentId();
+  const sc = SCREENS[id];
+  if (sc.enter) sc.enter();
+  const paint = () => {
+    screenEl.innerHTML = sc.html();
+    screenEl.classList.remove("fade-in");
+    if (!vt) { void screenEl.offsetWidth; screenEl.classList.add("fade-in"); }
+    tick();
+  };
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (vt && document.startViewTransition && !reduce) document.startViewTransition(paint); else paint();
+  renderFlows(); renderNotes();
+  try { history.replaceState(null, "", "#" + FLOWS[S.f].id + "-" + (S.i + 1)); } catch (e) {}
+}
+
+function renderFlows() {
+  document.getElementById("flows").innerHTML = `<div class="lbl">Flows</div>` + FLOWS.map((f, k) =>
+    `<button class="flowbtn" type="button" data-flow="${k}" aria-current="${k === S.f}"><span class="n">${k + 1}</span><span>${f.name}</span>${f.flag ? `<span class="f">Flag</span>` : ""}</button>`).join("");
+}
+
+function renderNotes() {
+  const f = FLOWS[S.f], id = currentId(), sc = SCREENS[id];
+  let cum = 0;
+  const steps = f.steps.map(([s, via, taps], k) => {
+    const variant = via.startsWith("Variant");
+    if (!variant) cum += taps;
+    const t = variant ? "variant" : `${cum} ${cum === 1 ? "tap" : "taps"}`;
+    return `<li><button type="button" data-step="${k}" aria-current="${!S.free && k === S.i}"><span class="k">${k + 1}</span><span>${SCREENS[s].name}<span class="via">${via}</span></span><span class="t">${t}</span></button></li>`;
+  }).join("");
+  document.getElementById("notes").innerHTML = `
+    <div class="panel">
+      <h3>Flow ${S.f + 1} of ${FLOWS.length}</h3>
+      <h2>${f.name}</h2>
+      <p><span class="pill ${f.flag ? "flag" : "ok"}">${f.flag ? "Flag · " : ""}${f.verdict}</span></p>
+      <ol class="steps">${steps}</ol>
+      ${f.flag ? `<div class="flagbox"><b>More than 2 taps:</b> ${f.flag}</div>` : ""}
+    </div>
+    <div class="panel">
+      <h3>This screen</h3>
+      <h2>${sc.name}</h2>
+      <dl class="kv" style="margin:8px 0 0">
+        <dt>Primary action</dt><dd><b>${sc.primary}</b></dd>
+        <dt>Why it's there</dt><dd>${sc.why}</dd>
+      </dl>
+      ${sc.more ? `<h3>Also</h3><ul>${sc.more.map(m => `<li>${m}</li>`).join("")}</ul>` : ""}
+      ${S.free ? `<p class="small muted" style="margin-top:10px">Off the flow's path. Use the flow list or Back to return.</p>` : ""}
+    </div>`;
+  const last = f.steps.length - 1;
+  document.getElementById("prev").disabled = !S.free && S.i === 0 && S.f === 0;
+  document.getElementById("next").disabled = !S.free && S.i === last && S.f === FLOWS.length - 1;
+  document.getElementById("stepLabel").textContent = S.free ? "off path" : `step ${S.i + 1} of ${f.steps.length}`;
+}
+
+function go(id, vt) {
+  if (!SCREENS[id]) return;
+  const f = FLOWS[S.f];
+  let i = f.steps.findIndex((st, k) => k > S.i && st[0] === id);
+  if (i < 0) i = f.steps.findIndex(st => st[0] === id);
+  if (i >= 0) { S.i = i; S.free = null; }
+  else {
+    const fi = FLOWS.findIndex(fl => fl.steps.some(st => st[0] === id));
+    const own = FLOWS[S.f].steps.some(st => st[0] === currentId());
+    if (fi >= 0 && !own) { S.f = fi; S.i = FLOWS[fi].steps.findIndex(st => st[0] === id); S.free = null; }
+    else S.free = id;
+  }
+  render(vt);
+}
+
+function step(d) {
+  if (S.free) { S.free = null; return render(); }
+  const f = FLOWS[S.f];
+  if (S.i + d >= 0 && S.i + d < f.steps.length) S.i += d;
+  else if (d > 0 && S.f < FLOWS.length - 1) { S.f++; S.i = 0; }
+  else if (d < 0 && S.f > 0) { S.f--; S.i = FLOWS[S.f].steps.length - 1; }
+  render();
+}
+
+function tick() {
+  const els = screenEl.querySelectorAll("[data-rest]");
+  if (!els.length || !S.restEnd) return;
+  const ms = S.restEnd - Date.now();
+  const fmt = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  els.forEach(el => {
+    if (ms > 0) { el.textContent = fmt(Math.ceil(ms / 1000)); el.classList.remove("over"); }
+    else { el.textContent = `Rest over · ${fmt(Math.floor(-ms / 1000))} ago`; el.classList.add("over"); }
+  });
+}
+setInterval(tick, 250);
+
+// ---------------------------------------------------------------- events
+screenEl.addEventListener("click", e => {
+  const t = e.target.closest("[data-go]");
+  if (t && t.dataset.go) go(t.dataset.go, t.hasAttribute("data-vt"));
+});
+document.getElementById("flows").addEventListener("click", e => {
+  const b = e.target.closest("[data-flow]"); if (!b) return;
+  S.f = +b.dataset.flow; S.i = 0; S.free = null; render();
+});
+document.getElementById("notes").addEventListener("click", e => {
+  const b = e.target.closest("[data-step]"); if (!b) return;
+  S.i = +b.dataset.step; S.free = null; render();
+});
+document.getElementById("prev").onclick = () => step(-1);
+document.getElementById("next").onclick = () => step(1);
+document.addEventListener("keydown", e => {
+  if (e.target.closest("input, textarea")) return;
+  if (e.key === "ArrowRight") step(1);
+  if (e.key === "ArrowLeft") step(-1);
+});
+const hot = document.getElementById("hotToggle"), thumb = document.getElementById("thumbToggle");
+const applyToggles = () => { document.body.classList.toggle("showhot", hot.checked); phoneEl.classList.toggle("thumb", thumb.checked); };
+hot.onchange = thumb.onchange = applyToggles;
+
+// Deep link: #sets-3
+(function init() {
+  const m = /^#([a-z]+)-(\d+)$/.exec(location.hash || "");
+  if (m) { const fi = FLOWS.findIndex(f => f.id === m[1]); if (fi >= 0) { S.f = fi; S.i = Math.min(+m[2] - 1, FLOWS[fi].steps.length - 1); } }
+  applyToggles(); render();
+})();
+</script>
+</body>
+</html>
