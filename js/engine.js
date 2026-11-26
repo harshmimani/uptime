@@ -411,13 +411,15 @@ export function prescribe(sessionId, adj = {}, plan = PLAN) {
     name: def.name,
     kind: def.kind,
     short: !!adj.short,
-    items: items.map((it) => {
-      let sets = it.sets ?? 3;
-      if (adj.short) sets = Math.min(sets, plan.short.sets);
-      sets = Math.max(1, Math.ceil(sets * setsFactor) + setsDelta);
-      return { ...it, sets, loadFactor };
-    }),
+    items: items.map((it) => ({ ...it, sets: adjustSets(it.sets ?? 3, { ...adj, setsFactor, setsDelta }, plan), loadFactor })),
   };
+}
+
+/** Today's set count for one item: Short caps it, a deload scales it, a return removes one. Never below 1. */
+export function adjustSets(sets, adj = {}, plan = PLAN) {
+  let n = sets;
+  if (adj.short) n = Math.min(n, plan.short.sets);
+  return Math.max(1, Math.ceil(n * (adj.setsFactor ?? 1)) + (adj.setsDelta ?? 0));
 }
 
 /** Rough check-in → suggest the Short version. Never blocks anything. */

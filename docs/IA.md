@@ -235,3 +235,16 @@ The streak line reads "New streak starts this week · best 5 weeks", never "Stre
 - The partial save keeps the session's own date, so the week it counts toward is the week it happened.
 - The Busy mode suggestion is a dismissible card with **Turn on** and **Not now**; after Not now it waits for the next 7-day block.
 - The warm-up card moves with the user if the first exercise is swapped or reordered.
+
+## Built: Workout section (26 Nov 2026)
+
+`workout.html` runs the Workout section on its own until Home is built: a stand-in Next-up card, then check-in → set → rest → summary, the run screen and Log something else. Code: `js/workout/model.js` and `js/workout/run.js` (pure, tested in `tests/workout.test.js`), `js/workout/app.js` (screens), `js/workout/feedback.js` (sound, vibration, wake lock with a silent-video fallback), `js/store.js` (storage v2 under `uptime2`; `uptime1` is read once, never written). Browser check at 360, 390 and desktop widths: `npm run check:workout`.
+
+Decided under the standing rule while building it:
+
+- Reps use a − / + stepper (as asked for this build) instead of the chips in the style preview. Still two taps for a different count, and a number never logs.
+- Steppers prefill last time's numbers for the same set. The target line says what beats it, and turns green ("Beats last time") the moment the steppers do.
+- Rest has −15 s, +15 s and Skip. Three short ticks in the last 3 seconds, then a two-tone chime and a buzz. No sound if rest ended while the phone was away.
+- The weight can also be typed (tap the number) for big jumps; typing never logs.
+- Timed sets (carries, planks, hangs) log themselves when the clock ends; per-side holds beep at halfway.
+- Runs: reps are stopwatches with a target time from the latest 5K; tempo blocks count down. Level goes up only if every rep was on pace and the user says the last one felt 8/10 or easier.
