@@ -58,7 +58,7 @@ button { font: inherit; color: inherit; }
 }
 .btn--secondary { --btn-edge: var(--c-line-strong); }
 .btn--text {
-  min-width: 0; padding: 0 var(--sp-2); font-weight: var(--fw-medium); color: var(--c-text-2);
+  min-width: 0; padding: 0 var(--sp-2); font-weight: var(--fw-medium); color: var(--c-text-2); white-space: nowrap;
   text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1.5px;
 }
 .btn--text:active, .btn--text.is-active { transform: none; }

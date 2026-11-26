@@ -193,7 +193,6 @@ footer { padding-top: var(--sp-7); color: var(--c-text-3); font-size: var(--fs-s
     <div class="phone" id="home">
       <div class="hm-head intro-in" style="--d:0">
         <div><div class="meta">Thu 26 Nov</div><h3>Good morning</h3></div>
-        <button class="switch" aria-pressed="false" id="busy"><span class="switch__track"><span class="switch__knob"></span></span>Busy mode</button>
       </div>
       <div class="surface stack intro-in" style="--d:1;padding:var(--sp-4)">
         <div class="week">
@@ -429,6 +428,12 @@ footer { padding-top: var(--sp-7); color: var(--c-text-3); font-size: var(--fs-s
         <button class="btn btn--secondary btn--wide">Try saving again</button>
       </div>
       <div class="panel">
+        <span class="label">Home · Busy mode on</span>
+        <div class="notice" style="align-items:center;justify-content:space-between;padding-block:var(--sp-1)"><span><b>Busy mode is on.</b> 2–3 full-body sessions and a run.</span><button class="btn btn--text" style="color:var(--c-text);font-weight:var(--fw-bold)">Turn off</button></div>
+        <span class="label">Home · suggestion after two light weeks</span>
+        <div class="notice" style="align-items:center;justify-content:space-between;padding-block:var(--sp-1)"><span>Busy stretch? Busy mode keeps the streak going with shorter weeks.</span><span class="row" style="gap:0"><button class="btn btn--text" style="color:var(--c-text);font-weight:var(--fw-bold)">Turn on</button><button class="btn btn--text" aria-label="Dismiss">Not now</button></span></div>
+      </div>
+      <div class="panel">
         <span class="label">After an update</span>
         <div class="notice notice--done"><span><b>Updated.</b> New version ready next time you open Uptime. Your logs are untouched.</span></div>
       </div>
@@ -527,7 +532,6 @@ async function intro() {
 }
 intro();
 $("#replay-intro").addEventListener("click", intro);
-$("#busy").addEventListener("click", e => { const b = e.currentTarget; b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") !== "true"); });
 
 /* ---------- set logging controls ---------- */
 let kg = 15, reps = 8;
@@ -652,7 +656,7 @@ const ROWS = [
 ];
 $("#states-grid").innerHTML = ROWS.map(([name, variant, text, states]) => `<div class="state-row"><h3>${name}</h3><div class="tiles">
   ${states.map(([s, cls]) => `<div class="tile"><span>${s}</span>${btn(variant, text, cls)}</div>`).join("")}</div></div>`).join("") +
-  `<div class="state-row"><h3>Switch · Busy mode</h3><div class="tiles">
+  `<div class="state-row"><h3>Switch · Busy mode (Plan → Modes)</h3><div class="tiles">
     <div class="tile"><span>Off</span><button class="switch" aria-pressed="false" tabindex="-1"><span class="switch__track"><span class="switch__knob"></span></span>Busy mode</button></div>
     <div class="tile"><span>On</span><button class="switch" aria-pressed="true" tabindex="-1"><span class="switch__track"><span class="switch__knob"></span></span>Busy mode</button></div>
     <div class="tile"><span>Focus</span><button class="switch is-focus" aria-pressed="false" tabindex="-1"><span class="switch__track"><span class="switch__knob"></span></span>Busy mode</button></div></div></div>
