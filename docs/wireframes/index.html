@@ -171,6 +171,7 @@ button { font: inherit; color: inherit; }
 .list li { border-bottom: 1px solid var(--line); padding-bottom: 8px; font-size: 13px; }
 .list li b { display: block; font-size: 14px; }
 .dim { opacity: .9; }
+.banner { margin: 0 16px 6px; padding: 4px 4px 4px 12px; border: 1.5px solid var(--ink); border-radius: 12px; font-weight: 600; font-size: 13px; flex: none; }
 
 /* Tappable highlight */
 .showhot .screen [data-go] { outline: 2px dashed var(--hot); outline-offset: 2px; }
@@ -199,7 +200,7 @@ button { font: inherit; color: inherit; }
 
 <div class="app">
   <header class="title">
-    <h1>Uptime wireframes · v0.1</h1>
+    <h1>Uptime wireframes · v0.2</h1>
     <p>Low fidelity. Grey boxes are placeholders; the copy is real. Click the dashed controls, or use ← →.</p>
     <label><input type="checkbox" id="hotToggle" checked> Show tappable</label>
     <label><input type="checkbox" id="thumbToggle"> Show thumb zone</label>
@@ -223,7 +224,8 @@ button { font: inherit; color: inherit; }
 "use strict";
 // ---------------------------------------------------------------- helpers
 const sb = (t = "07:42") => `<div class="sb" aria-hidden="true"><span>${t}</span><span>5G · 82%</span></div>`;
-const tabs = (a = "Home") => `<nav class="tabs" aria-label="Tabs">${["Home", "Progress", "Plan"].map(t => `<span class="tab ${t === a ? "on" : ""}">${t}</span>`).join("")}</nav>`;
+const TABGO = { Home: "home", Progress: "", Plan: "plan" };
+const tabs = (a = "Home") => `<nav class="tabs" aria-label="Tabs">${["Home", "Progress", "Plan"].map(t => `<span class="tab ${t === a ? "on" : ""}" ${t !== a && TABGO[t] ? `data-go="${TABGO[t]}"` : ""}>${t}</span>`).join("")}</nav>`;
 const toast = (t, bottom) => t ? `<div class="toast" role="status" style="${bottom ? `--toast-bottom:${bottom}px` : ""}">${t}</div>` : "";
 const segs = (done, cur, total) => `<div class="segs" aria-label="Exercise ${cur} of ${total}">${Array.from({ length: total }, (_, i) => `<i class="${i < done ? "d" : i === done ? "c" : ""}"></i>`).join("")}</div>`;
 
@@ -232,9 +234,11 @@ function home(o) {
   return `${sb(o.time)}
   <div class="top row between">
     <div><div class="small muted">${o.date}</div><div class="h2">${o.greet}</div></div>
-    <button class="switch ${o.busy ? "on" : ""}" data-go="${o.busyGo || "home-busy"}" aria-pressed="${!!o.busy}"><span class="knob"></span>Busy mode</button>
   </div>
+  ${o.busy ? `<div class="banner row between"><span>Busy mode is on</span><button class="btn sec" style="min-height:40px" data-go="home-busy-off">Turn off</button></div>` : ""}
   <div class="mid">
+    ${o.suggest ? `<section class="block"><div class="h3">Last two weeks were packed</div><div class="small muted">Busy mode keeps things going with 2–3 shorter full-body sessions and 1 run. Your rotation waits.</div><div class="row"><button class="btn sec grow">Not now</button><button class="btn primary grow" style="min-height:48px;font-size:15px;width:auto" data-go="home-busy">Turn on</button></div></section>` : ""}
+    ${o.line ? `<div class="note">${o.line}</div>` : ""}
     <section class="block">
       <div class="row" style="gap:12px">
         <div class="ph ring">${o.ring}</div>
@@ -280,27 +284,6 @@ function checkin(o) {
   </div>`;
 }
 
-function warmup(o) {
-  return `${sb()}
-  <header class="whead">
-    <div class="label">${o.session} · Warm-up</div>
-    ${segs(0, 1, o.total)}
-  </header>
-  <div class="mid">
-    <div class="restbox"><div class="label" style="text-align:center">Warm-up · 5 min</div><div class="timer num">4:12</div></div>
-    <ul class="list">
-      <li>2 min easy cardio: jog, bike, or skipping in place</li>
-      <li>Leg swings, 10 each way</li>
-      <li>Arm circles and pull-aparts, 10 each</li>
-      <li>10 slow calf raises</li>
-      ${o.lower ? `<li>5 bodyweight squats, 5 lateral lunges per side</li>` : ""}
-    </ul>
-    <div class="note">${o.ramp}</div>
-  </div>
-  ${toast(o.toast, 160)}
-  <div class="bottom"><button class="btn primary" data-go="${o.go}">Warm-up done</button></div>`;
-}
-
 function setScreen(o) {
   const chips = o.reps ? `<div><div class="label" style="margin-bottom:4px">Reps${o.perSide ? " per side" : ""}</div><div class="chips">${o.reps.map(r => `<button class="chip ${r === o.sel ? "on" : ""}">${r}</button>`).join("")}</div></div>` : "";
   const kg = o.kg != null ? `<div class="stepperk"><button class="sq" aria-label="Less weight">−</button><div class="val num">${o.kg}<small> ${o.kgNote || "kg"}</small></div><button class="sq" aria-label="More weight">+</button></div>` : "";
@@ -316,6 +299,7 @@ function setScreen(o) {
   </header>
   <div class="mid">
     ${o.banner ? `<div class="note">${o.banner}</div>` : ""}
+    ${o.warm ? warmCard(o.warm) : ""}
     ${rest}
     ${o.tag ? `<span class="tag">${o.tag}</span>` : ""}
     <div><div class="h2">${o.ex}</div><div class="small muted">${o.cue}</div></div>
@@ -334,11 +318,44 @@ function setScreen(o) {
   ${o.sheet || ""}`;
 }
 
+function warmCard(w) {
+  return `<section class="restbox" aria-label="Warm-up">
+    <div class="row between"><span class="label">Warm-up · 5 min</span><span class="h3 num">4:12</span></div>
+    <ul class="list small" style="gap:4px">
+      <li>2 min easy cardio: jog, bike, or skipping in place</li>
+      <li>Leg swings, 10 each way · arm circles and pull-aparts, 10 each</li>
+      <li>10 slow calf raises${w.lower ? " · 5 squats, 5 lateral lunges per side" : ""}</li>
+      <li><b>Ramp-up:</b> ${w.ramp}</li>
+    </ul>
+    <div class="small muted">Stays here until you log set 1.</div>
+  </section>`;
+}
+
+function planScreen(on) {
+  return `${sb()}
+  <div class="top"><div class="h1">Plan</div></div>
+  <div class="mid">
+    <div class="label">Modes</div>
+    <section class="block">
+      <div class="row between"><div><div class="h3">Busy mode</div><div class="small muted">2–3 full-body sessions of about 40 min, plus 1 run. Your rotation waits.</div></div>
+        <button class="switch ${on ? "on" : ""}" data-go="${on ? "plan" : "plan-busy-on"}" aria-pressed="${on}"><span class="knob"></span></button></div>
+      ${on ? `<div class="toast" style="position:static">Busy mode on. Upper A waits for when you're back. <u>Undo</u></div>` : ""}
+      <div class="row between" style="border-top:1px solid var(--line);padding-top:8px"><div><div class="h3">No gym</div><div class="small muted">Bodyweight and backpack versions of every session.</div></div><span class="switch"><span class="knob"></span></span></div>
+    </section>
+    <div class="label">Your rotation</div>
+    <div class="ph" style="height:70px">UA → LA → UB → LB, run, sport · you are here: Upper A</div>
+    <div class="label">Food · Learn · Settings</div>
+    <div class="ph" style="height:90px">Fit, not bulky · Food · Sleep and steps · Achilles · Exercise library · Settings</div>
+  </div>
+  ${tabs("Plan")}`;
+}
+
 // ---------------------------------------------------------------- base data
 const HOME = { date: "Thu 26 Nov", greet: "Good morning", ring: "3 of 6", level: "Minimum week", levelNote: "One more lift makes it a Good week.",
   streak: "4 weeks", stat: ["Best 5K", "28:30", "Goal: under 25:00. About 5–7 months with easy runs."],
   title: "Upper A", meta: "Horizontal press, pull-ups · about 45 min · 7 exercises", start: "w-checkin" };
 
+const WARM_UA = { ramp: "7.5 kg × 5, 10 kg × 3, 12.5 kg × 3 on Dumbbell bench press." };
 const BENCH = { session: "Upper A", pos: "2 of 7", total: 7, done: 1, ex: "Dumbbell bench press", cue: "Shoulder blades pinned, lower to mid-chest.",
   of: 3, range: "5–8 reps", kg: "15", kgNote: "kg per hand", reps: [5, 6, 7, 8], sel: 8,
   last: "Last time: 15 kg × 8, 8, 7", swapGo: "w-swap" };
@@ -398,28 +415,24 @@ const SCREENS = {
   // Home + transition
   "home": { name: "Home", primary: "Start (on the Next-up card)",
     why: "The card is the largest element and anchors the bottom half, so Start lands under the thumb. Progress and the stat sit above it because they're glanced at, never tapped.",
-    more: ["Priority order from CLAUDE.md is kept for screen readers: Next up is announced first.", "Busy mode is a header switch: set a few times a term, harmless to mis-tap thanks to undo.", "Log something else is visible every day but quieter than Start."],
+    more: ["Priority order from CLAUDE.md is kept for screen readers: Next up is announced first.", "Busy mode lives in Plan. When it's on, a small banner here has a one-tap Turn off.", "Log something else is visible every day but quieter than Start."],
     html: () => home(HOME) },
   "w-checkin": { name: "Workout · Check-in", primary: "Good / Okay / Rough",
     why: "One tap answers and continues. All three are full-width in the thumb zone. Rough is outlined, not red: it's a valid answer, not a warning.",
     more: ["Signature moment: the Next-up card's title becomes this header, and the Start button becomes these three buttons.", "No gym today? swaps every exercise to its no-equipment version for this session."],
-    html: () => checkin({ session: "Upper A", mins: "about 45 min", go: "w-warmup", rough: "w-warmup-rough" }) },
-  "w-warmup": { name: "Workout · Warm-up", primary: "Warm-up done",
-    why: "The checklist is read, not ticked. The timer runs by itself; one tap ends it. Ramp-up sets for the first main lift are spelled out with real weights.",
-    html: () => warmup({ session: "Upper A", total: 7, go: "w-set1", ramp: "Then ramp up on Dumbbell bench press: 7.5 kg × 5, 10 kg × 3, 12.5 kg × 3." }) },
-  "w-warmup-rough": { name: "Workout · Warm-up (after Rough)", primary: "Warm-up done",
-    why: "Rough applies the Short version straight away with an undo, instead of asking a question. Never guilt-trip.",
-    html: () => warmup({ session: "Upper A · Short", total: 3, go: "w-set1", ramp: "Then ramp up on Dumbbell bench press: 7.5 kg × 5, 10 kg × 3, 12.5 kg × 3.",
+    html: () => checkin({ session: "Upper A", mins: "about 45 min", go: "w-set1", rough: "w-set1-short" }) },
+  "w-set1-short": { name: "First exercise · after Rough", primary: "Log set 1 · 8 × 15 kg",
+    why: "Rough applies the Short version straight away with an undo line, instead of asking a question. The warm-up card is the same 5 minutes. Never guilt-trip.",
+    html: () => setScreen({ ...BENCH, session: "Upper A · Short", total: 3, pos: "2 of 3", of: 2, setN: 1, warm: WARM_UA, logLabel: "Log set 1 · 8 × 15 kg", logGo: "w-rest",
       toast: `<span>Short version on: first 3 exercises, 2 sets each. Under 30 min.</span><u>Switch to full</u>` }) },
-
   // Sets
-  "w-set1": { name: "Workout · Set screen", primary: "Log set · 8 × 15 kg",
-    why: "Prefilled with today's target from double progression, so most sets are one tap. Weight and reps sit right above it in the thumb zone. Swap and All exercises are one row up: visible, but lighter, so they're not hit by accident.",
-    more: ["Different reps: tap the chip, then Log (2 taps).", "The cue and last time are read between sets; the target hint tells you what earns the next jump."],
-    html: () => setScreen({ ...BENCH, setN: 1, logLabel: "Log set 1 · 8 × 15 kg", logGo: "w-rest",
+  "w-set1": { name: "Workout · First exercise, warm-up card on top", primary: "Log set 1 · 8 × 15 kg",
+    why: "The warm-up is a checklist card at the top of the first exercise: read, not tapped through, and always visible until set 1 is logged. Logging set 1 ends it. The Log button is prefilled with today's target from double progression, so most sets are one tap. Weight and reps sit right above it in the thumb zone. Swap and All exercises are one row up: visible, but lighter, so they're not hit by accident.",
+    more: ["Different reps: tap the number, then Log (2 taps). A number never logs on its own.", "The card can't be collapsed or dismissed. If the first exercise is swapped, the card moves with it.", "The cue and last time are read between sets; the target hint tells you what earns the next jump."],
+    html: () => setScreen({ ...BENCH, setN: 1, warm: WARM_UA, logLabel: "Log set 1 · 8 × 15 kg", logGo: "w-rest",
       hint: "Hit 8 on all 3 sets and next time goes up to 17.5 kg." }) },
   "w-rest": { name: "Workout · Rest", primary: "Log set 2 (stays live)",
-    why: "Rest starts by itself after a set. The Log button never moves, so the thumb learns one spot. +15 s and Skip rest sit in the timer card, away from Log.",
+    why: "Logging set 1 folds the warm-up card away and starts rest by itself. The Log button never moves, so the thumb learns one spot. +15 s and Skip rest sit in the timer card, away from Log.",
     more: ["The timer is a real countdown here, built on an end time, like the app will be.", "Set 1 logged · Undo: undo instead of a confirm dialog."],
     enter: () => { S.restEnd = Date.now() + 105000; },
     html: () => setScreen({ ...BENCH, setN: 2, rest: true, skipGo: "w-set2", logged: [["Set 1", "8 × 15 kg"]],
@@ -457,20 +470,21 @@ const SCREENS = {
     enter: () => { S.restEnd = Date.now() + 32000; },
     html: () => setScreen({ ...BENCH, setN: 2, rest: true, skipGo: "w-set2", logged: [["Set 1", "8 × 15 kg"]], time: "07:45",
       logLabel: "Log set 2 · 8 × 15 kg", logGo: "w-rest2" }) },
-  "w-resume-long": { name: "Reopen after 3+ hours", primary: "Pick up where you left off",
-    why: "After a long gap they may have left the gym, so the app asks once. Both buttons keep every logged set; neither deletes anything.",
-    html: () => `${sb("11:20")}
+  "w-resume-long": { name: "Reopen more than 90 min after the last set", primary: "Pick up where you left off",
+    why: "After 90 minutes they've probably left the gym, so the app asks once. Both buttons keep every logged set; Finish saves a partial session that counts toward the week.",
+    more: ["Never answered and never finished: on the next day the app is opened, the session is saved as partial under its own date."],
+    html: () => `${sb("09:50")}
       <header class="whead"><div class="label">Upper A · started 07:30</div><div class="h1">Upper A is still open</div></header>
       <div class="mid">
-        <div class="block"><div class="h3">9 of 17 sets logged</div><div class="small muted">Last set: Smith machine inverted row, 3 h 40 min ago</div>${segs(3, 3, 7)}</div>
-        <p class="small muted" style="margin:0">Pick up now and the rest of the session continues as planned. Finish now and the 9 sets count as a session.</p>
+        <div class="block"><div class="h3">9 of 17 sets logged</div><div class="small muted">Last set: Smith machine inverted row, 2 h 10 min ago</div>${segs(3, 3, 7)}</div>
+        <p class="small muted" style="margin:0">Pick up and the session continues as planned. Finish and it's saved as a partial session that counts toward your week.</p>
       </div>
       <div class="bottom"><button class="btn sec tall wide" data-go="w-summary">Finish with 9 sets</button><button class="btn primary" data-go="w-row1">Pick up where you left off</button></div>` },
 
   // Swap
   "w-swap": { name: "Swap sheet", primary: "Tap an option",
     why: "Three choices with their names and cues on one sheet: no second screen. Today only by default; history stays with each exercise.",
-    html: () => setScreen({ ...BENCH, setN: 1, logLabel: "Log set 1 · 8 × 15 kg", logGo: "w-rest",
+    html: () => setScreen({ ...BENCH, setN: 1, warm: WARM_UA, logLabel: "Log set 1 · 8 × 15 kg", logGo: "w-rest",
       sheet: `<div class="scrim" data-go="w-set1" aria-label="Close"></div><div class="sheet" role="dialog" aria-label="Swap exercise">
         <div class="label">Swap Dumbbell bench press</div>
         <button class="opt" data-go="w-set-swapped"><span>Easier</span><b>Dumbbell floor press</b><span>Elbows touch the floor softly, then press.</span></button>
@@ -481,7 +495,7 @@ const SCREENS = {
       </div>` }) },
   "w-set-swapped": { name: "Set screen after a swap", primary: "Log set 1 · 8 × 15 kg",
     why: "Back on the same set with the new exercise. The swap is labelled and undoable; logs are stored under the new exercise's own id.",
-    html: () => setScreen({ ...BENCH, ex: "Dumbbell floor press", cue: "Elbows touch the floor softly, then press.", setN: 1, tag: "Swapped for today",
+    html: () => setScreen({ ...BENCH, ex: "Dumbbell floor press", cue: "Elbows touch the floor softly, then press.", setN: 1, tag: "Swapped for today", warm: { ramp: "7.5 kg × 5, 10 kg × 3, 12.5 kg × 3 on Dumbbell floor press." },
       last: "No history yet. Starting at your bench weight.", logLabel: "Log set 1 · 8 × 15 kg", logGo: "w-rest",
       toast: `<span>Swapped for Dumbbell floor press</span><u>Undo</u>` }) },
 
@@ -525,26 +539,35 @@ const SCREENS = {
       note: "10 days off, so today's weights start at about 90% of last time. Back to normal next session." }) },
   "w-checkin-lb": { name: "Check-in (back after a gap)", primary: "Good / Okay / Rough",
     why: "Same check-in as always. Coming back should feel like any other day.",
-    html: () => checkin({ session: "Lower B", mins: "about 50 min", go: "w-warmup-lb", rough: "w-warmup-lb", note: "Weights today: about 90% of last time." }) },
-  "w-warmup-lb": { name: "Warm-up (Lower)", primary: "Warm-up done",
-    why: "Lower days add squats and lateral lunges to the general warm-up.",
-    html: () => warmup({ session: "Lower B", total: 6, lower: true, go: "w-set-return", ramp: "Then ramp up on Barbell deadlift: 30 kg × 5, 45 kg × 3, 52.5 kg × 3." }) },
+    html: () => checkin({ session: "Lower B", mins: "about 50 min", go: "w-set-return", rough: "w-set-return", note: "Weights today: about 90% of last time." }) },
   "w-set-return": { name: "Set screen with return weights", primary: "Log set 1 · 6 × 62.5 kg",
-    why: "The reduction is already in the prefilled weight and labelled, so there's nothing to calculate mid-session.",
+    why: "The reduction is already in the prefilled weight and labelled, so there's nothing to calculate mid-session. The ramp-up in the warm-up card uses today's reduced weight.",
     html: () => setScreen({ session: "Lower B", pos: "2 of 6", total: 6, done: 1, ex: "Barbell deadlift", cue: "Bar against your shins, push the floor away.",
       setN: 1, of: 3, range: "5–6 reps", kg: "62.5", kgNote: "kg total", reps: [5, 6], sel: 6, swapGo: "w-swap",
-      tag: "About 90% today", last: "10 days ago: 70 kg × 6, 6, 5", logLabel: "Log set 1 · 6 × 62.5 kg", logGo: "w-set-return" }) },
+      tag: "About 90% today", warm: { lower: true, ramp: "30 kg × 5, 45 kg × 3, 52.5 kg × 3 on Barbell deadlift." }, last: "10 days ago: 70 kg × 6, 6, 5", logLabel: "Log set 1 · 6 × 62.5 kg", logGo: "w-set-return" }) },
 
   // Busy mode
+  "plan": { name: "Plan tab · Modes first", primary: "Busy mode switch",
+    why: "Busy mode is a weekly decision, not a daily one, so it lives in Plan with No-gym. Modes sit at the top of Plan so the switch is the first thing there.",
+    more: ["Food and Learn live further down Plan."],
+    html: () => planScreen(false) },
+  "plan-busy-on": { name: "Plan · Busy mode on", primary: "Home tab (Start is there)",
+    why: "Undo line instead of a confirm. The rotation is paused, not reset.",
+    html: () => planScreen(true) },
   "home-busy": { name: "Home · Busy mode on", primary: "Start",
-    why: "Busy mode changes what's next, so Home shows the new next immediately: a 40-minute full-body session. The week target changes too.",
-    more: ["Rotation is paused, not reset: Upper A waits.", "Undo in the line below, no confirm dialog."],
-    html: () => home({ ...HOME, busy: true, busyGo: "home-busy-off", level: "Busy week", levelNote: "2–3 full-body sessions and 1 run.", ring: "1 of 3",
-      title: "Full body 1", meta: "Jump, squat, pull-ups, press, carry · about 40 min · 5 exercises", start: "w-checkin",
-      toast: `<span>Busy mode on. Upper A waits for when you're back.</span><u>Undo</u>` }) },
-  "home-busy-off": { name: "Home · Busy mode off", primary: "Start",
+    why: "Home leads with the busy session. A small banner at the top says Busy mode is on, with a one-tap Turn off, so getting back to the full rotation is effortless.",
+    html: () => home({ ...HOME, busy: true, level: "Busy week", levelNote: "2–3 full-body sessions and 1 run.", ring: "1 of 3",
+      title: "Full body 1", meta: "Jump, squat, pull-ups, press, carry · about 40 min · 5 exercises", start: "w-checkin" }) },
+  "home-busy-off": { name: "Home · after Turn off", primary: "Start",
     why: "One tap back. The rotation resumes exactly where it stopped.",
     html: () => home({ ...HOME, toast: `<span>Back to the rotation. Next up: Upper A.</span><u>Undo</u>` }) },
+  "home-busy-suggest": { name: "Home · Busy mode suggested", primary: "Start (Turn on in the card is 1 tap)",
+    why: "Two 7-day blocks in a row below Minimum. A gentle card, above the stat and below progress, never above Start's importance. Not now hides it until the next block. Never shown while Busy mode is on.",
+    html: () => home({ ...HOME, ring: "1 of 6", level: "Packed week", levelNote: "One more lift makes it a Minimum week.", streak: "New streak starts this week · best 5", stat: null, suggest: true }) },
+  "home-partial": { name: "Home · unfinished session saved as partial", primary: "Start",
+    why: "Opened on a later day without finishing: the session is saved as partial under its own date, counts toward the week, and the rotation has moved on. One line says so; nothing to answer.",
+    html: () => home({ ...HOME, date: "Wed 2 Dec", ring: "2 of 6", level: "Minimum week", levelNote: "One more lift makes it a Good week.",
+      line: "Saved Tuesday's Upper A as partial: 9 of 17 sets. It counts toward this week.", title: "Lower A", meta: "Squat, jump · about 50 min · 7 exercises" }) },
 
   // Unplanned sport
   "home-sport-sheet": { name: "Log something else (sheet)", primary: "Tap the activity",
@@ -572,18 +595,18 @@ const FLOWS = [
     steps: [["ob1", "Open the app for the first time", 0], ["ob2", "Tap At a gym", 1], ["ob3", "Tap Continue", 1], ["home-first", "Tap Done or Skip", 1]] },
   { id: "start", name: "Home → Start → transition", verdict: "1 tap",
     steps: [["home", "Open the app", 0], ["w-checkin", "Tap Start (card morphs into the workout)", 1]] },
-  { id: "sets", name: "Check-in → set → rest → next set", verdict: "1 tap per set", flag: "Home to the first working set is 3 taps (Start, check-in, warm-up done). See the IA doc, Flag 1.",
-    steps: [["w-checkin", "From Start", 0], ["w-warmup", "Tap Good", 1], ["w-set1", "Tap Warm-up done", 1], ["w-rest", "Tap Log set 1 (rest starts itself)", 1], ["w-set2", "Wait, or tap Skip rest", 0], ["w-rest2", "Tap Log set 2", 1]] },
+  { id: "sets", name: "Check-in → set → rest → next set", verdict: "1 tap per set · first set 2 taps after Start",
+    steps: [["w-checkin", "From Start", 0], ["w-set1", "Tap Good (warm-up card on top)", 1], ["w-rest", "Tap Log set 1 (warm-up folds, rest starts)", 1], ["w-set2", "Wait, or tap Skip rest", 0], ["w-rest2", "Tap Log set 2", 1], ["w-set1-short", "Variant: tap Rough at check-in", 0]] },
   { id: "interrupt", name: "Interruption: lock mid-rest", verdict: "0 taps to recover",
-    steps: [["w-rest", "Resting after set 1", 0], ["w-lock", "Press the side button", 0], ["w-reopen", "Unlock and open Uptime", 0], ["w-resume-long", "Variant: reopen after 3+ hours", 0]] },
+    steps: [["w-rest", "Resting after set 1", 0], ["w-lock", "Press the side button", 0], ["w-reopen", "Unlock and open Uptime", 0], ["w-resume-long", "Variant: reopen after more than 90 min", 0], ["home-partial", "Variant: never finished, opened the next day", 0]] },
   { id: "swap", name: "Swap an exercise", verdict: "2 taps",
     steps: [["w-set1", "On the set screen", 0], ["w-swap", "Tap Swap", 1], ["w-set-swapped", "Tap Dumbbell floor press", 1]] },
   { id: "finish", name: "Finish and see the summary", verdict: "2 taps (last set, Done)",
     steps: [["w-last", "On the last set", 0], ["w-summary", "Tap Log last set", 1], ["home-after", "Tap Done", 1]] },
   { id: "return", name: "Back after a 10-day gap", verdict: "Same taps as any day",
-    steps: [["home-return", "Open the app on 6 Dec", 0], ["w-checkin-lb", "Tap Start", 1], ["w-warmup-lb", "Tap Good", 1], ["w-set-return", "Tap Warm-up done", 1]] },
-  { id: "busy", name: "Toggle Busy mode", verdict: "1 tap each way",
-    steps: [["home", "On Home", 0], ["home-busy", "Tap Busy mode", 1], ["home-busy-off", "Tap Busy mode again", 1]] },
+    steps: [["home-return", "Open the app on 6 Dec", 0], ["w-checkin-lb", "Tap Start", 1], ["w-set-return", "Tap Good", 1]] },
+  { id: "busy", name: "Busy mode", verdict: "On: 2 taps (Plan) · Off: 1 tap (Home)",
+    steps: [["home", "On Home", 0], ["plan", "Tap Plan", 1], ["plan-busy-on", "Tap the Busy mode switch", 1], ["home-busy", "Tap Home", 1], ["home-busy-off", "Tap Turn off in the banner", 1], ["home-busy-suggest", "Variant: two packed weeks in a row", 0]] },
   { id: "sport", name: "Log an unplanned sport session", verdict: "2 taps",
     steps: [["home", "On Home", 0], ["home-sport-sheet", "Tap Log something else", 1], ["home-sport-done", "Tap Basketball (saves with defaults)", 1]] },
 ];
@@ -620,8 +643,10 @@ function renderNotes() {
   const f = FLOWS[S.f], id = currentId(), sc = SCREENS[id];
   let cum = 0;
   const steps = f.steps.map(([s, via, taps], k) => {
-    cum += taps;
-    return `<li><button type="button" data-step="${k}" aria-current="${!S.free && k === S.i}"><span class="k">${k + 1}</span><span>${SCREENS[s].name}<span class="via">${via}</span></span><span class="t">${cum} ${cum === 1 ? "tap" : "taps"}</span></button></li>`;
+    const variant = via.startsWith("Variant");
+    if (!variant) cum += taps;
+    const t = variant ? "variant" : `${cum} ${cum === 1 ? "tap" : "taps"}`;
+    return `<li><button type="button" data-step="${k}" aria-current="${!S.free && k === S.i}"><span class="k">${k + 1}</span><span>${SCREENS[s].name}<span class="via">${via}</span></span><span class="t">${t}</span></button></li>`;
   }).join("");
   document.getElementById("notes").innerHTML = `
     <div class="panel">
