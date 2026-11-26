@@ -1,18 +1,16 @@
 {
-  "id": "./",
   "name": "Uptime",
   "short_name": "Uptime",
-  "description": "Your next session, logged in one tap. A training rotation that survives a busy week.",
+  "description": "A four-day athletic training plan with timers, logging and progress.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0B0D0C",
-  "theme_color": "#0B0D0C",
-  "categories": ["health", "fitness", "sports"],
+  "background_color": "#0C0E10",
+  "theme_color": "#0C0E10",
   "icons": [
-    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
     { "src": "assets/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
