@@ -1,0 +1,176 @@
+/* Uptime design tokens.
+   One source of truth for colour, type, spacing, radii, elevation and motion.
+   Dark only, on purpose (CLAUDE.md, Visual direction): the app is used mid-workout,
+   often in a dim gym, and a single theme keeps every contrast pair verifiable.
+
+   Colour rules
+   - Green means progress or completion. Use it for: a logged set, a finished rest,
+     a filled week, the streak, "next time goes up". Never for plain buttons or decoration.
+   - The primary action is off-white on near-black: the loudest thing on the screen
+     without spending green on it. When an action completes, it turns green.
+   - One warning colour (amber) for a failed save and nothing else urgent.
+   - Every text/background pair used by the components is listed and checked in
+     tests/contrast.test.js (WCAG 2.2 AA: 4.5:1 text, 3:1 large text and UI parts). */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("../assets/archivo.woff2") format("woff2");
+  font-weight: 400 900;
+  font-stretch: 62% 100%;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* ---------- Colour: base and surfaces (lighter = closer to the user) ---------- */
+  --c-bg: #0B0D0C;          /* near-black, a breath of green so it isn't dead #000 */
+  --c-surface-1: #131614;   /* cards on the page */
+  --c-surface-2: #1A1E1C;   /* raised: sheets, the Next-up card, rest box */
+  --c-surface-3: #232826;   /* controls sitting on a surface: chips, stepper keys */
+  --c-scrim: rgba(5, 7, 6, .72);
+
+  /* ---------- Colour: text ---------- */
+  --c-text: #F2F5F3;        /* primary text, key numbers */
+  --c-text-2: #AEB6B2;      /* secondary: meta, cues, "last time" */
+  --c-text-3: #8C9590;      /* tertiary: labels, hints. Still AA on every surface */
+
+  /* ---------- Colour: lines ---------- */
+  --c-line: #2A302D;        /* decorative hairlines and dividers (not a control boundary) */
+  --c-line-strong: #626B67; /* control boundaries: secondary buttons, chips. ≥3:1 on bg, surface-1, surface-2 */
+
+  /* ---------- Colour: action ---------- */
+  --c-action: #F2F5F3;      /* primary button fill */
+  --c-on-action: #0B0D0C;   /* primary button text */
+
+  /* ---------- Colour: brand green (progress and completion only) ---------- */
+  --c-green: #29BA74;       /* BCG bright: done states, rings, progress text on dark */
+  --c-green-deep: #197A56;  /* BCG deep: filled "done" chips with white text, ring track tint */
+  --c-on-green: #04130B;    /* text on bright green */
+  --c-on-green-deep: #F2F5F3;
+  --c-green-glow: rgba(41, 186, 116, .10); /* Next-up card light; see --c-card-glow-max */
+
+  /* ---------- Colour: the one warning ---------- */
+  --c-warn: #F5B041;
+  --c-warn-surface: #2A1F0F;
+
+  /* ---------- Colour: focus ---------- */
+  --c-focus: #F2F5F3;
+
+  /* Toast: translucent so the screen shows through its blur */
+  --c-toast: rgba(35, 40, 38, .92);
+
+  /* Worst cases the moving light can lighten a background to. Not used for painting:
+     tests/contrast.test.js checks text against them and checks they really are the worst case.
+     --c-bg-glow-max: all three desktop ambient lights overlapping (alpha .125) on --c-bg.
+     --c-card-glow-max: the centre of --c-green-glow on --c-surface-2. */
+  --c-bg-glow-max: #0F2319;
+  --c-card-glow-max: #1C2E25;
+
+  /* ---------- Type ---------- */
+  --font-sans: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-num: "Archivo", ui-monospace, system-ui, sans-serif; /* always with tabular-nums */
+
+  /* Major-third scale (×1.25) from a 16px body, rounded to whole pixels.
+     Mobile sizes; key numbers are sized to be read at arm's length. */
+  --fs-label: 0.75rem;   /* 12  uppercase labels, tracked */
+  --fs-small: 0.875rem;  /* 14  meta, cues */
+  --fs-body: 1rem;       /* 16  body, buttons */
+  --fs-lead: 1.25rem;    /* 20  set line, sheet titles */
+  --fs-h2: 1.5625rem;    /* 25  exercise name */
+  --fs-h1: 2rem;         /* 32  screen titles */
+  --fs-title: 2.75rem;   /* 44  Next-up session name */
+  --fs-num: 3.5rem;      /* 56  weights, stat */
+  --fs-timer: 5rem;      /* 80  rest timer */
+
+  --lh-tight: 1;
+  --lh-snug: 1.15;
+  --lh-body: 1.45;
+
+  --fw-regular: 420;
+  --fw-medium: 520;
+  --fw-semibold: 620;
+  --fw-bold: 760;
+  --fw-black: 860;
+
+  --fstretch-display: 78%; /* condensed for big titles and numbers: bigger digits in the same width */
+  --fstretch-body: 100%;
+
+  --tracking-label: .09em;
+  --tracking-tight: -.02em;
+  --tracking-display: -.03em;
+
+  /* ---------- Space (4px base) ---------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;   /* page gutter */
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-7: 32px;
+  --sp-8: 40px;
+  --sp-9: 48px;
+  --sp-10: 64px;
+
+  /* ---------- Hit areas ---------- */
+  --hit-min: 48px;       /* every tap target */
+  --hit-primary: 64px;   /* Start, Log set: the thumb's home */
+  --hit-key: 56px;       /* kg stepper keys */
+
+  /* ---------- Radii ---------- */
+  --r-xs: 6px;
+  --r-sm: 10px;   /* chips, small controls */
+  --r-md: 14px;   /* buttons */
+  --r-lg: 20px;   /* cards */
+  --r-xl: 28px;   /* the Next-up card, sheets */
+  --r-pill: 999px;
+
+  /* ---------- Elevation ----------
+     On a dark base, depth comes from three things together: a lighter surface,
+     a soft dark shadow underneath and a faint light edge on top. */
+  --elev-0: none;
+  --elev-1: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 1px 2px rgba(0, 0, 0, .5);
+  --elev-2: 0 1px 0 rgba(255, 255, 255, .06) inset, 0 6px 16px -4px rgba(0, 0, 0, .6);
+  --elev-3: 0 1px 0 rgba(255, 255, 255, .08) inset, 0 18px 40px -12px rgba(0, 0, 0, .75);
+  --elev-4: 0 1px 0 rgba(255, 255, 255, .08) inset, 0 32px 64px -16px rgba(0, 0, 0, .85); /* sheets */
+  --blur-glass: 18px;   /* backdrop blur for toasts and the tab bar */
+
+  /* ---------- Motion ----------
+     Every animation tells the user something changed state.
+     Durations are short on purpose: the user is between sets, not watching a show. */
+  --dur-instant: 90ms;   /* press feedback */
+  --dur-fast: 160ms;     /* small state changes: chip select, toggle */
+  --dur-base: 240ms;     /* enter/exit of rows, toasts */
+  --dur-slow: 380ms;     /* card changes, set complete */
+  --dur-hero: 600ms;     /* rotation advance, Start morph */
+  --dur-count: 900ms;    /* numbers counting up */
+  --stagger: 28ms;       /* per letter / per item */
+  --motion-distance: 1;  /* multiply travel distances by this; 0 under reduced motion */
+
+  --ease-out: cubic-bezier(.2, .8, .2, 1);       /* things arriving */
+  --ease-in: cubic-bezier(.4, 0, 1, 1);          /* things leaving */
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);   /* things moving across */
+  --ease-emphasized: cubic-bezier(.16, 1, .3, 1);/* hero moves: fast start, long settle */
+  --ease-spring: cubic-bezier(.34, 1.4, .64, 1); /* small overshoot: presses, checks (fallback) */
+}
+
+/* A real spring where the browser supports linear(): a single, gentle overshoot. */
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --ease-spring: linear(0, .009, .035 2.1%, .141 4.4%, .723 12.9%, .938 16.7%, 1.017 19.4%,
+      1.067, 1.089 25.2%, 1.093 27.4%, 1.079 31.1%, 1.002 40.6%, .985 45.4%, .993 58.6%, 1);
+  }
+}
+
+/* Reduced motion: nothing travels. State changes still show, as short cross-fades. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-slow: 160ms;
+    --dur-hero: 200ms;
+    --dur-count: 0ms;
+    --stagger: 0ms;
+    --ease-spring: var(--ease-out);
+    --motion-distance: 0;
+  }
+}
