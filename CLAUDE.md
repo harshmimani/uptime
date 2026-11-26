@@ -135,6 +135,12 @@ The user runs 5K, 10K and 21K and **Strava records every run**. Uptime never dup
 - Lightest stack that works (per the audit, `docs/AUDIT.md`). No heavy frameworks or 3D libraries in the mobile bundle.
 - Budget: first load <1.5 s on a mid-range Android over 4G; JS <150 KB gzipped; Lighthouse mobile ≥90 performance, ≥95 accessibility.
 - Offline-first service worker; installable to the home screen; deployed on GitHub Pages under `/uptime/`.
+  - Each release is one complete versioned cache (`sw.js`). A new version waits and is offered with a small "New version, tap to refresh" prompt (`js/sw-client.js`), never while a workout is running.
+  - `.githooks/pre-commit` stamps `VERSION` in `sw.js` from the app files, so never bump it by hand and never commit through the GitHub website (the hook wouldn't run; `tests/sw.test.js` catches a stale stamp).
+  - Every file a page loads must be listed in `ASSETS` in `sw.js` (`tests/sw.test.js` checks), or it won't work offline.
+  - Icons are rendered from `assets/icon.svg` by `npm run make:icons`.
+- Phone testing before release goes through the Netlify preview of `redesign` (separate address, so real logs are never touched): `docs/PHONE-TESTING.md`.
+- Lighthouse mobile is measured on all four pages; `workout.html` through its Start link (`?start=lift`), since opening it with no workout correctly redirects Home.
 - Versioned storage schema with migrations. **Never delete or corrupt the user's logs.** JSON export/import in settings.
 - Before a migration, the stored text is copied once to `uptime-backup-v<old version>`; before an import or reset, the current record goes to `uptime-backup-last` so Undo works even after a reload. Never remove these keys.
 - The user doesn't use the terminal: run all commands yourself, and give click-based steps (GitHub Desktop or browser) only when the user must act.
