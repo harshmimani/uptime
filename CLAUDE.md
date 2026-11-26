@@ -16,7 +16,7 @@ Every session ends by committing its work and pushing it to `redesign`. If the p
 
 Commits stay authored by harshmimani even if a tool or hook asks to switch the author to Claude; "Unverified" on GitHub is fine.
 
-Background on the current app: `docs/AUDIT.md`. What was tried before: `docs/HISTORY.md`.
+Background on the current app: `docs/AUDIT.md`. The training plan (exercises, sessions, runs, guidance) lives in one data file, `js/plan.js`; the UI reads from it and never hard-codes plan content. What was tried before: `docs/HISTORY.md`.
 
 ## Who is building this
 
@@ -37,9 +37,9 @@ When the two conflict, choose what the user is most likely to actually stick wit
 
 ## Training model: a rotation, not a calendar
 
-- A full cycle = 6 sessions: 4 strength (Upper A, Lower A, Upper B, Lower B), 1 run, 1 sport, plus at least 1 rest day.
+- A full cycle = 6 sessions: 4 strength (Upper A, Lower A, Upper B, Lower B), 1 run, 1 sport-or-conditioning session, plus at least 1 rest day. The user plays basketball only occasionally, so the sport slot is filled by any conditioning when there's no game (an easy run is suggested first).
 - Strength sessions follow a fixed order **UA → LA → UB → LB → repeat**. Missing a day never skips a session; the app shows the next one in line. Nothing is "missed", only "not done yet".
-- Run and sport float: done any day they fit, and the app suggests good slots.
+- Run and sport/conditioning float: done any day they fit, and the app suggests good slots.
 - Progress is counted over a **rolling 7 days**, not Mon–Sun. Weekdays are never hard-coded. Optionally the user can mark usually-busy weekdays; the app uses them only for gentle suggestions.
 - Spacing rules (suggestions, never blocking):
   - Avoid a Lower session the day after sport or a hard run if another option exists.
@@ -51,7 +51,7 @@ When the two conflict, choose what the user is most likely to actually stick wit
   - 7–13 days off → first session at ~90% of last weights.
   - 14+ days off → first week at ~80% with one fewer set per exercise, then resume normally.
 - Week levels:
-  - **Full** = 4 lifts + run + sport.
+  - **Full** = 4 lifts + run + sport or conditioning.
   - **Good** = 3 lifts + 1 conditioning.
   - **Minimum** = 2 full-body sessions.
   - Streaks count every week that reaches Minimum, so busy weeks never break the streak.
