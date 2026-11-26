@@ -139,7 +139,7 @@ The user runs 5K, 10K and 21K and **Strava records every run**. Uptime never dup
   - `.githooks/pre-commit` stamps `VERSION` in `sw.js` from the app files, so never bump it by hand and never commit through the GitHub website (the hook wouldn't run; `tests/sw.test.js` catches a stale stamp).
   - Every file a page loads must be listed in `ASSETS` in `sw.js` (`tests/sw.test.js` checks), or it won't work offline.
   - Icons are rendered from `assets/icon.svg` by `npm run make:icons`.
-- Phone testing before release goes through the Netlify preview of `redesign` (separate address, so real logs are never touched): `docs/PHONE-TESTING.md`.
+- Phone testing uses the checklist in `docs/PHONE-TESTING.md`, done on the live site after a release (export a backup first). There is no separate preview deployment.
 - Lighthouse mobile is measured on all four pages; `workout.html` through its Start link (`?start=lift`), since opening it with no workout correctly redirects Home.
 - Versioned storage schema with migrations. **Never delete or corrupt the user's logs.** JSON export/import in settings.
 - Before a migration, the stored text is copied once to `uptime-backup-v<old version>`; before an import or reset, the current record goes to `uptime-backup-last` so Undo works even after a reload. Never remove these keys.

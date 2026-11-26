@@ -335,11 +335,3 @@ button { font: inherit; color: inherit; }
 @keyframes update-in { from { opacity: 0; transform: translate(-50%, -12px); } }
 @media (prefers-reduced-motion: reduce) { .update { animation-name: update-fade; } }
 @keyframes update-fade { from { opacity: 0; } }
-
-/* Marks a test copy on any address other than the live site (js/sw-client.js). */
-.preview-label {
-  position: fixed; z-index: 59; right: var(--sp-2); top: calc(env(safe-area-inset-top, 0px) + 2px);
-  padding: 2px var(--sp-2); border-radius: var(--r-xs); pointer-events: none;
-  background: var(--c-warn-surface); color: var(--c-warn);
-  font-size: var(--fs-label); font-weight: var(--fw-bold); letter-spacing: var(--tracking-label); text-transform: uppercase;
-}

@@ -6,10 +6,6 @@
 //   it waits and shows once the session is over. Reloading mid-workout would be safe (every
 //   set is saved), but an interruption between sets isn't.
 // - The page reloads only after a tap, never on its own.
-// - On any address other than the live site or this computer, a small "Preview" label marks
-//   the build, so a test copy on the phone is never mistaken for the real app.
-
-const LIVE_HOST = "harshmimani.github.io";
 
 export function startServiceWorker(opts = {}) {
   // after the page has loaded and gone idle: registering must never slow the first paint
@@ -18,7 +14,6 @@ export function startServiceWorker(opts = {}) {
 }
 
 function start({ quiet = () => false }) {
-  previewLabel();
   if (!("serviceWorker" in navigator) || !location.protocol.startsWith("http")) return;
   const sw = navigator.serviceWorker;
   let tapped = false;
@@ -66,14 +61,4 @@ function showPrompt(onTap) {
   b.innerHTML = '<span class="update__dot" aria-hidden="true"></span>New version, tap to refresh';
   b.addEventListener("click", () => { b.disabled = true; b.textContent = "Updating…"; onTap(); });
   document.body.append(b);
-}
-
-function previewLabel() {
-  const h = location.hostname;
-  if (h === LIVE_HOST || h === "localhost" || h === "127.0.0.1" || !h) return;
-  const el = document.createElement("div");
-  el.className = "preview-label";
-  el.setAttribute("aria-hidden", "true");
-  el.textContent = "Preview";
-  document.body.append(el);
 }
