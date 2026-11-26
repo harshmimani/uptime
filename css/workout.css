@@ -206,7 +206,7 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 .field input {
   min-height: var(--hit-key); padding: 0 var(--sp-3); border: 1.5px solid var(--c-line-strong); border-radius: var(--r-sm);
   background: var(--c-surface-1); color: var(--c-text); font: inherit; font-size: var(--fs-lead); font-variant-numeric: tabular-nums;
-  width: 100%; box-sizing: border-box; color-scheme: dark;
+  width: 100%; box-sizing: border-box; color-scheme: inherit;
 }
 .field input::placeholder { color: var(--c-text-3); }
 .field input:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
@@ -227,3 +227,73 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
   .scr { padding-top: var(--sp-7); }
   .scr__head { padding-top: var(--sp-4); }
 }
+
+/* ---------------------------------------------------------------- muscles and how-to (js/muscles.js) */
+.mmap { display: block; height: auto; }
+.mmap--l { width: min(100%, 220px); }
+.mmap--s { width: 44px; flex: none; }
+.mm-body { fill: var(--c-map-body); }
+.mm-idle { fill: var(--c-map-idle); }
+.mm-also { fill: var(--c-map-also); }
+.mm-main { fill: var(--c-map-main); }
+.mm-lab { font-size: 9px; font-weight: 700; letter-spacing: .08em; fill: var(--c-text-3); }
+.mm-key { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.mm-key--main { background: var(--c-map-main); }
+.mm-key--also { background: var(--c-map-also); }
+
+.howto { display: grid; gap: var(--sp-3); }
+.howto .meta { margin: 0; }
+.howto__map { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-3); align-items: center; }
+.howto__muscles { margin: 0; display: grid; gap: var(--sp-3); }
+.howto__muscles dt { font-size: var(--fs-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-text-3); font-weight: var(--fw-semibold); }
+.howto__muscles dd { margin: 2px 0 0; color: var(--c-text); font-weight: var(--fw-semibold); }
+.steps { margin: 0; padding: 0; list-style: none; counter-reset: st; display: grid; gap: var(--sp-2); }
+.steps li { counter-increment: st; display: grid; grid-template-columns: 24px 1fr; gap: var(--sp-2); color: var(--c-text-2); }
+.steps li::before { content: counter(st); color: var(--c-text); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
+.notice--avoid { box-shadow: inset 3px 0 0 var(--c-text-2); }
+
+/* tappable exercise rows: the session overview (check-in) and Learn */
+.exrows { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; counter-reset: ex; }
+.exrow { counter-increment: ex; border-bottom: 1px solid var(--c-line); }
+.exrow.out { opacity: .5; }
+.exrow button {
+  display: grid; grid-template-columns: 20px 44px minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; width: 100%;
+  min-height: 64px; padding: var(--sp-2) 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  transition: transform var(--dur-instant) var(--ease-out);
+}
+.exrow button::before { content: counter(ex); color: var(--c-text-3); font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
+.exrow button:active { transform: scale(calc(1 - .015 * var(--motion-distance))); }
+.exrow button:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; border-radius: var(--r-sm); }
+.exrow__text { display: grid; gap: 2px; min-width: 0; }
+.exrow__text b { color: var(--c-text); font-weight: var(--fw-semibold); }
+.exrow__text span { font-size: var(--fs-small); color: var(--c-text-2); }
+.exrow__dose { font-size: var(--fs-small); color: var(--c-text); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.exrow__more { font-size: var(--fs-label); color: var(--c-text-3); }
+
+/* the info link next to an exercise name on the set screen */
+.ex-title { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
+.howto-btn { flex: none; min-height: var(--hit-min); }
+
+/* rest: what comes next, always */
+.upnext { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: var(--sp-3); align-items: center; padding-top: var(--sp-3); border-top: 1px solid var(--c-line); }
+.upnext__text { display: grid; gap: 2px; min-width: 0; }
+.upnext__text b { font-size: var(--fs-lead); font-weight: var(--fw-bold); color: var(--c-text); line-height: var(--lh-snug); }
+.upnext__text span { font-size: var(--fs-small); color: var(--c-text-2); }
+
+/* Learn: where the work lands */
+.cov-wrap { overflow-x: auto; }
+.cov { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+.cov th, .cov td { padding: var(--sp-2) var(--sp-1); text-align: center; border-bottom: 1px solid var(--c-line); }
+.cov th:first-child, .cov td:first-child { text-align: left; color: var(--c-text-2); }
+.cov thead th { font-size: var(--fs-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-text-3); font-weight: var(--fw-semibold); }
+.cov td i { display: inline-block; border-radius: 50%; background: var(--c-map-main); vertical-align: middle; }
+.cov td em { font-style: normal; color: var(--c-text-3); }
+.cov tr:last-child td { border-bottom: 0; }
+.cov-legend { display: flex; flex-wrap: wrap; gap: var(--sp-3); font-size: var(--fs-small); color: var(--c-text-2); }
+.cov-legend i { display: inline-block; border-radius: 50%; background: var(--c-map-main); margin-right: 6px; vertical-align: middle; }
+
+/* old app data */
+.oldmap { list-style: none; margin: 0; padding: 0; display: grid; }
+.oldmap li { display: grid; gap: 2px; padding: var(--sp-2) 0; border-bottom: 1px solid var(--c-line); font-size: var(--fs-small); color: var(--c-text-2); }
+.oldmap li:last-child { border-bottom: 0; }
+.oldmap b { color: var(--c-text); font-weight: var(--fw-semibold); }

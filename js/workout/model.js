@@ -177,6 +177,25 @@ export function nextStep(w, lastKey) {
   return { key: head.key, rest: !!lastKey };
 }
 
+/**
+ * What's coming: the exercise in focus and, if that's another set of the same thing,
+ * the next different exercise after it. { item, n, then: item | null } or null.
+ */
+export function upNext(w) {
+  const it = item(w, w.cur);
+  if (!it) return null;
+  const sim = { ...w, log: [...w.log] };
+  let key = w.cur;
+  for (let i = 0; i < 100; i++) {
+    sim.log.push({ key, ex: item(w, key).ex, n: doneCount(sim, key) + 1 });
+    const nx = nextStep(sim, key);
+    if (!nx) break;
+    if (nx.key !== w.cur) return { item: it, n: doneCount(w, it.key) + 1, then: item(w, nx.key) };
+    key = nx.key;
+  }
+  return { item: it, n: doneCount(w, it.key) + 1, then: null };
+}
+
 /** Log one set of the exercise in focus. Returns { finished, restSec }. Mutates `w`. */
 export function logSet(w, { kg, reps, sec }, now) {
   const it = item(w, w.cur);
@@ -270,7 +289,8 @@ export function beats(v, last) {
 
 /**
  * What the steppers show for the next set of `key`, and the target to beat.
- * history(ex) → past sessions of that exercise (store.exerciseHistory).
+ * history(ex) → past sessions of that exercise (store.exerciseHistory). history.lastKg(ex), if
+ * given, is the old app's last typed weight, used only when there's no dated history.
  * target.kind: "beat" (last time's same set), "up" (progression added weight),
  *              "easy" (lighter day: return, deload, Short), "first" (no history).
  */
@@ -284,7 +304,8 @@ export function prefill(w, key, history, plan = PLAN) {
   const lastSet = last ? last.sets[n - 1] || last.sets[last.sets.length - 1] : null;
   const mine = w.log.filter((l) => l.key === key && l.ex === ex);
   const prev = mine[mine.length - 1];
-  const weighted = isWeighted(ex, it, hist);
+  const oldKg = history.lastKg?.(ex) ?? null; // the old app's last typed weight, before any dated set
+  const weighted = isWeighted(ex, oldKg ? { ...it, carryKg: it.carryKg ?? oldKg } : it, hist);
   const prog = progression(hist, { ...it, ex, start: ex === it.planEx ? it.start : undefined }, plan);
   const lighter = (w.adjust.loadFactor ?? 1) < 1;
   const reducedDay = lighter || w.adjust.deload || w.short;
@@ -293,7 +314,7 @@ export function prefill(w, key, history, plan = PLAN) {
   if (weighted) {
     if (prev?.kg != null) kg = prev.kg; // a changed weight carries forward to the remaining sets
     else {
-      kg = prog.action === "start" ? (it.carryKg ?? (ex === it.planEx ? it.start?.kg : null) ?? null)
+      kg = prog.action === "start" ? (it.carryKg ?? oldKg ?? (ex === it.planEx ? it.start?.kg : null) ?? null)
         : prog.action === "reset" ? Math.max(0, ...(last?.sets || []).map((s) => s.kg ?? 0)) || null
         : prog.kg;
       if (kg && lighter) kg = roundTo(kg * w.adjust.loadFactor);

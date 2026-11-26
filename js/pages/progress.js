@@ -84,6 +84,19 @@ function liftsSection() {
   </section>`;
 }
 
+function otherLiftsSection() {
+  const rows = P.otherLifts(db());
+  if (!rows.length) return "";
+  const set = (p) => `${fmtW(p.kg)} ${wu()}${p.reps ? ` × ${p.reps}` : ""}`;
+  return `<section class="section" aria-labelledby="other-h">
+    <h2 id="other-h">Every other lift</h2>
+    <div class="card"><ul class="oldmap">${rows.map((r) => `<li>
+      <div class="lift-head"><b>${esc(exName(r.ex))}</b><span class="num">${set(r.last)}</span></div>
+      <span>Last ${dayMonth(r.last.date)}${r.legacy ? " (earlier app)" : ""}${r.best !== r.last && r.best.kg > r.last.kg ? ` · best ${set(r.best)}` : ""} · ${r.sessions} ${r.sessions === 1 ? "session" : "sessions"}</span></li>`).join("")}</ul>
+      <p class="quiet">Top set of the last session. Your workouts start from these weights.</p></div>
+  </section>`;
+}
+
 function pullUpSection() {
   const pts = P.pullUpTrend(db());
   const lvl = PLAN.ladder.find((l) => l.level === db().settings.ladderLevel) || PLAN.ladder[0];
@@ -155,6 +168,7 @@ function render() {
       ${streakCard()}
       ${weeksSection()}
       ${liftsSection()}
+      ${otherLiftsSection()}
       ${pullUpSection()}
       ${fiveKSection()}
       ${weightSection()}

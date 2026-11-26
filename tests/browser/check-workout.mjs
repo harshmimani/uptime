@@ -81,8 +81,19 @@ async function liftFlow(label, viewport) {
   check(await noHScroll(pg), `${label}: check-in has no horizontal scroll`);
   check(await logBtnInThumbZone(pg), `${label}: check-in buttons sit in the thumb zone`);
   await pg.click("[data-act=pick-length][data-short='1']");
-  check(await pg.locator(".exlist li.out").count() === 4, `${label}: Short greys out 4 of 7 exercises`);
+  check(await pg.locator(".exrows li.out").count() === 4, `${label}: Short greys out 4 of 7 exercises`);
   await pg.click("[data-act=pick-length][data-short='0']");
+  // session overview: muscles on every row, tap for how-to
+  check(await pg.locator(".exrows li .mmap").count() === 7 && (await pg.locator(".exrows li .exrow__text span").first().textContent()).length > 2, `${label}: every exercise shows its muscles`);
+  await pg.click(".exrows li:nth-child(2) button");
+  await pg.waitForSelector(".sheet .howto");
+  check(await pg.isVisible(".sheet .mmap--l") && await pg.locator(".sheet .steps li").count() >= 3 && await pg.isVisible(".sheet .notice--avoid"), `${label}: how-to sheet: map, steps, main mistake`);
+  const yt = await pg.getAttribute(".sheet a[href*='youtube.com/results']", "href");
+  check(yt === "https://www.youtube.com/results?search_query=Dumbbell%20bench%20press", `${label}: Watch on YouTube searches the exact name`);
+  check(await noHScroll(pg), `${label}: how-to sheet has no horizontal scroll`);
+  await shot(pg, `${label}-02b-howto`);
+  await pg.keyboard.press("Escape");
+  check(await pg.locator(".sheet").count() === 0, `${label}: Escape closes the how-to`);
   await pg.click("[data-act=checkin][data-v=Good]");
   await pg.waitForSelector("[data-screen=set]");
   await pg.waitForTimeout(300);
@@ -119,6 +130,8 @@ async function liftFlow(label, viewport) {
   check(/^2:0\d$/.test(await pg.textContent("#ring-time")), `${label}: 2:00 rest started by itself`);
   check(await pg.isVisible(".toast-slot .toast"), `${label}: "Set 1 logged · Undo" toast`);
   check(await logBtnInThumbZone(pg), `${label}: Log set 2 stays live during rest, same place`);
+  const up = await pg.textContent(".timerbox .upnext");
+  check(/Up next · set 2 of 3/.test(up) && up.includes("Dumbbell bench press") && /Then /.test(up), `${label}: rest shows Up next and the exercise after it`);
   await shot(pg, `${label}-07-rest`);
   await pg.click("[data-act=rest-add][data-d='15']");
   check(/^2:1\d$/.test(await pg.textContent("#ring-time")), `${label}: +15 s`);

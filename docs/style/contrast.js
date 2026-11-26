@@ -42,6 +42,12 @@ export const PAIRS = [
   { fg: "--c-green", bg: "--c-surface-2", kind: "ui", use: "Done segment on the card" },
   { fg: "--c-action", bg: "--c-surface-2", kind: "ui", use: "Primary button edge on the card" },
   { fg: "--c-text", bg: "--c-surface-1", kind: "ui", use: "Rotation highlight against unvisited steps" },
+  // Muscle map (the muscles are also written out, so this is a courtesy, held to the UI bar anyway)
+  ...["--c-surface-1", "--c-surface-2"].map(bg => ({ fg: "--c-map-main", bg, kind: "ui", use: "Main muscle on the card" })),
+  { fg: "--c-map-main", bg: "--c-map-idle", kind: "ui", use: "Main muscle against an idle one" },
+  { fg: "--c-map-also", bg: "--c-map-idle", kind: "ui", use: "Secondary muscle against an idle one" },
+  { fg: "--c-map-main", bg: "--c-map-also", kind: "ui", use: "Main muscle against a secondary one" },
+  { fg: "--c-map-idle", bg: "--c-map-body", kind: "ui", use: "Idle muscle against the body outline", min: 1.2 },
 ];
 
 export const MIN = { text: 4.5, large: 3, ui: 3 };
@@ -87,6 +93,7 @@ export function checkAll(get) {
   return PAIRS.map(p => {
     const bg = solid(p.bg, p.on);
     const r = ratio(solid(p.fg), bg);
-    return { ...p, ratio: r, min: MIN[p.kind], pass: r >= MIN[p.kind] };
+    const min = p.min ?? MIN[p.kind];
+    return { ...p, ratio: r, min, pass: r >= min };
   });
 }

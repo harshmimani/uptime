@@ -1,12 +1,18 @@
 // Uptime storage: one versioned record in localStorage, with step-by-step migrations.
 //
 // Rules (CLAUDE.md, Engineering): never delete or corrupt the user's logs.
-// - The new app writes only `uptime2`. The old app's `uptime1` is read once to bring its
-//   strength history across (so "last time" works from day one) and is never written.
+// - The new app writes only `uptime2`. The old apps' records are read to bring their history
+//   across (so "last time" works from day one) and are never written or removed:
+//     uptime1   the app before the redesign (Nov 2026)
+//     fm3       the version before that (Oct 2026), keyed "w<week>:<day>:<slug>"
+//     kg:<slug> the first versions (Oct 2026): one remembered weight per exercise, no dates
+//   Old exercise ids stay as they were in `legacy.sets`; PLAN.legacyIds maps them to plan
+//   exercises by movement when history is read, so a better mapping never needs a migration.
 // - Every save reports whether it worked, so the UI can say so instead of losing a set.
 // - Nothing here touches the DOM; `storage` is injectable so Node tests can run it.
 //
-// Shape (v3; v3 added body, legacy extras and the Settings fields)
+// Shape (v4; v3 added body, legacy extras and the Settings fields; v4 re-reads every old key
+//        and adds legacy.lastKg)
 //   {
 //     v: 3,
 //     sessions: [{ id, date, t, end, session, name, checkIn, short, noGym, deload, reduced,
@@ -21,20 +27,22 @@
 //                 sportName: "Basketball", units: "kg" | "lb", vibrate: true },
 //     body: { weight: [{ date, kg, t }] },                   // bodyweight, always stored in kg
 //     active: null | the workout in progress (see js/workout/model.js),
-//     legacy: { from: "uptime1", at, sets: { "date|exerciseId": [{ t, kg, reps }] },
+//     legacy: { from: "uptime1", at, sets: { "date|oldExerciseId": [{ t, kg, reps }] },
+//               lastKg: { oldExerciseId: kg },     // last typed weight; used only before any dated set
 //               fiveK: [{ date, sec }], ladder: { level, log }, broad: { date: cm },
 //               waist: { date: cm }, play: { date: kind } } | absent
 //   }
 //
 // Backups (never overwritten by the app's own saves):
-//   uptime-backup-v1 / -v2   the raw stored text, written once before a migration from that version
+//   uptime-backup-v1/-v2/-v3 the raw stored text (and every old key's text), written once before a migration from that version
 //   uptime-backup-last       { at, reason, data } written before an import or a reset, for Undo
 
 import PLAN from "./plan.js";
 
 export const KEY = "uptime2";
 export const LEGACY_KEY = "uptime1";
-export const SCHEMA = 3;
+export const OLDER_KEY = "fm3";
+export const SCHEMA = 4;
 export const BACKUP_PREFIX = "uptime-backup-v";
 export const LAST_BACKUP_KEY = "uptime-backup-last";
 
@@ -62,7 +70,8 @@ export function emptyDB(plan = PLAN) {
   };
 }
 
-/** Strength sets from the old app (`uptime1.sets`), keyed the same way. Other shapes are left behind in uptime1. */
+/** Strength sets from the old app (`uptime1.sets`), keyed the same way. Other shapes are left behind in uptime1.
+    A weight of 0 meant "box left empty" in the old app, so it becomes no weight. */
 export function legacySets(old) {
   const out = {};
   if (!old || typeof old !== "object" || !old.sets || typeof old.sets !== "object") return out;
@@ -70,7 +79,7 @@ export function legacySets(old) {
     if (!/^\d{4}-\d{2}-\d{2}\|[\w-]+$/.test(k) || !Array.isArray(list)) continue;
     const sets = list
       .filter((s) => s && typeof s === "object" && (s.r != null || s.kg != null))
-      .map((s) => ({ t: Number(s.t) || 0, kg: s.kg == null || s.kg === "" ? null : Number(s.kg), reps: s.r == null ? null : Number(s.r) }))
+      .map((s) => ({ t: Number(s.t) || 0, kg: s.kg == null || s.kg === "" || !(Number(s.kg) > 0) ? null : Number(s.kg), reps: s.r == null ? null : Number(s.r) }))
       .filter((s) => (s.kg == null || Number.isFinite(s.kg)) && (s.reps == null || Number.isFinite(s.reps)));
     if (sets.length) out[k] = sets;
   }
@@ -107,15 +116,97 @@ export function legacyExtras(old) {
   return out;
 }
 
-/** Bring the old app's logs into `db` (sets → legacy.sets, bodyweight → body.weight, the rest → legacy). */
-function importLegacy(db, old, now) {
+/** Last typed weight per old exercise id (the `kg` map of uptime1/fm3, or kg:<slug> keys). Real weights only. */
+export function legacyLastKg(old) {
+  const out = {};
+  for (const [id, v] of Object.entries(old?.kg || {})) {
+    const kg = num(v);
+    if (/^[\w-]+$/.test(id) && kg > 0 && kg < 500) out[id] = kg;
+  }
+  return out;
+}
+
+const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const FM3_START = [2026, 9, 12]; // fm3's week 1 Monday, as the uptime1 app converted it
+function localIso(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** fm3 sets ("w<week>:<day>:<slug>") in uptime1's "date|id" shape. A set's own timestamp wins over the week maths. */
+export function fm3Sets(sets) {
+  const out = {};
+  for (const [k, list] of Object.entries(sets || {})) {
+    const m = k.match(/^w(\d+):(\d+):([\w-]+)$/);
+    if (!m || !Array.isArray(list)) continue;
+    const t = list.find((s) => s && Number(s.t) > 0)?.t;
+    const d = t ? new Date(Number(t)) : new Date(FM3_START[0], FM3_START[1], FM3_START[2] + (Number(m[1]) - 1) * 7 + Number(m[2]));
+    const key = `${localIso(d)}|${m[3]}`;
+    out[key] = [...(out[key] || []), ...list];
+  }
+  return out;
+}
+
+/**
+ * Everything the earlier apps left, as one uptime1-shaped object (or null when there's nothing).
+ * uptime1 wins where they overlap (it already holds fm3's sets if it converted them).
+ */
+export function combineOld({ uptime1 = null, fm3 = null, kgKeys = {} } = {}) {
+  const o1 = uptime1 && typeof uptime1 === "object" && !Array.isArray(uptime1) ? uptime1 : null;
+  const o3 = fm3 && typeof fm3 === "object" && !Array.isArray(fm3) ? fm3 : null;
+  const anyKg = Object.keys(kgKeys || {}).length > 0;
+  if (!o1 && !o3 && !anyKg) return null;
+  return {
+    ...(o1 || {}),
+    sets: { ...fm3Sets(o3?.sets), ...(o1?.sets || {}) },
+    kg: { ...(kgKeys || {}), ...(o3?.kg || {}), ...(o1?.kg || {}) },
+  };
+}
+
+/** Read every old-app key (never writes). { old: combineOld(...), texts: { key: raw stored text } } */
+export function readOldSources(storage) {
+  const texts = {};
+  const get = (k) => { try { return storage?.getItem(k) ?? null; } catch { return null; } };
+  const parse = (k) => {
+    const t = get(k);
+    if (t == null) return null;
+    texts[k] = t;
+    try { return JSON.parse(t); } catch { return null; }
+  };
+  const uptime1 = parse(LEGACY_KEY);
+  const fm3 = parse(OLDER_KEY);
+  const kgKeys = {};
+  try {
+    const n = Number(storage?.length) || 0;
+    for (let i = 0; i < n; i++) {
+      const k = storage.key(i);
+      if (!k || !/^kg:[\w-]+$/.test(k)) continue;
+      texts[k] = get(k);
+      kgKeys[k.slice(3)] = texts[k];
+    }
+  } catch { /* a storage without key(): the JSON records are enough */ }
+  return { old: combineOld({ uptime1, fm3, kgKeys }), texts };
+}
+
+/**
+ * Bring the old apps' logs into `db` (sets → legacy.sets, last weights → legacy.lastKg,
+ * bodyweight → body.weight, the rest → legacy). Never replaces anything already there.
+ */
+export function importLegacy(db, old, now = Date.now()) {
   const sets = legacySets(old);
   const x = legacyExtras(old);
-  const has = Object.keys(sets).length || x.weight.length || x.fiveK.length || x.ladder || Object.keys(x.broad).length || Object.keys(x.waist).length || Object.keys(x.play).length;
+  const lastKg = legacyLastKg(old);
+  const has = Object.keys(sets).length || Object.keys(lastKg).length || x.weight.length || x.fiveK.length || x.ladder || Object.keys(x.broad).length || Object.keys(x.waist).length || Object.keys(x.play).length;
   if (!has) return db;
   const prev = db.legacy || {};
-  db.legacy = { ...prev, from: LEGACY_KEY, at: prev.at || now, sets: { ...sets, ...(prev.sets || {}) },
-    fiveK: x.fiveK, ladder: x.ladder, broad: x.broad, waist: x.waist, play: x.play };
+  const fk = new Map((prev.fiveK || []).map((f) => [f.date, f]));
+  for (const f of x.fiveK) if (!fk.has(f.date)) fk.set(f.date, f);
+  db.legacy = { ...prev, from: LEGACY_KEY, at: prev.at || now,
+    sets: { ...sets, ...(prev.sets || {}) },
+    lastKg: { ...lastKg, ...(prev.lastKg || {}) },
+    fiveK: [...fk.values()].sort((a, b) => a.date.localeCompare(b.date)),
+    ladder: prev.ladder || x.ladder,
+    broad: { ...x.broad, ...(prev.broad || {}) }, waist: { ...x.waist, ...(prev.waist || {}) }, play: { ...x.play, ...(prev.play || {}) } };
   const have = new Set(db.body.weight.map((w) => w.date));
   for (const w of x.weight) if (!have.has(w.date)) db.body.weight.push(w);
   db.body.weight.sort((a, b) => a.date.localeCompare(b.date) || a.t - b.t);
@@ -131,11 +222,14 @@ const MIGRATIONS = {
     db.body.weight = Array.isArray(db.body.weight) ? db.body.weight : [];
     return legacy ? importLegacy(db, legacy, now) : db;
   },
+  // v4: the old apps' data again, now from every key they used (uptime1, fm3, kg:<slug>),
+  // plus their last typed weights. Sets already brought across stay as they are.
+  4: (db, legacy, now) => (legacy ? importLegacy(db, legacy, now) : db),
 };
 
 /**
  * Bring any stored value up to the current schema. Unknown fields are kept.
- * `legacy` is the parsed uptime1 object (or null), used only when there's no v2 record yet.
+ * `legacy` is the old apps' data (combineOld) or null.
  */
 export function migrate(raw, legacy = null, plan = PLAN, now = Date.now()) {
   if (!raw || typeof raw !== "object") return importLegacy(emptyDB(plan), legacy, now);
@@ -178,11 +272,11 @@ export function createStore(storage = globalThis.localStorage, plan = PLAN) {
     try { return storage?.getItem(k) ?? null; } catch { return null; }
   };
   /** Keep a copy of the stored text before a migration changes it. Written once per version. */
-  function backupBefore(version, rawText, legacyText) {
+  function backupBefore(version, rawText, oldTexts) {
     const k = BACKUP_PREFIX + version;
     try {
       if (storage.getItem(k) != null) return true;
-      storage.setItem(k, JSON.stringify({ at: Date.now(), from: version, [KEY]: rawText, [LEGACY_KEY]: legacyText }));
+      storage.setItem(k, JSON.stringify({ at: Date.now(), from: version, ...oldTexts, [KEY]: rawText, [LEGACY_KEY]: oldTexts[LEGACY_KEY] ?? null }));
       return true;
     } catch {
       return false;
@@ -200,9 +294,9 @@ export function createStore(storage = globalThis.localStorage, plan = PLAN) {
       loadError = e;
     }
     const from = raw && typeof raw === "object" ? Number(raw.v) || SCHEMA : null;
-    const legacyText = !loadError && (from == null || from < SCHEMA) ? text(LEGACY_KEY) : null;
+    const old = !loadError && (from == null || from < SCHEMA) ? readOldSources(storage) : { old: null, texts: {} };
     try {
-      db = migrate(raw, legacyText ? read(LEGACY_KEY) : null, plan);
+      db = migrate(raw, old.old, plan);
     } catch (e) {
       loadError = e;
       db = emptyDB(plan);
@@ -213,7 +307,7 @@ export function createStore(storage = globalThis.localStorage, plan = PLAN) {
     const needs = !loadError && ((from != null && from < SCHEMA) || (from == null && db.legacy));
     if (needs) {
       const version = from ?? 1;
-      if (backupBefore(version, rawText, legacyText)) {
+      if (backupBefore(version, rawText, old.texts)) {
         migrated = { from: version, at: Date.now() };
         save();
       }
@@ -288,6 +382,12 @@ export function exportJSON(db, now = Date.now()) {
  */
 export function parseImport(textIn, plan = PLAN, now = Date.now()) {
   let o;
+  if (/^﻿?"?date"?,/i.test(String(textIn).trimStart())) {
+    const old = parseOldCSV(textIn);
+    if (!old) return { error: "That CSV isn't a lift log from the earlier app." };
+    const db = migrate(null, old, plan, now);
+    return db.legacy ? { db, legacy: true, old } : { error: "That CSV has no sets in it." };
+  }
   try { o = JSON.parse(textIn); } catch { return { error: "That file isn't a backup: it couldn't be read as JSON." }; }
   if (o && o.app === "uptime" && o.data) o = o.data;
   if (!o || typeof o !== "object" || Array.isArray(o)) return { error: "That file isn't an Uptime backup." };
@@ -297,8 +397,10 @@ export function parseImport(textIn, plan = PLAN, now = Date.now()) {
       return { db: migrate(structuredClone(o), null, plan, now) };
     }
     if (o.sets && typeof o.sets === "object") {
-      const db = migrate(null, o, plan, now);
-      if (db.legacy) return { db, legacy: true };
+      const isFm3 = Object.keys(o.sets).some((k) => /^w\d+:/.test(k));
+      const old = combineOld(isFm3 ? { fm3: o } : { uptime1: o });
+      const db = migrate(null, old, plan, now);
+      if (db.legacy) return { db, legacy: true, old };
     }
   } catch (e) {
     return { error: e.message || "That backup couldn't be read." };
@@ -306,7 +408,101 @@ export function parseImport(textIn, plan = PLAN, now = Date.now()) {
   return { error: "That file isn't an Uptime backup." };
 }
 
+function csvRows(textIn) {
+  const rows = [];
+  let row = [], cell = "", q = false;
+  const t = String(textIn).replace(/^﻿/, "");
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (q) {
+      if (c === '"' && t[i + 1] === '"') { cell += '"'; i++; }
+      else if (c === '"') q = false;
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && t[i + 1] === "\n") i++;
+      row.push(cell); rows.push(row); row = []; cell = "";
+    } else cell += c;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter((r) => r.some((x) => x.trim()));
+}
+
+/**
+ * The earlier apps' CSV exports as an uptime1-shaped object (or null):
+ *   uptime-log-*.csv          date, exercise, set, kg, reps_or_units, score
+ *   five-mornings-log-*.csv   date, week, day, exercise, set, kg, reps_or_m
+ * Exercise names become old ids (slugs; PLAN.legacyIds maps them). Rows without a date are skipped.
+ */
+export function parseOldCSV(textIn) {
+  const rows = csvRows(textIn);
+  if (rows.length < 2) return null;
+  const head = rows[0].map((h) => h.trim().toLowerCase());
+  const iDate = head.indexOf("date"), iEx = head.indexOf("exercise"), iKg = head.indexOf("kg");
+  const iReps = head.findIndex((h) => h.startsWith("reps"));
+  if (iDate < 0 || iEx < 0 || iReps < 0) return null;
+  const old = { sets: {}, body: { w: {}, waist: {} }, tests: { fivek: [], broad: {} } };
+  rows.slice(1).forEach((r, n) => {
+    const date = (r[iDate] || "").trim();
+    if (!isoKey(date)) return;
+    const name = (r[iEx] || "").trim();
+    const val = num(r[iReps]);
+    if (name === "Body weight") { if (val) old.body.w[date] = val; return; }
+    if (name === "Waist (cm)") { if (val) old.body.waist[date] = val; return; }
+    if (name === "5K time (s)") { if (val) old.tests.fivek.push({ d: date, sec: val }); return; }
+    if (name === "Broad jump (cm)") { if (val) old.tests.broad[date] = val; return; }
+    const id = slug(name);
+    const kg = iKg >= 0 ? num(r[iKg]) : null;
+    if (!id || (val == null && kg == null)) return;
+    (old.sets[`${date}|${id}`] ||= []).push({ t: n + 1, kg, r: val });
+  });
+  return Object.keys(old.sets).length || Object.keys(old.body.w).length || old.tests.fivek.length ? old : null;
+}
+
 // ------------------------------------------------------------------ derived views
+
+/** The plan exercise an old app's exercise id counts as (PLAN.legacyIds, else the same id), or null. */
+export function legacyTarget(oldId, plan = PLAN) {
+  const m = plan.legacyIds?.[oldId];
+  if (m) return m.to || null;
+  return plan.exercises[oldId] ? oldId : null;
+}
+
+/** The old app's last typed weight for a plan exercise (kg or null). Used only before any dated set exists. */
+export function oldLastKg(db, ex, plan = PLAN) {
+  for (const [id, kg] of Object.entries(db.legacy?.lastKg || {})) if (kg > 0 && legacyTarget(id, plan) === ex) return kg;
+  return null;
+}
+
+/**
+ * What came across from the old apps, one row per old exercise, matched first:
+ * [{ id, name, to, why, sessions, last: { date, kg, reps } | null, lastKg }]
+ * `to` is the plan exercise it counts as; null means kept, but not part of this plan.
+ * Runs and old timed workouts are left out (Strava has runs; scores aren't weights).
+ */
+export function legacyReport(db, plan = PLAN) {
+  const by = new Map();
+  const row = (id) => {
+    if (!by.has(id)) {
+      const m = plan.legacyIds?.[id];
+      const to = legacyTarget(id, plan);
+      by.set(id, { id, name: m?.name || plan.exercises[id]?.name || (id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, " ")),
+        to, why: m?.why || null, skip: !!m?.skip || ["run", "sport", "conditioning"].includes(plan.exercises[to]?.kind),
+        sessions: 0, last: null, lastKg: null });
+    }
+    return by.get(id);
+  };
+  for (const [k, sets] of Object.entries(db.legacy?.sets || {})) {
+    const [date, id] = k.split("|");
+    const r = row(id);
+    r.sessions++;
+    const top = Math.max(0, ...sets.map((s) => s.kg || 0));
+    if (!r.last || date >= r.last.date) r.last = { date, kg: top || null, reps: sets.find((s) => (s.kg || 0) === top)?.reps ?? null };
+  }
+  for (const [id, kg] of Object.entries(db.legacy?.lastKg || {})) row(id).lastKg = kg;
+  return [...by.values()].filter((r) => !r.skip).sort((a, b) => (!a.to - !b.to) || a.name.localeCompare(b.name));
+}
 
 let idn = 0;
 export const newId = (prefix = "x") => `${prefix}${Date.now().toString(36)}${(idn++).toString(36)}`;
@@ -338,8 +534,10 @@ export function exerciseHistory(db, ex) {
   }
   for (const [k, sets] of Object.entries(db.legacy?.sets || {})) {
     const [date, id] = k.split("|");
-    if (id !== ex) continue;
-    byDate.set(`${date}|legacy`, { date, t: sets[0]?.t || 0, sets: sets.map(({ kg, reps }) => ({ kg: kg ?? undefined, reps: reps ?? undefined })), legacy: true });
+    if (legacyTarget(id) !== ex) continue;
+    const mine = sets.map(({ kg, reps }) => ({ kg: kg ?? undefined, reps: reps ?? undefined }));
+    const prev = byDate.get(`${date}|legacy`); // two old names for one plan exercise on the same day
+    byDate.set(`${date}|legacy`, { date, t: sets[0]?.t || 0, sets: prev ? [...prev.sets, ...mine] : mine, legacy: true });
   }
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date) || a.t - b.t);
 }

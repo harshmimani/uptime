@@ -3,8 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0B0D0C">
-<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0B0D0C" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#EEF1EF" media="(prefers-color-scheme: light)">
+<meta name="color-scheme" content="dark light">
+<script>try{var t=localStorage.getItem("uptime-theme");if(t==="light"||t==="dark"){document.documentElement.dataset.theme=t;document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.content=t==="light"?"#EEF1EF":"#0B0D0C"})}}catch(e){}</script>
 <meta name="description" content="Uptime: your next session, your week and one number worth knowing. Start in one tap.">
 <title>Uptime</title>
 <script>

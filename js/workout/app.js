@@ -9,7 +9,8 @@
 
 import PLAN from "../plan.js";
 import * as E from "../engine.js";
-import { createStore, engineLog, exerciseHistory, isoDate, newId } from "../store.js";
+import { createStore, engineLog, exerciseHistory, isoDate, newId, oldLastKg } from "../store.js";
+import { howToHTML, miniMap, muscleLine } from "../muscles.js";
 import * as M from "./model.js";
 import { startServiceWorker } from "../sw-client.js";
 import * as R from "./run.js";
@@ -25,6 +26,7 @@ const awake = new KeepAwake(new URL("../../assets/keep-awake.mp4", import.meta.u
 const now = () => Date.now();
 const today = () => isoDate(new Date());
 const hist = (ex) => exerciseHistory(db(), ex);
+hist.lastKg = (ex) => oldLastKg(db(), ex);
 
 const ui = {
   view: "set",
@@ -35,7 +37,8 @@ const ui = {
   saveFailed: false,
   lock: false,       // ignore taps while the set-done animation plays
   other: null,       // log something else: { date, savedId, editing }
-  sheet: null,       // "swap" | "all" | null
+  sheet: null,       // "swap" | "all" | "info" | null
+  infoEx: null,      // the exercise the "info" sheet explains
   alerted: {},       // rest/work end timestamps already announced
   run: null,         // today's run screen: { pick, t, raceOpen, raceDraft }
 };
@@ -182,7 +185,13 @@ function viewCheckin() {
     label = `${def.name} · about ${M.estimateMin(cur)} min`;
     full = `${f.length} exercises · about ${M.estimateMin(f)} min`;
     short = `${s.length} exercises · ${s.every((x) => x.sets <= PLAN.short.sets) ? "2 sets each" : "fewer sets"}`;
-    list = f.map((it, i) => `<li class="${pd.short && i >= s.length ? "out" : ""}"><b>${esc(M.exName(it.ex))}</b><span class="num">${pd.short && i < s.length ? s[i].sets : it.sets} × ${esc(M.rangeText(it).replace(" reps", ""))}</span></li>`).join("");
+    list = f.map((it, i) => {
+      const out = pd.short && i >= s.length;
+      const sets = pd.short && !out ? s[i].sets : it.sets;
+      return `<li class="exrow${out ? " out" : ""}"><button type="button" data-act="info" data-ex="${esc(it.ex)}" aria-label="${esc(`${M.exName(it.ex)}, ${sets} sets of ${M.rangeText(it)}${out ? ", not in the Short version" : ""}. How to do it`)}">
+        ${miniMap(it.ex)}<span class="exrow__text"><b>${esc(M.exName(it.ex))}</b><span>${esc(muscleLine(it.ex))}</span></span>
+        <span class="exrow__dose num">${sets} × ${esc(M.rangeText(it).replace(" reps", ""))}</span></button></li>`;
+    }).join("");
     if (pd.adjust.loadFactor < 1) notes.push(`Weights today: about ${Math.round(pd.adjust.loadFactor * 100)}% of last time${pd.adjust.setsDelta ? ", one set fewer per exercise" : ""}.`);
     if (pd.adjust.deload) notes.push("Deload week: same exercises, about half the sets.");
     else if (pd.deload?.suggested) notes.push("A deload is due: same exercises, about half the sets, for a week.");
@@ -201,7 +210,8 @@ function viewCheckin() {
         <button type="button" data-act="pick-length" data-short="0" aria-pressed="${!pd.short}"><b>Full</b><span>${esc(full)}</span></button>
         <button type="button" data-act="pick-length" data-short="1" aria-pressed="${!!pd.short}"><b>Short</b><span>${esc(short)}</span></button>
       </div>
-      <ol class="exlist" aria-label="Today's exercises">${list}</ol>
+      <div class="row between" style="align-items:baseline"><h2 class="label" id="today-h">Today's exercises</h2><span class="exrow__more">Tap one for how-to</span></div>
+      <ol class="exrows" aria-labelledby="today-h">${list}</ol>
       ${pd.type === "lift" ? `<button class="btn btn--text" style="justify-self:start" data-act="toggle-nogym">${pd.noGym ? "Back to the gym version" : "No gym today? Use the no-gym version"}</button>` : ""}
     </div>
     <div class="scr__foot">
@@ -315,7 +325,7 @@ function viewSet() {
   const timerBox = w.work
     ? timerBoxHTML({ kind: "work", label: it.perSide ? "Work · switch sides halfway" : "Work", next: M.exName(it.ex) })
     : w.rest
-      ? timerBoxHTML({ kind: "rest", label: "Rest", next: `Next: ${M.exName(it.ex)} · set ${p.n} of ${it.sets}` })
+      ? timerBoxHTML({ kind: "rest", label: "Rest", next: "", upNext: upNextHTML(w, p, v, it) })
       : "";
   return `<main class="scr" data-screen="set">
     ${headerFor(w, it)}
@@ -334,8 +344,10 @@ function viewSet() {
       ${rampHere && rampHere.ex === it.ex ? `<div class="notice"><div><b>Ramp-up first:</b> ${rampText(rampHere)}. No rest needed between them.</div></div>` : ""}
       ${tags.length ? `<div class="tags">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
       <div>
-        <h1 class="ex-name" id="ex-name">${esc(M.exName(it.ex))}</h1>
+        <div class="ex-title"><h1 class="ex-name" id="ex-name">${esc(M.exName(it.ex))}</h1>
+          <button class="btn btn--text howto-btn" data-act="info" data-ex="${esc(it.ex)}" aria-label="How to do ${esc(M.exName(it.ex))}: muscles, steps and video">How to</button></div>
         <p class="meta cue">${esc(M.exCue(it.ex))}${p.setup ? ` · ${esc(p.setup)}` : ""}</p>
+        <p class="quiet" style="margin-top:4px">${esc(muscleLine(it.ex))}</p>
         ${partner.length ? `<p class="quiet" style="margin-top:4px">Superset with ${esc(partner.map((x) => M.exName(x.ex)).join(" and "))}: alternate, rest after both.</p>` : ""}
         ${it.note ? `<p class="quiet" style="margin-top:4px">${esc(it.note)}</p>` : ""}
       </div>
@@ -356,9 +368,20 @@ function viewSet() {
   </main>`;
 }
 
-function timerBoxHTML({ kind, label, next }) {
+/** During rest: the next set, and the exercise after it if that set is more of the same. Tap for how-to. */
+function upNextHTML(w, p, v, it) {
+  const u = M.upNext(w);
+  if (!u) return "";
+  const dose = v.sec != null ? `${v.sec} s` : `${v.reps}${it.perSide ? " per side" : " reps"}${v.kg ? ` × ${fmtKg(v.kg)} ${unitLabel()}` : ""}`;
+  const then = u.then && u.then.key !== it.key ? `Then ${M.exName(u.then.ex)}` : "";
+  return `<button type="button" class="upnext opt" data-act="info" data-ex="${esc(it.ex)}" aria-label="${esc(`Up next: ${M.exName(it.ex)}, set ${p.n} of ${it.sets}, ${dose}.${then ? ` ${then}.` : ""} How to do it`)}">
+    ${miniMap(it.ex)}<span class="upnext__text"><span class="label">Up next · set ${p.n} of ${it.sets}</span><b>${esc(M.exName(it.ex))}</b>
+    <span class="num">${esc(dose)}</span>${then ? `<span>${esc(then)}</span>` : ""}</span></button>`;
+}
+
+function timerBoxHTML({ kind, label, next, upNext = "" }) {
   return `<section class="timerbox${ui.timerEnter ? " enter" : ""}" aria-label="${esc(label)} timer">
-    <div class="row between"><span class="label" id="timer-label">${esc(label)}</span><span class="meta">${esc(next)}</span></div>
+    <div class="row between"><span class="label" id="timer-label">${esc(label)}</span>${next ? `<span class="meta">${esc(next)}</span>` : ""}</div>
     <div class="ring" id="ring" data-kind="${kind}" role="timer" aria-label="${esc(label)}">
       <div class="ring__track"></div>
       <div class="ring__half ring__half--r"><div class="ring__fill"></div></div>
@@ -371,6 +394,7 @@ function timerBoxHTML({ kind, label, next }) {
       <button class="btn btn--secondary" data-act="rest-add" data-d="15" aria-label="15 seconds more rest">+15 s</button>
       <button class="btn btn--secondary" data-act="rest-skip">Skip</button>
     </div>` : ""}
+    ${upNext}
   </section>`;
 }
 
@@ -617,6 +641,13 @@ function restSkip() {
 
 function viewSheet() {
   const w = db().active;
+  if (ui.sheet === "info") {
+    return `<div class="scrim" data-act="close-sheet"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
+      ${howToHTML(ui.infoEx, { name: M.exName(ui.infoEx), cue: M.exCue(ui.infoEx), headingId: "sheet-h" })}
+      <button class="btn btn--text" style="justify-self:center" data-act="close-sheet">${w ? "Back to the workout" : "Back"}</button>
+    </div>`;
+  }
   if (ui.sheet === "swap") {
     const it = M.item(w, w.cur);
     const base = PLAN.exercises[it.planEx];
@@ -661,7 +692,7 @@ function viewSheet() {
 
 function openSheet(name, trigger) {
   ui.sheet = name;
-  ui.sheetTrigger = trigger?.dataset.act;
+  ui.sheetTrigger = trigger?.dataset.act ? `[data-act="${trigger.dataset.act}"]${trigger.dataset.ex ? `[data-ex="${CSS.escape(trigger.dataset.ex)}"]` : ""}` : null;
   ui.swapAlways = false;
   render();
 }
@@ -669,7 +700,7 @@ function closeSheet() {
   const back = ui.sheetTrigger;
   ui.sheet = null;
   render();
-  if (back) document.querySelector(`[data-act="${back}"]`)?.focus({ preventScroll: true });
+  if (back) document.querySelector(back)?.focus({ preventScroll: true });
 }
 
 function swapTo(ex) {
@@ -1011,6 +1042,7 @@ app.addEventListener("click", (ev) => {
     case "undo": undo(); break;
     case "rest-add": restAdd(Number(el.dataset.d)); break;
     case "rest-skip": restSkip(); break;
+    case "info": ui.infoEx = el.dataset.ex; openSheet("info", el); break;
     case "open-swap": openSheet("swap", el); break;
     case "open-all": openSheet("all", el); break;
     case "close-sheet": closeSheet(); break;
@@ -1067,7 +1099,7 @@ app.addEventListener("input", (ev) => {
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape" && ui.sheet) closeSheet();
   if (ev.key === "Tab" && ui.sheet) { // keep focus inside the sheet
-    const f = [...app.querySelectorAll(".sheet button:not([disabled])")];
+    const f = [...app.querySelectorAll(".sheet button:not([disabled]), .sheet a[href]")];
     if (!f.length) return;
     const first = f[0], last = f[f.length - 1];
     if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }

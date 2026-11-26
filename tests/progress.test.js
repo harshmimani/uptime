@@ -62,7 +62,7 @@ test("v2 record migrates to v3 with a raw backup; nothing is lost; old app extra
   assert.equal(store.migrated.from, 2);
   assert.equal(JSON.parse(st.map.get(BACKUP_PREFIX + 2))[KEY], raw);
   const db = store.db;
-  assert.equal(db.v, 3);
+  assert.equal(db.v, SCHEMA);
   assert.equal(db.sessions.length, 1);
   assert.equal(db.activities[0].time, "10k 52:30");
   assert.equal(db.settings.sound, false);
@@ -73,7 +73,7 @@ test("v2 record migrates to v3 with a raw backup; nothing is lost; old app extra
   assert.equal(db.body.weight.length, 2);
   assert.equal(db.legacy.at, 5); // kept
   assert.ok(db.legacy.sets["2026-10-20|dumbbell-bench-press"]);
-  assert.equal(JSON.parse(st.map.get(KEY)).v, 3);
+  assert.equal(JSON.parse(st.map.get(KEY)).v, SCHEMA);
 });
 
 test("an unreadable record is never overwritten, even by the migration", () => {

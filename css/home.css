@@ -108,7 +108,7 @@ body { overscroll-behavior-y: none; }
 .float {
   display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: var(--hit-min);
   padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4); border-radius: var(--r-md);
-  color: var(--c-text-2); text-decoration: none; background: rgba(255, 255, 255, .03); box-shadow: inset 0 0 0 1px var(--c-line);
+  color: var(--c-text-2); text-decoration: none; background: var(--c-surface-1); box-shadow: inset 0 0 0 1px var(--c-line);
   transition: transform var(--dur-instant) var(--ease-out);
 }
 .float:active { transform: scale(calc(1 - .02 * var(--motion-distance))); }

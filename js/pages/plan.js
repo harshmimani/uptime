@@ -4,12 +4,14 @@
 
 import PLAN from "../plan.js";
 import * as E from "../engine.js";
-import { createStore, emptyDB, engineLog, exportJSON, parseImport, isoDate } from "../store.js";
+import { createStore, emptyDB, engineLog, exportJSON, parseImport, isoDate, importLegacy, legacyReport } from "../store.js";
 import * as P from "../progress-data.js";
 import { startServiceWorker } from "../sw-client.js";
 import { tabBar, esc, showToast, say, dayMonth } from "../nav.js";
 import { setUnits, wu, fmtW } from "../units.js";
-import { exName, exCue } from "../workout/model.js";
+import { exName, exCue, buildItems, rangeText } from "../workout/model.js";
+import { howToHTML, miniMap, muscleLine, coverage } from "../muscles.js";
+import { getTheme, setTheme } from "../theme.js";
 import { unlockAudio, sound, setVibration, vibrate } from "../workout/feedback.js";
 
 const store = createStore();
@@ -17,7 +19,7 @@ const db = () => store.db;
 const app = document.getElementById("app");
 const today = () => isoDate(new Date());
 const SECTIONS = [["modes", "Modes"], ["fuel", "Fuel"], ["learn", "Learn"], ["settings", "Settings"]];
-const ui = { section: "modes", diet: "both", focus: null };
+const ui = { section: "modes", diet: "both", focus: null, info: null, infoTrigger: null };
 
 function applyPrefs() {
   setUnits(db().settings.units);
@@ -109,9 +111,43 @@ function viewFuel() {
 
 // ------------------------------------------------------------------ Learn
 
+function rotationSessions() {
+  return PLAN.rules.rotation.map((id) => ({ id, name: E.sessionDef(id).name, items: buildItems(id, { settings: db().settings }) }));
+}
+
+function exerciseLibrary(sessions) {
+  return sessions.map((s) => `<details class="explain card" style="padding:0">
+      <summary><span><b>${esc(s.name)}</b><span>${s.items.length} exercises · tap one for muscles, steps and a video</span></span></summary>
+      <div class="explain__body"><ol class="exrows" aria-label="${esc(s.name)} exercises">${s.items.map((it) => `<li class="exrow"><button type="button" data-act="info" data-ex="${esc(it.ex)}" aria-label="${esc(`${exName(it.ex)}, ${it.sets} sets of ${rangeText(it)}. How to do it`)}">
+        ${miniMap(it.ex)}<span class="exrow__text"><b>${esc(exName(it.ex))}</b><span>${esc(muscleLine(it.ex))}</span></span>
+        <span class="exrow__dose num">${it.sets} × ${esc(rangeText(it).replace(" reps", ""))}</span></button></li>`).join("")}</ol></div>
+    </details>`).join("");
+}
+
+function coverageTable(sessions) {
+  const rows = coverage(sessions);
+  const dot = (n) => (n === 0 ? `<em aria-hidden="true">–</em>` : `<i aria-hidden="true" style="width:${n <= 3 ? 8 : n <= 6 ? 12 : 17}px;height:${n <= 3 ? 8 : n <= 6 ? 12 : 17}px"></i>`);
+  return `<div class="card">
+    <div class="cov-wrap"><table class="cov">
+      <caption class="sr-only">Working sets per muscle group in each session</caption>
+      <thead><tr><th scope="col">Muscle</th>${sessions.map((s) => `<th scope="col"><abbr title="${esc(s.name)}" style="text-decoration:none">${esc(s.id)}</abbr></th>`).join("")}</tr></thead>
+      <tbody>${rows.map((r) => `<tr><th scope="row" style="font-weight:inherit;text-align:left;color:var(--c-text-2)">${esc(r.label)}</th>${r.cells.map((n, i) => `<td><span class="sr-only">${esc(sessions[i].name)}: ${n} ${n === 1 ? "set" : "sets"}</span>${dot(n)}</td>`).join("")}</tr>`).join("")}</tbody>
+    </table></div>
+    <div class="cov-legend" aria-hidden="true"><span><i style="width:8px;height:8px"></i>1–3 sets</span><span><i style="width:12px;height:12px"></i>4–6</span><span><i style="width:17px;height:17px"></i>7+</span></div>
+    <p class="quiet">Sets where the muscle is a main mover, in the full version of each session. Runs and sport add legs and lungs on top.</p>
+  </div>`;
+}
+
 function viewLearn() {
+  const sessions = rotationSessions();
   return `<section class="section" aria-labelledby="learn-h">
     <h2 id="learn-h" class="sr-only">Learn</h2>
+    <h2>Every exercise</h2>
+    <p class="meta">Which muscles each one works, how to do it, the mistake to avoid and a video.</p>
+    ${exerciseLibrary(sessions)}
+    <h2>Where the work lands</h2>
+    ${coverageTable(sessions)}
+    <h2>Why it works</h2>
     <p class="meta">A minute each: why the plan works the way it does.</p>
     ${PLAN.learn.map((l) => `<details class="explain" id="learn-${esc(l.id)}">
       <summary><span><b>${esc(l.title)}</b><span>${esc(l.lead)}</span></span></summary>
@@ -146,6 +182,13 @@ function viewSettings() {
       <p class="quiet">Optional. Only used for gentle hints, like suggesting the Short version on those days.</p>
     </div>
     <div class="card">
+      <span class="label" id="theme-l">Theme</span>
+      <div class="seg-ctl seg-ctl--small" role="group" aria-labelledby="theme-l" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        ${[["system", "System"], ["light", "Light"], ["dark", "Dark"]].map(([t, n]) => `<button type="button" data-act="theme" data-t="${t}" aria-pressed="${getTheme() === t}"><b>${n}</b></button>`).join("")}
+      </div>
+      <p class="quiet">System follows your phone's light or dark setting.</p>
+    </div>
+    <div class="card">
       <span class="label" id="units-l">Weight units</span>
       <div class="seg-ctl seg-ctl--small" role="group" aria-labelledby="units-l">
         <button type="button" data-act="units" data-u="kg" aria-pressed="${s.units !== "lb"}"><b>kg</b></button>
@@ -156,11 +199,12 @@ function viewSettings() {
       <div class="setting"><span id="vibrate-l">Vibration<small>Not supported on iPhone</small></span>${sw("vibrate", s.vibrate !== false)}</div>
     </div>
     <h2>Your data</h2>
+    ${oldDataCard()}
     <div class="card">
       <p class="meta">Everything lives only on this phone. Export a backup now and then: clearing browser data clears your log.</p>
       <button class="btn btn--secondary btn--wide" data-act="export"><span class="btn__label">Export backup (JSON)</span></button>
-      <label class="btn btn--secondary btn--wide file-btn"><span class="btn__label">Import a backup</span><input type="file" id="import" accept="application/json,.json"></label>
-      <p class="quiet">Importing replaces what's here. A copy of the current data is kept, so it can be undone.</p>
+      <label class="btn btn--secondary btn--wide file-btn"><span class="btn__label">Import a backup</span><input type="file" id="import" accept="application/json,.json,text/csv,.csv"></label>
+      <p class="quiet">An Uptime backup replaces what's here. A backup or CSV from the earlier app is added to what's here instead. Either way a copy of the current data is kept, so it can be undone.</p>
       ${last ? `<div class="notice"><div>A copy from before ${esc(last.reason)} (${esc(dayMonth(isoDate(new Date(last.at))))}) is kept.
         <div class="row" style="margin-top:4px"><button class="btn btn--text" data-act="restore">Restore that copy</button></div></div></div>` : ""}
     </div>
@@ -174,6 +218,40 @@ function viewSettings() {
     </div>
     <p class="disclaimer">${esc(PLAN.disclaimer)} Uptime keeps no account and sends nothing anywhere.</p>
   </section>`;
+}
+
+/** What came across from the earlier app, matched to this plan or not. */
+function oldDataCard() {
+  const rows = legacyReport(db());
+  const kg = (v) => `${fmtW(v)} ${wu()}`;
+  const lastText = (r) => r.last ? `${r.last.kg ? kg(r.last.kg) : ""}${r.last.kg && r.last.reps ? " × " : ""}${r.last.reps ?? ""} on ${dayMonth(r.last.date)}${r.sessions > 1 ? ` · ${r.sessions} sessions` : ""}`
+    : r.lastKg ? `last weight ${kg(r.lastKg)}, no dates` : "";
+  if (!rows.length) {
+    return `<div class="card" id="old-data">
+      <span class="label">From the earlier app</span>
+      <p class="meta">Nothing from the earlier app on this phone${db().legacy ? " except bodyweight and runs" : ""}.</p>
+      <p class="quiet">Used it in another browser, or on the home-screen app instead of the browser (or the other way round)? Open this site there, go to Plan › Settings and tap Export backup, then import that file here. A backup (.json) or lift log (.csv) saved from the earlier app imports too.</p>
+    </div>`;
+  }
+  const matched = rows.filter((r) => r.to), kept = rows.filter((r) => !r.to);
+  return `<div class="card" id="old-data">
+    <span class="label">From the earlier app</span>
+    <p class="meta">${matched.length} ${matched.length === 1 ? "exercise counts" : "exercises count"} toward this plan: their last weights fill in your workouts and show in Progress.${kept.length ? ` ${kept.length} more ${kept.length === 1 ? "is" : "are"} kept but not part of this plan.` : ""}</p>
+    ${matched.length ? `<ul class="oldmap" aria-label="Matched">${matched.map((r) => `<li><b>${esc(r.name)}${r.to !== r.id ? ` → ${esc(exName(r.to))}` : ""}</b><span>${esc(lastText(r))}</span></li>`).join("")}</ul>` : ""}
+    ${kept.length ? `<details class="explain"><summary><span><b>Kept, not in this plan</b><span>${kept.length} ${kept.length === 1 ? "exercise" : "exercises"}</span></span></summary>
+      <div class="explain__body"><ul class="oldmap">${kept.map((r) => `<li><b>${esc(r.name)}</b><span>${esc(lastText(r))}</span>${r.why ? `<span>${esc(r.why)}</span>` : ""}</li>`).join("")}</ul></div></details>` : ""}
+  </div>`;
+}
+
+// ------------------------------------------------------------------ how-to sheet (Learn)
+
+function infoSheet() {
+  if (!ui.info) return "";
+  return `<div class="scrim" data-act="close-info"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
+      ${howToHTML(ui.info, { name: exName(ui.info), cue: exCue(ui.info), headingId: "sheet-h" })}
+      <button class="btn btn--text" style="justify-self:center" data-act="close-info">Back</button>
+    </div>`;
 }
 
 function setPref(key, value, msg) {
@@ -203,8 +281,16 @@ async function importFile(file) {
   try { text = await file.text(); } catch { showToast("Couldn't open that file. Nothing changed."); return; }
   const res = parseImport(text);
   if (res.error) { showToast(`${res.error} Nothing changed.`, null, null, 8000); return; }
+  if (res.legacy) {
+    // the earlier app's data joins what's here; nothing in the new log is replaced
+    const next = importLegacy(structuredClone(db()), res.old);
+    const n = Object.keys(next.legacy?.sets || {}).length - Object.keys(db().legacy?.sets || {}).length;
+    replaceAll(next, "the import", n > 0 ? `Added ${n} ${n === 1 ? "day" : "days"} of lifts from the earlier app.` : "Nothing new: that log is already here.");
+    document.getElementById("old-data")?.scrollIntoView({ block: "start" });
+    return;
+  }
   if (res.db.active && db().active) res.db.active = db().active; // never drop a workout in progress
-  replaceAll(res.db, "the import", `Imported: ${res.db.sessions.length} sessions, ${res.db.activities.length} runs and activities${res.legacy ? " from the earlier app" : ""}.`);
+  replaceAll(res.db, "the import", `Imported: ${res.db.sessions.length} sessions, ${res.db.activities.length} runs and activities.`);
 }
 
 function replaceAll(next, reason, msg) {
@@ -256,8 +342,9 @@ function render() {
       ${view}
     </div>
     <div class="scr__foot scr__foot--tabs"><div class="toast-slot" id="toast-slot" aria-live="polite"></div>${tabBar("plan")}</div>
-  </main>`;
-  if (ui.focus) { document.querySelector(ui.focus)?.focus(); ui.focus = null; }
+  </main>${infoSheet()}`;
+  if (ui.info) app.querySelector(".sheet")?.focus();
+  else if (ui.focus) { document.querySelector(ui.focus)?.focus(); ui.focus = null; }
 }
 
 function fromHash() {
@@ -279,6 +366,19 @@ app.addEventListener("click", (ev) => {
       scrollTo(0, 0);
       break;
     case "busy": toggleBusy(); break;
+    case "info":
+      ui.info = el.dataset.ex;
+      ui.infoTrigger = `[data-act="info"][data-ex="${CSS.escape(el.dataset.ex)}"]`;
+      keepOpen(() => render());
+      break;
+    case "close-info": closeInfo(); break;
+    case "theme": {
+      const t = el.dataset.t;
+      if (!setTheme(t)) showToast("Couldn't save the theme, so it's only for now.");
+      ui.focus = `[data-act=theme][data-t="${t}"]`;
+      render();
+      break;
+    }
     case "diet": ui.diet = el.dataset.d; render(); break;
     case "weekday": {
       const d = Number(el.dataset.d);
@@ -315,6 +415,31 @@ app.addEventListener("change", (ev) => {
   if (ev.target.id === "import") importFile(ev.target.files?.[0]);
 });
 app.addEventListener("keydown", (ev) => { if (ev.target.id === "sport" && ev.key === "Enter") ev.target.blur(); });
+document.addEventListener("keydown", (ev) => {
+  if (!ui.info) return;
+  if (ev.key === "Escape") closeInfo();
+  if (ev.key === "Tab") { // keep focus inside the sheet
+    const f = [...app.querySelectorAll(".sheet button, .sheet a[href]")];
+    const first = f[0], last = f[f.length - 1];
+    if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+    else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+  }
+});
+
+/** Re-render without collapsing the <details> the user had open, or losing the scroll. */
+function keepOpen(fn) {
+  const open = [...app.querySelectorAll("details[open] > summary")].map((s) => s.textContent);
+  const y = scrollY;
+  fn();
+  for (const sum of app.querySelectorAll("details > summary")) if (open.includes(sum.textContent)) sum.parentElement.open = true;
+  scrollTo(0, y);
+}
+function closeInfo() {
+  const back = ui.infoTrigger;
+  ui.info = null;
+  keepOpen(() => render());
+  if (back) document.querySelector(back)?.focus({ preventScroll: true });
+}
 addEventListener("hashchange", () => { fromHash(); render(); });
 
 fromHash();

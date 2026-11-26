@@ -10,12 +10,27 @@
 
 import PLAN from "./plan.js";
 import * as E from "./engine.js";
-import { engineLog, exerciseHistory } from "./store.js";
+import { engineLog, exerciseHistory, legacyTarget } from "./store.js";
 import { parseTimeLine, riegel } from "./workout/run.js";
+
+/**
+ * The engine log plus the earlier app's training days, for the Rolling weeks chart only.
+ * An old lifting day counts as one full-body session; an old sport day as sport. The rotation
+ * and the streak never see these (the streak must match Home): they read engineLog.
+ */
+export function progressLog(db, plan = PLAN) {
+  const log = engineLog(db);
+  const have = new Set(log.map((e) => e.date));
+  const strength = (id) => { const to = legacyTarget(id, plan); return to && !["run", "sport", "conditioning"].includes(plan.exercises[to]?.kind); };
+  const days = new Set(Object.keys(db.legacy?.sets || {}).filter((k) => strength(k.split("|")[1])).map((k) => k.split("|")[0]));
+  for (const date of days) if (!have.has(date)) log.push({ date, t: 0, session: plan.busy.rotation[0], legacy: true });
+  for (const [date, kind] of Object.entries(db.legacy?.play || {})) if (!have.has(date) && kind) log.push({ date, t: 1, kind: "sport", ex: "basketball", legacy: true });
+  return log;
+}
 
 /** Rolling 7-day blocks ending on `today`, newest first. */
 export function weekHistory(db, today, n = 8, plan = PLAN) {
-  const L = E.normalizeLog(engineLog(db), plan);
+  const L = E.normalizeLog(progressLog(db, plan), plan);
   const out = [];
   for (let j = 0; j < n; j++) {
     const end = E.addDays(today, -7 * j);
@@ -59,6 +74,23 @@ export function liftTrend(db, ex) {
     if (top) pts.push({ date: h.date, kg: top.kg, reps: top.reps ?? null, legacy: !!h.legacy });
   }
   return pts;
+}
+
+/**
+ * Every other weighted exercise with history (old app included), most recent first:
+ * [{ ex, last: { date, kg, reps }, best: { date, kg, reps }, sessions, legacy }]
+ */
+export function otherLifts(db, plan = PLAN) {
+  const main = new Set(mainLifts(plan));
+  const out = [];
+  for (const ex of Object.keys(plan.exercises)) {
+    if (main.has(ex)) continue;
+    const pts = liftTrend(db, ex);
+    if (!pts.length) continue;
+    const best = pts.reduce((b, p) => (p.kg > b.kg || (p.kg === b.kg && (p.reps ?? 0) > (b.reps ?? 0)) ? p : b), pts[0]);
+    out.push({ ex, last: pts[pts.length - 1], best, sessions: pts.length, legacy: pts.every((p) => p.legacy) });
+  }
+  return out.sort((a, b) => b.last.date.localeCompare(a.last.date));
 }
 
 const PULL_UP_IDS = ["pull-up", "weighted-pull-up"];

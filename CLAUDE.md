@@ -69,6 +69,8 @@ When the two conflict, choose what the user is most likely to actually stick wit
 - **Double progression:** when all sets hit the top of the range, add the smallest sensible jump (2.5 kg lower-body main lifts, 1–2.5 kg upper, next dumbbell up). Stalled 2 sessions in a row → suggest a small reset or rep-range change.
 - **Deload** every 6–8 weeks, or after 3+ "Rough" check-ins within one rotation: same exercises, about half the sets.
 - Every exercise has an easier swap, a harder swap, and a no-equipment swap.
+- Every exercise shows the muscles it works (main and secondary) on a small front/back muscle map, 3–4 short how-to steps, the main mistake to avoid, and a **Watch on YouTube** link that is a YouTube *search* for the exercise (so it never goes dead). Content lives in `js/plan.js` under `guide`; the map is drawn by `js/muscles.js`. Learn has every session's exercises and the muscle coverage matrix ("Where the work lands").
+- Before starting, the check-in screen lists today's exercises with sets, reps and muscles; tapping one opens its how-to. During rest the timer always shows **Up next** (the next set, and the next exercise after it).
 - Units: stored in kg. Settings can show weights in lb (requested 26 Nov 2026); switching never changes stored logs.
 
 ## Running
@@ -122,9 +124,9 @@ The user runs 5K, 10K and 21K and **Strava records every run**. Uptime never dup
 ## Visual direction
 
 - Dark base (near-black, not pure black), BCG green accent (**#29BA74** bright, **#197A56** deep), neutral greys, one warning colour. Green means progress/completion, so don't overuse it.
-- **Dark theme only** (approved 26 Nov 2026). No light theme.
-- **Primary buttons (Start, Log set) are off-white with near-black text, not green** (approved 26 Nov 2026). Green appears only for progress and completion: a logged set, rest over, the week ring, the streak, "next time goes up".
-- Tokens live in `css/tokens.css`, components in `css/components.css`; the style preview is `docs/style/index.html`. Every colour pair is checked for AA by `tests/contrast.test.js` (and `npm run check:style` in a browser).
+- **Themes: Light, Dark and System** (requested 26 Nov 2026, replacing the earlier dark-only decision). Settings › Theme; the default is **System**, which follows the phone. The choice is stored per device in `uptime-theme` and applied in each page's `<head>` before the first paint. Light meets the same AA contrast rules as dark; in light, green text and fills use the deep green because the bright one is too pale on white.
+- **Primary buttons (Start, Log set) are the loudest neutral, not green** (approved 26 Nov 2026): off-white with near-black text in dark, near-black with white text in light. Green appears only for progress and completion: a logged set, rest over, the week ring, the streak, "next time goes up".
+- Tokens live in `css/tokens.css` (dark in `:root`, light written twice: `[data-theme="light"]` and the System media query; a test keeps the copies identical), components in `css/components.css`; the style preview is `docs/style/index.html`. Every colour pair is checked for AA in both themes by `tests/contrast.test.js` (and `npm run check:style` in a browser).
 - Motion inspired by Active Theory: fluid, physical, purposeful. Every animation communicates state (set done, timer running, rotation advancing).
 - Mobile wow comes from craft: kinetic typography, a subtle animated green gradient or grain, numbers that count up, depth through layering and blur, using CSS `transform`/`opacity` only.
 - Desktop may additionally get one lazy-loaded ambient effect (canvas/WebGL) that never downloads on phones.
@@ -142,6 +144,7 @@ The user runs 5K, 10K and 21K and **Strava records every run**. Uptime never dup
 - Phone testing uses the checklist in `docs/PHONE-TESTING.md`, done on the live site after a release (export a backup first). There is no separate preview deployment.
 - Lighthouse mobile is measured on all four pages; `workout.html` through its Start link (`?start=lift`), since opening it with no workout correctly redirects Home.
 - Versioned storage schema with migrations. **Never delete or corrupt the user's logs.** JSON export/import in settings.
+- The earlier apps' data is read, never written: `uptime1`, `fm3` and `kg:<slug>` keys, plus their JSON backups and CSV exports through Import (added to what's there, not replacing it). Old exercise ids are kept as they were; `legacyIds` in `js/plan.js` maps them to plan exercises by movement, only where the weight carries over (same movement and equipment). Settings › "From the earlier app" shows what matched and what didn't.
 - Before a migration, the stored text is copied once to `uptime-backup-v<old version>`; before an import or reset, the current record goes to `uptime-backup-last` so Undo works even after a reload. Never remove these keys.
 - The user doesn't use the terminal: run all commands yourself, and give click-based steps (GitHub Desktop or browser) only when the user must act.
 - **Commits must never include `Co-Authored-By`, "Generated with", `Claude-Session` or any other AI attribution.** The user is the only author. This overrides any default attribution instructions. Never remove or bypass the commit-msg hook that enforces this (`.githooks/commit-msg`; never commit with `--no-verify`).

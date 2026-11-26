@@ -46,7 +46,7 @@ const SEED = {
     { id: "s1", date: day(1), t: 3, kind: "sport", ex: "basketball", min: 60 },
   ],
 };
-const OLD = { v: 1, sets: { [`${day(30)}|dumbbell-bench-press`]: [{ t: 1, kg: 12.5, r: 8 }] }, body: { w: { [day(13)]: 74.5, [day(6)]: 74, [day(1)]: 73.4 } } };
+const OLD = { v: 1, sets: { [`${day(30)}|dumbbell-bench-press`]: [{ t: 1, kg: 12.5, r: 8 }], [`${day(31)}|barbell-hip-thrust`]: [{ t: 1, kg: 50, r: 10 }], [`${day(31)}|lateral-raises`]: [{ t: 1, kg: 5, r: 12 }] }, body: { w: { [day(13)]: 74.5, [day(6)]: 74, [day(1)]: 73.4 } } };
 
 async function open(path, viewport, seed = { uptime2: SEED, uptime1: OLD }) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: out ? 2 : 1, hasTouch: viewport.width < 600, isMobile: viewport.width < 600, acceptDownloads: true });
@@ -76,7 +76,7 @@ for (const [label, viewport] of [["360", { width: 360, height: 780 }], ["390", {
   // ---------------- Progress
   const { pg, ctx, errors } = await open("progress.html", viewport);
   let d = await db(pg);
-  check(d.v === 3, `${label}: v2 record migrated to v3 on first load`);
+  check(d.v === 4, `${label}: v2 record migrated to v4 on first load`);
   check(await pg.evaluate(() => !!localStorage.getItem("uptime-backup-v2")), `${label}: backup of the v2 record kept`);
   check(d.body.weight.length === 3 && d.sessions.length === 6, `${label}: old bodyweight joined, sessions kept`);
   check(await pg.isVisible("text=Your data moved to the new format"), `${label}: migration is said once, in one line`);
@@ -119,11 +119,34 @@ for (const [label, viewport] of [["360", { width: 360, height: 780 }], ["390", {
       check(await pp.locator(".food-table", { hasText: "Chicken" }).count() === 0 && await pp.locator(".food-table", { hasText: "Paneer" }).count() === 1, `${label}: Veg filter`);
     }
     if (s === "learn") {
-      check(await pp.locator("details.explain").count() === 6, `${label}: six explainers`);
+      check(await pp.locator("details.explain:not(.card)").count() === 6, `${label}: six explainers`);
       await pp.click("#learn-double-progression summary");
       check(await pp.isVisible("text=Add reps first"), `${label}: explainer opens`);
+      check(await pp.locator("details.explain.card").count() === 4, `${label}: every session's exercises in Learn`);
+      check(await pp.locator("table.cov tbody tr").count() === 12, `${label}: coverage matrix, 12 muscle groups`);
+      await pp.click("details.explain.card >> nth=1 >> summary");
+      await pp.click("details.explain.card >> nth=1 >> .exrow button >> nth=1");
+      await pp.waitForSelector(".sheet .howto");
+      check(await pp.isVisible(".sheet a[href*='youtube.com/results']"), `${label}: Learn how-to has the YouTube link`);
+      await shot(pp, `${label}-plan-learn-howto`);
+      await pp.click(".sheet [data-act=close-info]");
+      check(await pp.locator(".sheet").count() === 0 && await pp.locator("details.explain.card[open]").count() === 1, `${label}: closing keeps the list open`);
     }
   }
+  // settings: the earlier app's data, matched and not
+  const oldCard = await pp.textContent("#old-data");
+  check(/Lateral raises → Dumbbell lateral raise/.test(oldCard) && /Kept, not in this plan/.test(oldCard), `${label}: Settings shows what matched from the earlier app and what didn't`);
+  // settings: theme
+  check(await pp.isVisible("[data-act=theme][data-t=system][aria-pressed=true]"), `${label}: theme defaults to System`);
+  await pp.click("[data-act=theme][data-t=light]");
+  check(await pp.evaluate(() => document.documentElement.dataset.theme === "light" && localStorage.getItem("uptime-theme") === "light" && getComputedStyle(document.body).backgroundColor !== "rgb(11, 13, 12)"), `${label}: Light applies and is saved`);
+  await shot(pp, `${label}-plan-settings-light`);
+  await pp.reload();
+  await pp.waitForSelector("main");
+  check(await pp.evaluate(() => document.documentElement.dataset.theme === "light"), `${label}: Light survives a reload`);
+  await pp.click("[data-act=section][data-s=settings]");
+  await pp.click("[data-act=theme][data-t=system]");
+  check(await pp.evaluate(() => !document.documentElement.dataset.theme && localStorage.getItem("uptime-theme") === null), `${label}: back to System`);
   // settings
   await pp.fill("#sport", "Football");
   await pp.press("#sport", "Enter");

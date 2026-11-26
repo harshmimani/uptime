@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import PLAN from "../js/plan.js";
 import * as M from "../js/workout/model.js";
 import * as R from "../js/workout/run.js";
-import { createStore, migrate, exerciseHistory, engineLog, KEY, LEGACY_KEY } from "../js/store.js";
+import { createStore, migrate, exerciseHistory, engineLog, KEY, LEGACY_KEY, SCHEMA } from "../js/store.js";
 
 const T0 = Date.UTC(2026, 10, 26, 7, 0);
 const noHistory = () => [];
@@ -196,7 +196,7 @@ test("store: migrates old uptime1 strength sets once, never writes uptime1", () 
   assert.deepEqual(h[0].sets.map((s) => s.reps), [8, 7]);
   assert.equal(store.save().ok, true);
   assert.equal(st.map.get(LEGACY_KEY), JSON.stringify(old));
-  assert.equal(JSON.parse(st.map.get(KEY)).v, 3);
+  assert.equal(JSON.parse(st.map.get(KEY)).v, SCHEMA);
 });
 
 test("store: a failed write is reported, not swallowed; unreadable data is never overwritten", () => {
