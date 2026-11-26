@@ -11,6 +11,7 @@ import PLAN from "../plan.js";
 import * as E from "../engine.js";
 import { createStore, engineLog, exerciseHistory, isoDate, newId } from "../store.js";
 import * as M from "./model.js";
+import { startServiceWorker } from "../sw-client.js";
 import * as R from "./run.js";
 import { unlockAudio, sound, vibrate, setVibration, KeepAwake } from "./feedback.js";
 import { setUnits, units, wu as unitLabel, fromUnit, weightStep } from "../units.js";
@@ -252,7 +253,7 @@ function targetLine(p, it) {
     goal = t.last.kg > 0 ? `Beat ${fmtKg(t.last.kg)} ${unitLabel()} × ${lr}: ${lr + 1}${unit}, or more weight` : `Beat ${lr}${unit}: go for ${lr + 1}`;
   } else if (t.kind === "up") goal = `Up from ${fmtKg(t.fromKg)} ${unitLabel()}. Any set in range beats last time.`;
   else if (t.kind === "easy") goal = t.lighter ? "Lighter day: about 90% of last time. Just move well." : ui.view === "set" && db().active?.adjust?.deload ? "Deload: same weights, fewer sets." : "Short version: no target, just get it done.";
-  else goal = it.role === "main" || p.weighted ? "First time: pick a weight that leaves 1–3 reps in the tank." : "First time: note what you can do with good form.";
+  else goal = p.weighted ? "First time: pick a weight that leaves 1–3 reps in the tank." : it.role === "main" ? "First time: clean reps, stop 1–3 short of failure." : "First time: note what you can do with good form.";
   const beatable = t.kind === "beat" || t.kind === "up";
   return `<div class="target">${last}<span class="beat" id="beat" data-beatable="${beatable}" data-goal="${esc(goal)}">${beatable ? CHECK : ""}<span>${esc(goal)}</span></span></div>`;
 }
@@ -302,6 +303,10 @@ function viewSet() {
   if (it.ladder) tags.push(`Pull-up ladder · level ${it.ladder}`);
   const partner = it.pair ? w.items.filter((x) => x.pair === it.pair && x.key !== it.key) : [];
   const wu = w.log.length === 0 ? M.warmup(w, hist) : null;
+  // The ramp-up belongs to the first loaded main lift. When that lift isn't first (Upper A opens
+  // with pull-ups), the card is gone by the time it comes up, so the ramp-up shows again there.
+  const rampHere = !wu && mine.length === 0 && !w.rest && !w.adjust.deload ? M.warmup(w, hist).ramp : null;
+  const rampText = (r) => r.sets.map((s) => `${fmtKg(s.kg)} ${unitLabel()} × ${s.reps}`).join(", ");
   const warmEnd = w.startedAt + PLAN.warmup.minutes * 60000;
   const steppers = [];
   if (p.weighted) steppers.push(stepper({ id: "kg", value: v.kg, unit: p.unit, label: "Weight", step: weightStep(), input: true }));
@@ -320,10 +325,13 @@ function viewSet() {
       ${wu ? `<section class="card" aria-labelledby="wu-h">
         <div class="row between"><h2 class="label" id="wu-h">Warm-up · ${wu.minutes} min</h2><span class="warm__time num" id="warm-left" data-end="${warmEnd}"></span></div>
         <ul class="checklist">${wu.general.map((g) => `<li>${esc(g)}</li>`).join("")}
-          ${wu.ramp ? `<li><b>Ramp-up on ${esc(wu.ramp.name)}:</b> ${wu.ramp.sets.map((s) => `${fmtKg(s.kg)} ${unitLabel()} × ${s.reps}`).join(", ")}</li>` : `<li><b>Ramp-up:</b> ${esc(PLAN.warmup.ramp)}</li>`}
+          ${!wu.ramp ? `<li><b>Ramp-up:</b> ${esc(PLAN.warmup.ramp)}</li>`
+            : wu.ramp.ex === it.ex ? `<li><b>Ramp-up on ${esc(wu.ramp.name)}:</b> ${rampText(wu.ramp)}</li>`
+            : `<li><b>Ramp-up sets for ${esc(wu.ramp.name)}</b> show up when you get there.</li>`}
         </ul>
         <p class="quiet">Stays here until you log set 1.</p>
       </section>` : ""}
+      ${rampHere && rampHere.ex === it.ex ? `<div class="notice"><div><b>Ramp-up first:</b> ${rampText(rampHere)}. No rest needed between them.</div></div>` : ""}
       ${tags.length ? `<div class="tags">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
       <div>
         <h1 class="ex-name" id="ex-name">${esc(M.exName(it.ex))}</h1>
@@ -622,7 +630,7 @@ function viewSheet() {
       ${list || `<p class="meta">This one has no swaps.</p>`}
       ${it.ex !== it.planEx ? `<button class="opt" data-act="swap-to" data-ex="${esc(it.planEx)}"><span class="label">Back to the plan</span><b>${esc(M.exName(it.planEx))}</b><span>${esc(M.exCue(it.planEx))}</span></button>` : ""}
       <div class="setting"><span id="always-l">Use this every time</span>
-        <button class="switch" type="button" data-act="toggle-always" aria-pressed="${!!ui.swapAlways}" aria-labelledby="always-l"><span class="switch__track"><span class="switch__knob"></span></span><span>${ui.swapAlways ? "On" : "Off"}</span></button></div>
+        <button class="switch" type="button" data-act="toggle-always" role="switch" aria-checked="${!!ui.swapAlways}" aria-labelledby="always-l"><span class="switch__track"><span class="switch__knob"></span></span><span aria-hidden="true">${ui.swapAlways ? "On" : "Off"}</span></button></div>
       <button class="btn btn--secondary btn--wide" data-act="close-sheet">Keep ${esc(M.exName(it.ex))}</button>
     </div>`;
   }
@@ -643,7 +651,7 @@ function viewSheet() {
       </div>
       ${rows}
       <div class="setting"><span id="sound-l">Sound at the end of rest</span>
-        <button class="switch" type="button" data-act="toggle-sound" aria-pressed="${db().settings.sound !== false}" aria-labelledby="sound-l"><span class="switch__track"><span class="switch__knob"></span></span><span>${db().settings.sound !== false ? "On" : "Off"}</span></button></div>
+        <button class="switch" type="button" data-act="toggle-sound" role="switch" aria-checked="${db().settings.sound !== false}" aria-labelledby="sound-l"><span class="switch__track"><span class="switch__knob"></span></span><span aria-hidden="true">${db().settings.sound !== false ? "On" : "Off"}</span></button></div>
       <button class="btn btn--secondary btn--wide" data-act="finish-now">${w.log.length ? `Finish now · ${w.log.length} of ${M.totalSets(w)} sets` : "Leave without saving"}</button>
       <button class="btn btn--text" style="justify-self:center" data-act="close-sheet">Back to the workout</button>
     </div>`;
@@ -821,7 +829,7 @@ function viewResume() {
       <p class="meta" style="margin:0">Pick up and the session continues as planned. Finish and it's saved as a partial session that counts toward your week.</p>
     </div>
     <div class="scr__foot"><div class="toast-slot" id="toast-slot" aria-live="polite"></div><div class="foot-actions">
-      <button class="btn btn--secondary btn--tall" data-act="finish-now">Finish with ${w.log.length} sets</button>
+      <button class="btn btn--secondary btn--tall" data-act="finish-now">Finish with ${w.log.length} set${w.log.length === 1 ? "" : "s"}</button>
       <button class="btn btn--primary" data-act="pick-up"><span class="btn__label">Pick up where you left off</span></button>
     </div></div>
   </main>`;
@@ -1125,3 +1133,6 @@ function boot() {
 }
 
 boot();
+
+// offline + updates; the update prompt waits until no workout is running
+startServiceWorker({ quiet: () => !!db().active });

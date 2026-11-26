@@ -74,7 +74,7 @@ export function standoutStat(db, today) {
   };
   for (const s of db.sessions) for (const it of s.items || []) for (const set of it.sets || []) add(s.date, set);
   for (const [k, sets] of Object.entries(db.legacy?.sets || {})) for (const set of sets) add(k.split("|")[0], set);
-  if (!cur) return { kind: "empty", note: "Your standout stat shows up after your first session: total lifted, then pull-ups." };
+  if (!cur) return { kind: "empty", note: "Shows up after your first session: kg lifted, then pull-ups." };
   const change = prev ? Math.round(((cur - prev) / prev) * 100) : null;
   return {
     kind: "volume", label: "Lifted in the last 30 days", value: Math.round(cur), unit: "kg",

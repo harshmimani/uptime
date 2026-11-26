@@ -59,7 +59,7 @@
   --c-focus: #F2F5F3;
 
   /* Toast: translucent so the screen shows through its blur */
-  --c-toast: rgba(35, 40, 38, .92);
+  --c-toast: rgba(35, 40, 38, .97); /* near-opaque: text behind a toast must not read through it */
 
   /* Worst cases the moving light can lighten a background to. Not used for painting:
      tests/contrast.test.js checks text against them and checks they really are the worst case.

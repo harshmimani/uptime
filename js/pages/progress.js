@@ -6,6 +6,7 @@ import PLAN from "../plan.js";
 import { createStore, isoDate } from "../store.js";
 import * as P from "../progress-data.js";
 import { lineChart, weekBars, wireCharts } from "../charts.js";
+import { startServiceWorker } from "../sw-client.js";
 import { tabBar, esc, showToast, say, dayMonth } from "../nav.js";
 import { setUnits, units, wu, fmtW, fromUnit, toUnit } from "../units.js";
 import { mmss } from "../workout/run.js";
@@ -190,3 +191,5 @@ function logWeight(ev) {
 app.addEventListener("submit", (ev) => { if (ev.target.id === "bw-form") logWeight(ev); });
 wireCharts(app);
 render();
+
+startServiceWorker();

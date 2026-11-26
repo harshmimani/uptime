@@ -6,6 +6,7 @@ import PLAN from "../plan.js";
 import * as E from "../engine.js";
 import { createStore, emptyDB, engineLog, exportJSON, parseImport, isoDate } from "../store.js";
 import * as P from "../progress-data.js";
+import { startServiceWorker } from "../sw-client.js";
 import { tabBar, esc, showToast, say, dayMonth } from "../nav.js";
 import { setUnits, wu, fmtW } from "../units.js";
 import { exName, exCue } from "../workout/model.js";
@@ -30,7 +31,7 @@ function persist() {
   return r.ok;
 }
 
-const sw = (id, on, label) => `<button class="switch" type="button" data-act="${id}" aria-pressed="${!!on}" aria-labelledby="${id}-l"><span class="switch__track"><span class="switch__knob"></span></span><span>${on ? "On" : "Off"}</span></button>`;
+const sw = (id, on, label) => `<button class="switch" type="button" data-act="${id}" role="switch" aria-checked="${!!on}" aria-labelledby="${id}-l"><span class="switch__track"><span class="switch__knob"></span></span><span aria-hidden="true">${on ? "On" : "Off"}</span></button>`;
 
 // ------------------------------------------------------------------ Modes
 
@@ -247,7 +248,7 @@ function render() {
   app.innerHTML = `<main class="scr" data-screen="plan">
     <header class="scr__head">
       <h1 class="h1 page-title" tabindex="-1">${sec === "modes" ? "Plan" : esc(SECTIONS.find((s) => s[0] === sec)[1])}</h1>
-      <nav class="subnav" aria-label="Plan sections">${SECTIONS.map(([id, label]) => `<a class="chip" href="#${id}" data-act="section" data-s="${id}"${id === sec ? ' aria-current="page" aria-pressed="true"' : ' aria-pressed="false"'}>${label}</a>`).join("")}</nav>
+      <nav class="subnav" aria-label="Plan sections">${SECTIONS.map(([id, label]) => `<a class="chip" href="#${id}" data-act="section" data-s="${id}"${id === sec ? ' aria-current="page"' : ""}>${label}</a>`).join("")}</nav>
     </header>
     <div class="scr__body">
       ${store.readOnly ? `<div class="notice notice--warn"><div><b>Saved data couldn't be read.</b> Nothing is changed or deleted.</div></div>` : ""}
@@ -318,3 +319,5 @@ addEventListener("hashchange", () => { fromHash(); render(); });
 
 fromHash();
 render();
+
+startServiceWorker();

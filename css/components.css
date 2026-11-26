@@ -113,9 +113,9 @@ button { font: inherit; color: inherit; }
   position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: var(--c-text-2);
   transition: transform var(--dur-fast) var(--ease-spring);
 }
-.switch[aria-pressed="true"] { color: var(--c-text); border-color: var(--c-text-2); }
-.switch[aria-pressed="true"] .switch__track { background: var(--c-text); border-color: var(--c-text); }
-.switch[aria-pressed="true"] .switch__knob { background: var(--c-bg); transform: translateX(14px); }
+.switch[aria-checked="true"] { color: var(--c-text); border-color: var(--c-text-2); }
+.switch[aria-checked="true"] .switch__track { background: var(--c-text); border-color: var(--c-text); }
+.switch[aria-checked="true"] .switch__knob { background: var(--c-bg); transform: translateX(14px); }
 
 /* ---------------------------------------------------------------- reps chips */
 .chips { display: flex; gap: var(--sp-2); }
@@ -126,7 +126,7 @@ button { font: inherit; color: inherit; }
   transition: transform var(--dur-instant) var(--ease-out);
 }
 .chip:active { transform: scale(calc(1 - .05 * var(--motion-distance))); }
-.chip[aria-pressed="true"] { background: var(--c-text); border-color: var(--c-text); color: var(--c-bg); }
+.chip[aria-pressed="true"], .chip[aria-current="page"] { background: var(--c-text); border-color: var(--c-text); color: var(--c-bg); }
 
 /* ---------------------------------------------------------------- kg stepper */
 .stepper { display: grid; grid-template-columns: var(--hit-key) 1fr var(--hit-key); gap: var(--sp-2); align-items: center; }
@@ -315,3 +315,31 @@ button { font: inherit; color: inherit; }
 .empty__art { width: 100%; height: 72px; }
 .empty__art path { fill: none; stroke: var(--c-line-strong); stroke-width: 2; stroke-dasharray: 4 6; stroke-linecap: round; }
 .empty__art circle { fill: var(--c-text-3); }
+
+/* ---------------------------------------------------------------- update prompt (js/sw-client.js)
+   A small pill at the top: news, not an action you need mid-flow, so it stays out of the
+   thumb zone. Neutral, not green (an update isn't progress). */
+.update {
+  position: fixed; z-index: 60; left: 50%; top: calc(env(safe-area-inset-top, 0px) + var(--sp-2));
+  transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  min-height: var(--hit-min); padding: 0 var(--sp-5); max-width: calc(100vw - 2 * var(--sp-4));
+  border: 1px solid var(--c-line-strong); border-radius: var(--r-pill);
+  background: var(--c-toast); color: var(--c-text); box-shadow: var(--elev-3);
+  -webkit-backdrop-filter: blur(var(--blur-glass)); backdrop-filter: blur(var(--blur-glass));
+  font: inherit; font-size: var(--fs-small); font-weight: var(--fw-semibold); white-space: nowrap;
+  cursor: pointer; animation: update-in var(--dur-base) var(--ease-emphasized) both;
+}
+.update:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
+.update__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-text); }
+@keyframes update-in { from { opacity: 0; transform: translate(-50%, -12px); } }
+@media (prefers-reduced-motion: reduce) { .update { animation-name: update-fade; } }
+@keyframes update-fade { from { opacity: 0; } }
+
+/* Marks a test copy on any address other than the live site (js/sw-client.js). */
+.preview-label {
+  position: fixed; z-index: 59; right: var(--sp-2); top: calc(env(safe-area-inset-top, 0px) + 2px);
+  padding: 2px var(--sp-2); border-radius: var(--r-xs); pointer-events: none;
+  background: var(--c-warn-surface); color: var(--c-warn);
+  font-size: var(--fs-label); font-weight: var(--fw-bold); letter-spacing: var(--tracking-label); text-transform: uppercase;
+}

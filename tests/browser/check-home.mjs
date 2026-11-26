@@ -207,6 +207,8 @@ async function morphAndResume(label, viewport) {
   await pg.click(".hm-start");
   if (out) { await pg.waitForTimeout(220); await shot(pg, `${label}-03-morph-midway`); }
   await pg.waitForSelector("[data-screen=checkin]");
+  // the check-in can be in the DOM a frame before the page is revealed: wait for the reveal itself
+  await pg.waitForFunction(() => window.__vt !== undefined, null, { timeout: 5000 }).catch(() => {});
   check(await pg.evaluate(() => window.__vt === true), `${label}: Start morphs the card into the Workout (view transition ran)`);
   await pg.waitForTimeout(2300);
   check(!(await pg.evaluate(() => location.search)), `${label}: the start link is dropped from the address after the morph`);

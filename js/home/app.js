@@ -18,6 +18,7 @@ import * as M from "../workout/model.js";
 import { homeModel } from "./model.js";
 import { splitLetters, playIn, countTo, reducedMotion, buzz as rawBuzz } from "../motion.js";
 import { tabBar } from "../nav.js";
+import { startServiceWorker } from "../sw-client.js";
 import { setUnits, units, toUnit, wu } from "../units.js";
 
 const SEEN_KEY = "uptime-home";    // { day, next }: when the intro last played, which session was last shown
@@ -356,9 +357,10 @@ window.addEventListener("pageshow", (e) => {
   takeFlash();
 });
 
-// After first paint: warm the Workout section so Start → Workout is instant, register the
-// service worker, and (desktop only, idle, never on phones) the ambient light.
+// After first paint: warm the Workout section so Start → Workout is instant, start the
+// service worker (offline + update prompt), and (desktop only, idle, never on phones) the ambient light.
 function later() {
+  startServiceWorker();
   const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 300));
   idle(() => {
     for (const [rel, href] of [["prefetch", "workout.html"], ["prefetch", "css/workout.css"], ["modulepreload", "js/workout/app.js"]]) {
@@ -366,7 +368,6 @@ function later() {
       l.rel = rel; l.href = href;
       document.head.append(l);
     }
-    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
   });
   // desktop-only light; the loader decides, and phones never fetch the effect itself
   if (matchMedia("(min-width: 1024px)").matches) import("../ambient-loader.js").then((a) => a.loadAmbient(document.body)).catch(() => {});

@@ -351,8 +351,10 @@ export function warmup(w, history, plan = PLAN) {
     if (it.role !== "main") continue;
     const p = prefill(w, it.key, history, plan);
     if (!p.weighted || !(p.kg > 0)) continue;
-    const reps = [5, 3, 3];
-    const sets = [0.5, 0.7, 0.85].map((f, i) => ({ kg: roundTo(p.kg * f), reps: reps[i] }))
+    // 1–3 ramp-up sets (CLAUDE.md), fewer for light loads: three sets before 15 kg dumbbells
+    // is more fatigue than preparation.
+    const steps = p.kg < 20 ? [[0.6, 5]] : p.kg < 50 ? [[0.5, 5], [0.75, 3]] : [[0.5, 5], [0.7, 3], [0.85, 2]];
+    const sets = steps.map(([f, reps]) => ({ kg: roundTo(p.kg * f), reps }))
       .filter((s, i, a) => s.kg < p.kg && (i === 0 || s.kg !== a[i - 1].kg));
     if (sets.length) ramp = { ex: it.ex, name: exName(it.ex, plan), sets };
     break;

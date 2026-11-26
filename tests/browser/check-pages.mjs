@@ -161,7 +161,11 @@ for (const [label, viewport] of [["360", { width: 360, height: 780 }], ["390", {
   const { pg, ctx, errors } = await open("workout.html?start=lift", { width: 390, height: 844 }, { uptime2: { ...SEED, v: 3, settings: { units: "lb" } } });
   await pg.click("[data-act=checkin][data-v=Good]");
   await pg.waitForSelector("[data-screen=set]");
-  await pg.click("[data-act=jump][data-key='1'], text=Dumbbell bench press").catch(() => {});
+  // Upper sessions open with bodyweight pulls: jump to the first press, whose set and ramp-up show weights
+  await pg.click("[data-act=open-all]");
+  await pg.waitForSelector("[data-act=jump]");
+  await pg.locator("[data-act=jump]", { hasText: "press" }).first().click();
+  await pg.waitForSelector("[data-screen=set]");
   const txt = await pg.textContent("main");
   check(/\blb\b/.test(txt) && !/\d kg\b/.test(txt), "workout shows lb when units are lb");
   check(errors.length === 0, `workout in lb has no console errors ${errors.join(" | ")}`);

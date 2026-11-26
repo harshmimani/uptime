@@ -165,6 +165,15 @@ test("warm-up ramp is built from today's first loaded main lift", () => {
   assert.ok(wu.ramp.sets.every((s) => s.kg < 12.5 && s.kg > 0));
 });
 
+test("ramp-up sets scale with the load: 1 for light dumbbells, 2 for moderate, 3 for heavy", () => {
+  const w = mk();
+  const at = (kg) => M.warmup(w, (ex) => (ex === "dumbbell-bench-press" ? [{ date: "2026-11-20", sets: [{ kg, reps: 6 }, { kg, reps: 6 }, { kg, reps: 6 }] }] : [])).ramp.sets;
+  assert.equal(at(15).length, 1);
+  assert.equal(at(30).length, 2);
+  assert.equal(at(60).length, 3);
+  for (const kg of [15, 30, 60]) assert.ok(at(kg).every((s, i, a) => s.kg < kg && (i === 0 || s.kg > a[i - 1].kg)));
+});
+
 test("summary counts sets beaten and says what goes up next time", () => {
   const w = mk({ short: true });
   M.jumpTo(w, "1");

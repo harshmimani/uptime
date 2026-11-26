@@ -8,6 +8,8 @@
     "check:style": "node tests/browser/check-style.mjs",
     "check:workout": "node tests/browser/check-workout.mjs",
     "check:pages": "node tests/browser/check-pages.mjs",
-    "check:home": "node tests/browser/check-home.mjs"
+    "check:home": "node tests/browser/check-home.mjs",
+    "check:offline": "node tests/browser/check-offline.mjs",
+    "make:icons": "node tests/browser/make-icons.mjs"
   }
 }

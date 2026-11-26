@@ -134,7 +134,8 @@ body { overscroll-behavior-y: none; }
   .home { gap: var(--sp-2); }
   .tile { padding: var(--sp-2) var(--sp-3) var(--sp-3); }
   .tile__num { font-size: 2rem; }
-  .tile--stat .tile__note, .tile--week .tile__note { display: none; }
+  .tile--stat:not(.tile--empty) .tile__note, .tile--week .tile__note { display: none; }
+  .tile--empty .tile__art { display: none; } /* on a short screen the words matter more than the art */
   .dial { width: min(100%, 250px); min-width: 0; }
   .dial-card { padding-top: var(--sp-3); gap: var(--sp-1); }
   .dial-card__note { margin: 0; }

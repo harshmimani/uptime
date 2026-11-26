@@ -657,8 +657,8 @@ const ROWS = [
 $("#states-grid").innerHTML = ROWS.map(([name, variant, text, states]) => `<div class="state-row"><h3>${name}</h3><div class="tiles">
   ${states.map(([s, cls]) => `<div class="tile"><span>${s}</span>${btn(variant, text, cls)}</div>`).join("")}</div></div>`).join("") +
   `<div class="state-row"><h3>Switch · Busy mode (Plan → Modes)</h3><div class="tiles">
-    <div class="tile"><span>Off</span><button class="switch" aria-pressed="false" tabindex="-1"><span class="switch__track"><span class="switch__knob"></span></span>Busy mode</button></div>
-    <div class="tile"><span>On</span><button class="switch" aria-pressed="true" tabindex="-1"><span class="switch__track"><span class="switch__knob"></span></span>Busy mode</button></div>
+    <div class="tile"><span>Off</span><button class="switch" role="switch" aria-checked="false" tabindex="-1"><span class="switch__track"><span class="switch__knob"></span></span>Busy mode</button></div>
+    <div class="tile"><span>On</span><button class="switch" role="switch" aria-checked="true" tabindex="-1"><span class="switch__track"><span class="switch__knob"></span></span>Busy mode</button></div>
     <div class="tile"><span>Focus</span><button class="switch is-focus" aria-pressed="false" tabindex="-1"><span class="switch__track"><span class="switch__knob"></span></span>Busy mode</button></div></div></div>
   <div class="state-row"><h3>Chip · reps</h3><div class="tiles">
     <div class="tile"><span>Off</span><div class="chips"><button class="chip num" aria-pressed="false" tabindex="-1">7</button></div></div>
