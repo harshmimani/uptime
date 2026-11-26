@@ -42,10 +42,32 @@ body { overscroll-behavior-y: none; }
 .rise { animation: rise var(--dur-hero) var(--ease-emphasized) both; animation-delay: calc(var(--d, 0) * 60ms); }
 @keyframes rise { from { opacity: 0; transform: translateY(calc(16px * var(--motion-distance))); } }
 
-/* the Start → Workout morph: the Next-up card and the workout header share a name */
+/* The Start → Workout morph (cross-document, from index.html). Home's dial card and this
+   screen share the name "card", so the card grows into the screen; Start and the check-in
+   buttons share "cta". The animations themselves are in css/home.css and repeated here,
+   because each page only applies its own styles to the transition into it. */
+@view-transition { navigation: auto; }
 .vt-card { view-transition-name: card; }
+[data-screen="checkin"] .foot-actions, [data-screen="run"] .scr__foot > .btn--primary { view-transition-name: cta; }
 ::view-transition-group(card) { animation-duration: var(--dur-hero); animation-timing-function: var(--ease-emphasized); }
-::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--dur-base); }
+::view-transition-image-pair(card) { border-radius: var(--r-xl); overflow: hidden; animation: vt-corner var(--dur-hero) var(--ease-emphasized) both; }
+@keyframes vt-corner { to { border-radius: 0; } }
+::view-transition-old(card) { animation: vt-out calc(var(--dur-hero) * .5) var(--ease-out) both; }
+::view-transition-new(card) { animation: vt-in var(--dur-hero) var(--ease-out) both; }
+::view-transition-group(cta) { animation-duration: var(--dur-hero); animation-timing-function: var(--ease-emphasized); }
+::view-transition-old(tabbar):only-child { animation: vt-drop var(--dur-base) var(--ease-in) both; }
+::view-transition-new(tabbar):only-child { animation: vt-rise var(--dur-slow) var(--ease-emphasized) 80ms both; }
+::view-transition-old(root) { animation: vt-out var(--dur-base) var(--ease-out) both; }
+::view-transition-new(root) { animation: vt-in var(--dur-slow) var(--ease-out) 60ms both; }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; } }
+@keyframes vt-drop { to { transform: translateY(100%); opacity: 0; } }
+@keyframes vt-rise { from { transform: translateY(100%); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .vt-card, [data-screen="checkin"] .foot-actions, [data-screen="run"] .scr__foot > .btn--primary { view-transition-name: none !important; }
+  ::view-transition-old(root) { animation: vt-out 200ms linear both; }
+  ::view-transition-new(root) { animation: vt-in 200ms linear both; }
+}
 
 /* ---------------------------------------------------------------- set screen */
 .setline { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-3); }

@@ -25,7 +25,7 @@ const today = () => isoDate(new Date());
 const hist = (ex) => exerciseHistory(db(), ex);
 
 const ui = {
-  view: "home",
+  view: "set",
   pending: null,     // check-in screen: { type: "lift", session, short, noGym, rough }
   summary: null,     // finish summary data
   finished: null,    // the workout just finished (for Resume)
@@ -36,7 +36,6 @@ const ui = {
   sheet: null,       // "swap" | "all" | null
   alerted: {},       // rest/work end timestamps already announced
   run: null,         // today's run screen: { pick, t, raceOpen, raceDraft }
-  undoRun: null,     // { id, paceRef } to undo the last Done
 };
 
 // ------------------------------------------------------------------ helpers
@@ -113,14 +112,12 @@ function liftAdjust(p) {
 function render({ focus = false } = {}) {
   const v = ui.view;
   const html =
-    v === "home" ? viewHome()
-    : v === "checkin" ? viewCheckin()
+    v === "checkin" ? viewCheckin()
     : v === "set" ? viewSet()
     : v === "resume" ? viewResume()
     : v === "summary" ? viewSummary()
     : v === "run" ? viewRun()
-    : v === "other" ? viewOther()
-    : viewHome();
+    : viewOther();
   app.innerHTML = html + (ui.sheet ? viewSheet() : "");
   paintToast();
   afterRender(focus);
@@ -148,55 +145,19 @@ function afterRender(focus) {
   }
 }
 
-// ---------------------------------------------------------------- home (stand-in until Home is built)
+// ---------------------------------------------------------------- back to Home (index.html)
+// Home is its own page. A toast meant for Home (Undo on a run, "Back to it") travels in
+// sessionStorage and is shown there; js/home/app.js carries out its Undo.
 
-function viewHome() {
-  const p = todayPlan();
-  const L = engineLog(db());
-  const liftedToday = L.some((e) => e.date === today() && e.session);
-  const def = E.sessionDef(p.next);
-  const items = M.buildItems(p.next, { settings: db().settings, adjust: liftAdjust(p) });
-  const ret = p.returnAdjustment;
-  const run = runInfo().t;
-  let note = "";
-  if (ret.tier === "short") note = `${ret.daysOff} days off, so today starts at about 90% of last time. Back to normal next session.`;
-  else if (ret.tier === "long") note = "First week back: about 80% and one set fewer per exercise.";
-  else if (p.deload.active) note = "Deload week: same exercises, about half the sets.";
-  else if (!L.length && !db().legacy) note = "First session: the weights are starting suggestions. Adjust as you go and the app learns from this one.";
-  return `<main class="scr" data-screen="home">
-    <header class="scr__head"><span class="label">${esc(shortDate(today()))}</span></header>
-    <div class="scr__body">
-      <h1 class="h1">${L.length ? "Ready when you are" : "Let's start"}</h1>
-      ${saveErrorBox()}
-      ${p.mode === "busy" ? `<div class="notice"><div><b>Busy mode is on.</b> Short full-body sessions until you turn it off in Plan.</div></div>` : ""}
-      <section class="next vt-card" aria-labelledby="next-title">
-        <div class="next__glow" aria-hidden="true"></div>
-        <span class="label">${liftedToday ? "Next up · tomorrow or later" : "Next up"}</span>
-        <h2 class="next__title display" id="next-title" data-kt>${esc(def.name)}</h2>
-        <p class="next__meta meta">${esc(def.focus || "Full body")} · about ${M.estimateMin(items)} min · ${items.length} exercises</p>
-        ${note ? `<p class="meta" style="margin:0">${esc(note)}</p>` : ""}
-        ${liftedToday
-          ? `<p class="meta" style="margin:0">${esc(L.filter((e) => e.date === today() && e.session).map((e) => E.sessionDef(e.session)?.name).join(", "))} done today. A run still fits today if you want one.</p>`
-          : `<button class="btn btn--primary" data-act="start-lift" data-session="${esc(p.next)}"><span class="btn__label">Start</span></button>`}
-      </section>
-      <div class="home-links">
-        <button class="btn btn--secondary btn--wide" data-act="start-run"><span class="btn__label">Run · ${esc(run.name)}</span></button>
-        <p class="meta" style="margin:0">${esc(run.target)}</p>
-        <button class="btn btn--text" style="justify-self:start" data-act="open-other">Log something else</button>
-      </div>
-      <p class="disclaimer">${esc(PLAN.disclaimer)}</p>
-    </div>
-    <div class="scr__foot" style="background:none"><div class="toast-slot" id="toast-slot" aria-live="polite"></div></div>
-  </main>`;
+function goHome(flash = null, { replace = false } = {}) {
+  if (flash) { try { sessionStorage.setItem("uptime-flash", JSON.stringify(flash)); } catch { /* the toast is a nicety */ } }
+  awake.off();
+  if (replace) location.replace("index.html");
+  else location.href = "index.html";
 }
 
 // ---------------------------------------------------------------- check-in
 
-function startLift(session) {
-  const p = todayPlan();
-  ui.pending = { type: "lift", session, short: !!(p.primary?.short || p.hints.includes("busy-weekday")), noGym: false, adjust: liftAdjust(p), deload: p.deload };
-  go("checkin", { vt: true });
-}
 function runInfo() {
   const pick = E.runPick(engineLog(db()), today(), db().settings);
   return { pick, t: R.runTarget(pick, R.fiveKSec(db().activities, db().settings)) };
@@ -223,8 +184,8 @@ function viewCheckin() {
     else if (pd.deload?.suggested) notes.push("A deload is due: same exercises, about half the sets, for a week.");
     if (pd.noGym) notes.push(PLAN.noGym.loadTip);
   }
-  return `<main class="scr" data-screen="checkin">
-    <header class="scr__head vt-card">
+  return `<main class="scr vt-card" data-screen="checkin">
+    <header class="scr__head">
       <div class="row between"><span class="label">${esc(label)}</span><button class="btn btn--text" data-act="home">Not now</button></div>
       <h1 class="h1">How do you feel today?</h1>
       <p class="meta" style="margin:0">Rough switches to the Short version. You can change it any time.</p>
@@ -323,7 +284,7 @@ function logLabel(w, p, v, it) {
 function viewSet() {
   const w = db().active;
   const it = M.item(w, w.cur);
-  if (!it) return viewHome();
+  if (!it) return viewResume(); // nothing left in focus: offer Finish rather than a blank screen
   const p = M.prefill(w, w.cur, hist);
   const v = currentValues(w, p);
   const mine = w.log.filter((l) => l.key === it.key);
@@ -768,9 +729,7 @@ function finishNow() {
     db().active = null;
     persist();
     awake.off();
-    ui.lastDiscarded = w;
-    go("home");
-    toast("Nothing logged, so nothing saved.", "Back to it", "undo-leave", 8000);
+    goHome({ text: "Nothing logged, so nothing saved.", action: "Back to it", kind: "undo-leave", data: w });
     return;
   }
   finishWorkout(true);
@@ -892,8 +851,8 @@ function viewRun() {
       <div class="field"><label class="label" for="race-date">Race date</label><input id="race-date" type="date" min="${today()}" value="${esc(d.date)}"></div>
       <div class="row"><button class="btn btn--secondary grow" data-act="race-save">Save race</button>${race ? `<button class="btn btn--secondary grow" data-act="race-clear">No race</button>` : ""}</div>
     </section>` : "";
-  return `<main class="scr" data-screen="run">
-    <header class="scr__head vt-card">
+  return `<main class="scr vt-card" data-screen="run">
+    <header class="scr__head">
       <div class="row between"><span class="label">${esc(shortDate(today()))} · Today's run</span><button class="btn btn--text" data-act="home">Not now</button></div>
       <h1 class="h1" data-kt>${esc(t.name)}</h1>
     </header>
@@ -933,29 +892,15 @@ function runDone() {
   const a = { id: newId("r"), date: today(), t: now(), kind: "run", run: pick.run };
   if (pick.km) a.km = pick.km;
   if (text) a.time = text;
-  ui.undoRun = { id: a.id, paceRef: db().settings.paceRef ?? null };
+  const undoData = { id: a.id, paceRef: db().settings.paceRef ?? null };
   db().activities.push(a);
   if (parsed) db().settings.paceRef = { ...parsed, date: today(), text };
   persist();
   vibrate(18);
   sound("done", db().settings.sound !== false);
   ui.run = null;
-  go("home");
   const extra = parsed ? " Paces updated." : text ? " Couldn't read the time, so paces stay the same." : "";
-  toast(`${t.name} done.${extra}`, "Undo", "undo-run", 8000);
-  say(`${t.name} logged`);
-}
-
-function undoRun() {
-  const u = ui.undoRun;
-  if (!u) return;
-  db().activities = db().activities.filter((x) => x.id !== u.id);
-  db().settings.paceRef = u.paceRef;
-  ui.undoRun = null;
-  persist();
-  ui.toast = null;
-  render();
-  toast("Removed. Nothing was logged.");
+  goHome({ text: `${t.name} done.${extra}`, action: "Undo", kind: "undo-run", data: undoData });
 }
 
 function saveRace(clear) {
@@ -1029,8 +974,7 @@ app.addEventListener("click", (ev) => {
   const act = el.dataset.act;
   const w = db().active;
   switch (act) {
-    case "home": ui.summary = null; ui.finished = null; ui.toast = null; awake.off(); go("home"); break;
-    case "start-lift": startLift(el.dataset.session); break;
+    case "home": goHome(); break;
     case "start-run": startRun(); break;
     case "open-other": ui.other = { date: today(), savedId: null, editing: false }; go("other"); break;
     case "pick-length": ui.pending.short = el.dataset.short === "1"; render(); break;
@@ -1066,11 +1010,9 @@ app.addEventListener("click", (ev) => {
     case "toggle-sound": db().settings.sound = db().settings.sound === false; persist(); render(); if (db().settings.sound) { unlockAudio(); sound("tick"); } break;
     case "finish-now": ui.sheet = null; finishNow(); break;
     case "resume": resumeFinished(); break;
-    case "undo-leave": if (ui.lastDiscarded) { db().active = ui.lastDiscarded; ui.lastDiscarded = null; persist(); awake.on(); go("set"); } break;
     case "pick-up": awake.on(); go("set"); break;
     case "retry-save": if (persist()) { const b = document.getElementById("save-error"); if (b) b.hidden = true; } break;
     case "run-done": runDone(); break;
-    case "undo-run": undoRun(); break;
     case "race-open": ui.run.raceOpen = !ui.run.raceOpen; render(); break;
     case "race-dist": {
       const date = document.getElementById("race-date")?.value;
@@ -1142,12 +1084,37 @@ function boot() {
     }
   }
   if (store.readOnly) ui.saveFailed = true;
+  // Started from Home (?start=lift|run|other): render that screen in the very first frame,
+  // so the cross-document view transition has its target. The query is dropped so a reload
+  // or the back button never starts something twice.
+  const start = new URLSearchParams(location.search).get("start");
+  if (start) {
+    // changing the URL while the incoming transition runs would cancel it: wait for it to end
+    const clean = () => history.replaceState(history.state, "", location.pathname);
+    let done = false;
+    const once = () => { if (!done) { done = true; clean(); } };
+    addEventListener("pagereveal", (e) => (e.viewTransition ? e.viewTransition.finished.then(once, once) : once()), { once: true });
+    setTimeout(once, 2000);
+  }
+  if (!db().active) {
+    if (start === "lift") {
+      const p = todayPlan();
+      ui.pending = { type: "lift", session: p.next, short: !!(p.primary?.short || p.hints.includes("busy-weekday")), noGym: false, adjust: liftAdjust(p), deload: p.deload };
+      ui.view = "checkin";
+    } else if (start === "run") {
+      ui.run = { ...runInfo(), raceOpen: false, raceDraft: null };
+      ui.view = "run";
+    } else if (start === "other") {
+      ui.other = { date: today(), savedId: null, editing: false };
+      ui.view = "other";
+    } else {
+      // nothing to do here: Home is the front door
+      goHome(ui.bootToast ? { text: ui.bootToast, ms: 8000 } : null, { replace: true });
+      return;
+    }
+  }
   render({ focus: false });
   if (ui.bootToast) toast(ui.bootToast, null, null, 8000);
-  const s = new URLSearchParams(location.search);
-  if (!a && s.get("start") === "run") startRun();
-  else if (!a && s.get("start") === "lift") startLift(todayPlan().next);
-  else if (!a && s.get("start") === "other") { ui.other = { date: today(), savedId: null, editing: false }; go("other"); }
 }
 
 boot();

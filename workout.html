@@ -7,6 +7,7 @@
 <meta name="color-scheme" content="dark">
 <meta name="description" content="Uptime workout: check in, log each set in one tap, rest timer, swaps and a finish summary.">
 <title>Uptime Workout</title>
+<style>@view-transition { navigation: auto; }</style>
 <link rel="preload" href="assets/archivo.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="modulepreload" href="js/workout/app.js">
 <link rel="stylesheet" href="css/tokens.css">
@@ -22,6 +23,6 @@
 <div id="app"></div>
 <div id="live" class="sr-only" aria-live="polite"></div>
 <noscript><p style="padding:16px">Uptime needs JavaScript to log your sets.</p></noscript>
-<script type="module" src="js/workout/app.js"></script>
+<script type="module" src="js/workout/app.js" blocking="render"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 // Browser check for the Workout section (workout.html). Needs Playwright with Chromium.
 //   node tests/browser/check-workout.mjs [outDir]
-// Runs the real flows at 360 px, 390 px and a desktop width:
+// Runs the real flows at 360 px, 390 px and a desktop width, starting from Home (index.html):
 //   check-in → set (warm-up, prefill, beat last time) → log → rest (−15/+15/skip) → swap → undo
 //   → All exercises → Full/Short → finish → summary; reopen mid-rest; > 90 min resume;
 //   today's run (one-line target, optional time line, Done, Undo, race mode); log something else.
@@ -46,8 +46,11 @@ async function page(name, viewport, opts = {}) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: out ? 2 : 1, hasTouch: viewport.width < 600, isMobile: viewport.width < 600, reducedMotion: opts.reducedMotion || "no-preference" });
   const pg = await ctx.newPage();
   const errors = [];
-  pg.on("pageerror", (e) => errors.push(e.message));
-  pg.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+  pg.on("pageerror", (e) => { if (!/ViewTransition|Transition was aborted/.test(e.message)) errors.push(e.message); });
+  // The fake clock below also freezes animation frames, so page-to-page view transitions
+  // can't finish and Chromium reports them aborted. That's the test's clock, not the app:
+  // tests/browser/check-home.mjs checks the transition itself with a real clock.
+  pg.on("console", (m) => { if (m.type() === "error" && !/ViewTransition|Transition was aborted/.test(m.text())) errors.push(m.text()); });
   await pg.clock.install({ time: T0 });
   if (opts.seed) await pg.addInitScript((s) => { if (!localStorage.getItem("uptime2")) localStorage.setItem("uptime2", s); }, JSON.stringify(opts.seed));
   return { pg, ctx, errors };
@@ -66,12 +69,12 @@ async function logBtnInThumbZone(pg) {
 async function liftFlow(label, viewport) {
   const { pg, ctx, errors } = await page(label, viewport, { seed: HISTORY });
   await pg.goto(base);
-  await pg.waitForSelector("[data-act=start-lift]");
+  await pg.waitForSelector(".hm-start[href$='start=lift']");
   check(await pg.textContent("#next-title").then((t) => t.includes("Upper A")), `${label}: rotation says Upper A is next`);
   await shot(pg, `${label}-01-launcher`);
   check(await noHScroll(pg), `${label}: launcher has no horizontal scroll`);
 
-  await pg.click("[data-act=start-lift]");
+  await pg.click(".hm-start[href$='start=lift']");
   await pg.waitForSelector("[data-screen=checkin]");
   await pg.waitForTimeout(700);
   await shot(pg, `${label}-02-checkin`);
@@ -183,7 +186,7 @@ async function liftFlow(label, viewport) {
   await pg.click("[data-act=home]");
   await pg.waitForSelector("[data-screen=home]");
   check((await pg.textContent("#next-title")).includes("Lower A"), `${label}: rotation moved on to Lower A`);
-  check(!(await pg.locator("[data-act=start-lift]").count()), `${label}: no second lift offered today`);
+  check(!(await pg.locator(".hm-start[href$='start=lift']").count()), `${label}: no second lift offered today`);
   check(errors.length === 0, `${label}: no console errors${errors.length ? ": " + errors.join(" | ") : ""}`);
   await ctx.close();
 }
@@ -192,7 +195,7 @@ async function timedAndResume(label, viewport) {
   const { pg, ctx, errors } = await page(label, viewport, { seed: { ...HISTORY, sessions: HISTORY.sessions.filter((s) => s.session !== "UA").concat([{ id: "u", date: "2026-11-24", t: T0 - 2 * 864e5, session: "UA", name: "Upper A", items: [] }]) } });
   await pg.goto(base);
   // the latest strength session is Upper A (24th), so Lower A is next: it has a carry (timed set)
-  await pg.click("[data-act=start-lift]");
+  await pg.click(".hm-start[href$='start=lift']");
   await pg.click("[data-act=checkin][data-v=Rough]");
   await pg.waitForSelector("[data-screen=set]");
   check(await pg.isVisible(".toast"), `${label}: Rough turns on Short with an undo line`);
@@ -235,7 +238,7 @@ async function timedAndResume(label, viewport) {
 async function runAndOther(label, viewport) {
   const { pg, ctx, errors } = await page(label, viewport, { seed: HISTORY });
   await pg.goto(base);
-  await pg.click("[data-act=start-run]");
+  await pg.click("a[href$='start=run']");
   await pg.waitForSelector("[data-screen=run]");
   await shot(pg, `${label}-15-run`);
   check(await noHScroll(pg), `${label}: run screen has no horizontal scroll`);
@@ -250,12 +253,12 @@ async function runAndOther(label, viewport) {
   check(d.activities.some((a) => a.kind === "run" && a.run === "interval" && a.time === "10k 52:30"), `${label}: run saved on one tap`);
   check(d.settings.paceRef?.km === 10 && d.settings.paceRef?.sec === 3150, `${label}: time line updates the paces`);
   check((await pg.textContent(".toast")).includes("Paces updated"), `${label}: toast confirms with Undo`);
-  await pg.click(".toast [data-act=undo-run]");
+  await pg.click(".toast [data-act=undo]");
   d = await db(pg);
   check(!d.activities.some((a) => a.kind === "run") && d.settings.paceRef == null, `${label}: undo removes the run and the pace change`);
 
   // race mode
-  await pg.click("[data-act=start-run]");
+  await pg.click("a[href$='start=run']");
   await pg.click("[data-act=race-open]");
   await pg.click("[data-act=race-dist][data-d='21k']");
   await pg.fill("#race-date", "2027-01-20");
@@ -267,7 +270,7 @@ async function runAndOther(label, viewport) {
   check(await noHScroll(pg), `${label}: race mode has no horizontal scroll`);
   await pg.click("[data-act=home]");
 
-  await pg.click("[data-act=open-other]");
+  await pg.click(".hm-other");
   await pg.waitForSelector("[data-screen=other]");
   await shot(pg, `${label}-19-other`);
   check(await noHScroll(pg), `${label}: log-something-else has no horizontal scroll`);
