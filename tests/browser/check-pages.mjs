@@ -103,20 +103,29 @@ for (const [label, viewport] of [["360", { width: 360, height: 780 }], ["390", {
   // ---------------- Plan
   const p = await open("plan.html", viewport);
   const pp = p.pg;
-  check(await pp.locator(".week-ups > li").count() >= 6 && (await pp.textContent(".subnav [aria-current=page]")).trim() === "Week", `${label}: Plan opens on the week plan`);
-  check(await pp.locator(".week-ups details[open]").count() === 0 && await pp.evaluate(() => document.querySelector(".week-ups").getBoundingClientRect().height < innerHeight * 1.6),
-    `${label}: Week: each session is one line until tapped (nice-to-have 20)`);
-  check(await noHScroll(pp) && await smallTargets(pp) === 0, `${label}: week plan: no horizontal scroll, tap targets ≥ 44 px`);
-  await pp.click(".week-ups > li:nth-child(2) summary");
-  check(await pp.locator(".week-ups > li:nth-child(2) .exrow").count() >= 5 && await pp.isVisible(".week-ups > li:nth-child(2) .up__map .mmap"), `${label}: a Week session opens to its exercises and muscle map`);
-  await pp.click(".week-ups > li:nth-child(2) .exrow button >> nth=1");
+  check(await pp.locator(".coming .ups > li").count() >= 6 && (await pp.textContent(".subnav [aria-current=page]")).trim() === "Coming up"
+    && await pp.locator("[data-act=section][data-s=week]").count() === 0, `${label}: Plan opens on Coming up (no separate Week)`);
+  check(await pp.locator(".coming details[open]").count() === 0 && await pp.evaluate(() => document.querySelector(".coming .ups").getBoundingClientRect().height < innerHeight * 1.6),
+    `${label}: Coming up: each session is one line until tapped`);
+  check(await pp.evaluate(() => { const r = [...document.querySelectorAll(".subnav .chip")].map((c) => c.getBoundingClientRect()); return r.length === 5 && r.at(-1).right <= innerWidth + 1; }),
+    `${label}: all five Plan sections fit the strip`);
+  check(await pp.evaluate(() => [...document.querySelectorAll(".up__when")].map((x) => x.textContent).join("|") === "Next|Then|After that"), `${label}: only the first three carry a label`);
+  check(await noHScroll(pp) && await smallTargets(pp) === 0, `${label}: Coming up: no horizontal scroll, tap targets ≥ 44 px`);
+  await pp.click(".coming .ups > li:nth-child(1) summary");
+  { const first = (await pp.textContent(".coming .ups > li:nth-child(1) .up__name")).trim();
+    check(await pp.isVisible(".coming .ups > li:nth-child(1) .up__start") && (await pp.textContent(".up__start")).trim() === `Start ${first}`
+      && await pp.evaluate(() => document.querySelector(".up__start").getBoundingClientRect().height >= 48), `${label}: the first card ends with a 48 px "Start ${first}"`); }
+  check(await pp.locator(".coming .ups > li:nth-child(1) .exrow").count() >= 5 && await pp.isVisible(".coming .ups > li:nth-child(1) .up__map .mmap"), `${label}: a session opens to its exercises and muscle map`);
+  check(await pp.evaluate(() => { const v = document.querySelector(".coming .exrow__video"); const r = v.getBoundingClientRect(); return r.width === 48 && r.height === 48 && v.textContent.trim() === "" && /^Video: /.test(v.getAttribute("aria-label")); }),
+    `${label}: Video is a 48 × 48 icon-only button labelled "Video: <exercise>"`);
+  await pp.click(".coming .ups > li:nth-child(1) .exrow button >> nth=1");
   await pp.waitForSelector(".sheet .howto");
-  check(await pp.isVisible(".sheet a[href*='youtube.com/results']"), `${label}: an exercise in Week opens its how-to with the YouTube link`);
+  check(await pp.isVisible(".sheet a[href*='youtube.com/results']"), `${label}: an exercise in Coming up opens its how-to with the YouTube link`);
   await shot(pp, `${label}-plan-week-howto`);
   await pp.click(".sheet [data-act=close-info]");
   check(await pp.locator(".sheet").count() === 0, `${label}: the how-to closes`);
   await pp.click("[data-act=section][data-s=modes]");
-  check(await pp.isVisible("text=Busy mode"), `${label}: Modes comes after the week`);
+  check(await pp.isVisible("text=Busy mode"), `${label}: Modes comes after Coming up`);
   await pp.click("[data-act=busy]");
   check((await db(pp)).settings.modeLog.at(-1).busy === true, `${label}: Busy mode switch saves`);
   await pp.click(".toast button");
@@ -136,7 +145,7 @@ for (const [label, viewport] of [["360", { width: 360, height: 780 }], ["390", {
       await pp.click("#learn-double-progression summary");
       check(await pp.isVisible("text=Add reps first"), `${label}: explainer opens`);
       check(await pp.locator("table.cov tbody tr").count() === 12, `${label}: coverage matrix, 12 muscle groups`);
-      check(await pp.isVisible("[data-act=section][data-s=week] >> nth=1"), `${label}: Learn points to Week for every exercise`);
+      check(await pp.isVisible("[data-act=section][data-s=next] >> nth=1"), `${label}: Learn points to Coming up for every exercise`);
     }
   }
   // settings: the earlier app's data, matched and not

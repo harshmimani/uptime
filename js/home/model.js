@@ -117,7 +117,7 @@ export function rotationNodes(next, busy, liftedTodayId, plan = PLAN, cycle = nu
   const k = Math.max(0, rot.indexOf(next));
   return rot.map((id, i) => {
     const def = E.sessionDef(id, plan);
-    const short = id.startsWith("FB") ? `FB${id.slice(2)}` : `${def.name[0]}${def.name.slice(-1)}`;
+    const short = def.code || (id.startsWith("FB") ? `FB${id.slice(2)}` : `${def.name[0]}${def.name.slice(-1)}`);
     return { id, name: def.name, short, state: i < k || id === liftedTodayId ? "done" : i === k ? "current" : "upcoming", today: id === liftedTodayId };
   });
 }
@@ -156,6 +156,8 @@ export function homeModel(db, today, plan = PLAN) {
     const why = REASON[lift.cautions[0]];
     const instead = p.primary.type === "rest" ? "Rest fits better today" : p.primary.type === "run" ? `A run fits better today` : p.primary.ex === "long-run" ? "The long run fits better today" : p.primary.type === "conditioning" ? "Something easy fits better today" : null;
     if (instead) notes.push(`${instead}${why ? `: ${why}` : ""}. ${def.name} is here if you feel fresh.`);
+  } else if (!liftedToday && lift?.shortWhy === "extra-game") {
+    notes.push("A Short version suits today: a game came on top of this rotation's run. You pick on the next screen.");
   } else if (!liftedToday && lift?.short) {
     notes.push("A Short version suits today. You pick on the next screen.");
   }

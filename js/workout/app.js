@@ -163,7 +163,7 @@ function afterRender(focus) {
   }
   watchExName();
   const box = app.querySelector(".timerbox.is-over");
-  if (box) box.style.setProperty("--oy", wipeOrigin(box));
+  if (box) wipeOrigin(box);
   syncRing();
   tick();
   if (ui.sheet) {
@@ -349,7 +349,7 @@ function targetLine(p, it) {
     const lr = t.last.sec ?? t.last.reps;
     const unit = t.last.sec != null ? " s" : " reps";
     goal = t.last.kg > 0 ? `Beat ${fmtKg(t.last.kg)} ${unitLabel()} × ${lr}: ${lr + 1}${unit}, or more weight` : `Beat ${lr}${unit}: go for ${lr + 1}`;
-  } else if (t.kind === "up") goal = `Up from ${fmtKg(t.fromKg)} ${unitLabel()}. Any set in range beats last time.`;
+  } else if (t.kind === "up") goal = `Up from ${fmtKg(t.fromKg)} ${unitLabel()}. Any set in range beats last time.${it.newWeight ? ` ${it.newWeight}` : ""}`;
   else if (t.kind === "slow") goal = "Same weight with 3-second lowers. Every clean set in range counts.";
   else if (t.kind === "plan") goal = `Plan today: ${M.rangeText({ ...it, reps: p.range || it.reps })}${it.tempo ? `, ${it.tempo}` : ""}. Last time was a different scheme.`;
   else if (t.kind === "easy") goal = t.lighter ? "Lighter day: about 90% of last time. Just move well." : ui.view === "set" && db().active?.adjust?.deload ? "Deload: same weights, fewer sets." : "Short version: no target, just get it done.";
@@ -458,6 +458,7 @@ function viewSet() {
   else steppers.push(stepper({ id: "reps", value: v.reps, unit: it.perSide ? "reps per side" : "reps", label: "Reps", step: 1, min: 1 }));
   // while the rest runs the dock is one line and Log; Edit (or the rest ending) opens it again
   const docked = !!(w.rest && !w.work && w.rest.endAt > now() && !ui.dockOpen);
+  const folding = !!(w.rest && !w.work && w.rest.endAt > now() && ui.dockOpen); // opened with Edit: Done folds it back
   const timerBox = w.work
     ? timerBoxHTML({ kind: "work", label: it.perSide ? "Work · switch sides halfway" : "Work", next: M.exName(it.ex) })
     : w.rest
@@ -488,7 +489,7 @@ function viewSet() {
       <div class="toast-slot" id="toast-slot" aria-live="polite"></div>
       ${docked ? `<div class="dockline" id="setline"><span><b>Set ${p.n} of ${it.sets}</b> · <span class="num" id="dock-dose">${esc(doseText(v, it))}</span></span>
         <button class="btn btn--text dockline__edit" type="button" data-act="dock-edit" aria-label="${esc(`Edit set ${p.n}: weight, reps, swap or skip`)}">Edit</button></div>`
-      : `<div class="setline" id="setline"><b>Set ${p.n} of ${it.sets}</b><span class="meta">${esc(M.rangeText({ ...it, reps: p.range || it.reps }))}${it.tempo ? ` · ${esc(it.tempo)}` : p.prog.slow ? " · 3-s lower" : ""}</span></div>
+      : `<div class="setline" id="setline"><b>Set ${p.n} of ${it.sets}</b><span class="meta">${esc(M.rangeText({ ...it, reps: p.range || it.reps }))}${it.tempo ? ` · ${esc(it.tempo)}` : p.prog.slow ? " · 3-s lower" : ""}</span>${folding ? `<button class="btn btn--text dockline__edit" type="button" data-act="dock-done" aria-label="Done editing: fold the controls back">Done</button>` : ""}</div>
       <div class="steppers">${steppers.join("")}</div>
       <div class="row tools"><button class="btn btn--secondary grow" data-act="open-swap" ${w.work ? "disabled" : ""}>Swap</button><button class="btn btn--secondary grow" data-act="open-skip" ${w.work ? "disabled" : ""}>Skip set</button><button class="btn btn--secondary grow" data-act="open-all">All</button></div>`}
       <button class="btn btn--primary" id="log-btn" data-act="log">
@@ -548,15 +549,18 @@ function timerBoxHTML({ kind, label, next, upNext = "" }) {
   const over = r && r.endAt <= now();
   const wipe = over && ui.wiped !== r.endAt && now() - r.endAt < 2500;
   if (over) ui.wiped = r.endAt;
+  // at zero the card shrinks to one ~120 px block: "Go", how long ago, and +15 s (CSS: .is-over)
+  const shown = over ? "Rest over" : label;
   return `<section class="timerbox${ui.timerEnter ? " enter" : ""}${over ? " is-over" : ""}${wipe ? " wipe" : ""}" aria-label="${esc(label)} timer">
-    <div class="row between"><span class="label" id="timer-label">${esc(label)}</span>${next ? `<span class="meta">${esc(next)}</span>` : ""}</div>
+    <i class="timerbox__wipe" aria-hidden="true"></i>
+    <div class="row between"><span class="label" id="timer-label">${esc(shown)}</span>${next ? `<span class="meta">${esc(next)}</span>` : ""}</div>
     <div class="ring" id="ring" data-kind="${kind}" role="timer" aria-label="${esc(label)}">
       <div class="ring__track"></div>
       <div class="ring__half ring__half--r"><div class="ring__fill"></div></div>
       <div class="ring__half ring__half--l"><div class="ring__fill"></div></div>
       <div class="ring__pulse"></div>
       <div class="ring__go" aria-hidden="true"></div>
-      <div class="ring__center"><span class="ring__time display num" id="ring-time"></span><span class="ring__ago" id="ring-sub"></span></div>
+      <div class="ring__center"><span class="ring__time display num" id="ring-time">${over ? "Go" : ""}</span><span class="ring__ago" id="ring-sub">${over ? esc(overText(now() - r.endAt)) : ""}</span></div>
       <div class="ring__bar" aria-hidden="true"><i></i></div>
     </div>
     ${kind === "rest" ? `<div class="row" role="group" aria-label="Adjust rest">
@@ -637,22 +641,34 @@ function tick() {
       if (sub) sub.textContent = "";
       beepCountdown(a.rest.endAt, left, soundOn);
       const box = ring?.closest(".timerbox");
-      if (box?.classList.contains("is-over")) box.classList.remove("is-over", "wipe"); // +15 s after it ended
+      if (box?.classList.contains("is-over")) { // +15 s after it ended: the full card again
+        box.classList.remove("is-over", "wipe");
+        const lbl = document.getElementById("timer-label");
+        if (lbl) lbl.textContent = "Rest";
+      }
     } else {
       time.textContent = "Go";
       ring?.classList.remove("final");
       const box = ring?.closest(".timerbox");
       const rerender = document.querySelector(".scr__foot--docked") && !ui.sheet; // the full repaint below wipes it in
-      if (box && !rerender && !box.classList.contains("is-over")) {
-        box.style.setProperty("--oy", wipeOrigin(box));
-        box.classList.add("is-over");
-        if (-left < 2500) box.classList.add("wipe");
-        ui.wiped = a.rest.endAt;
+      if (box && !box.classList.contains("is-over")) {
+        if (!rerender) {
+          box.classList.add("is-over");
+          wipeOrigin(box); // from "Go", in the shrunk card
+          if (-left < 2500) box.classList.add("wipe");
+          ui.wiped = a.rest.endAt;
+          const lbl = document.getElementById("timer-label");
+          if (lbl) lbl.textContent = "Rest over";
+          document.querySelector("[data-act=dock-done]")?.remove(); // nothing left to fold
+        }
       }
       const ago = -left;
-      if (sub) sub.textContent = ago > 5000 ? `Rest over · ${clock(ago)} ago` : "Rest over";
+      if (sub) sub.textContent = overText(ago);
       if (ring && !ring.classList.contains("over")) { ring.classList.remove("run"); ring.classList.add("over"); }
-      if (document.querySelector(".scr__foot--docked") && !ui.sheet) { render(); return; }
+      if (document.querySelector(".scr__foot--docked") && !ui.sheet) {
+        render(); // repaints the card shrunk, with its wipe origin set
+        return;
+      }
       if (!ui.alerted[a.rest.endAt]) {
         ui.alerted[a.rest.endAt] = 1;
         // only make noise if it ended just now, not while the phone was in a pocket
@@ -663,10 +679,17 @@ function tick() {
   }
 }
 
-/** Where the green wipe starts: the middle of the timer, as a share of the card's height. */
+/** Beside "Go": "Rest over · just now", then "Rest over · 0:18 ago". */
+function overText(ago) {
+  return ago > 5000 ? `Rest over · ${clock(ago)} ago` : "Rest over · just now";
+}
+
+/** The green wipe starts at "Go": its middle, as a share of the card's width and height. */
 function wipeOrigin(box) {
-  const c = box.querySelector(".ring__center")?.getBoundingClientRect(), b = box.getBoundingClientRect();
-  return c && b.height ? `${Math.round(((c.top + c.height / 2 - b.top) / b.height) * 100)}%` : "40%";
+  const c = box.querySelector(".ring__time")?.getBoundingClientRect(), b = box.getBoundingClientRect();
+  if (!c || !b.height || !b.width) return;
+  box.style.setProperty("--ox", `${Math.round(((c.left + c.width / 2 - b.left) / b.width) * 100)}%`);
+  box.style.setProperty("--oy", `${Math.round(((c.top + c.height / 2 - b.top) / b.height) * 100)}%`);
 }
 
 function beepCountdown(endAt, left, soundOn) {
@@ -1244,7 +1267,7 @@ function viewRun() {
       ${saveErrorBox()}
       <p class="run-target">${esc(t.target)}</p>
       ${t.note ? `<p class="meta" style="margin:0">${esc(t.note)}</p>` : ""}
-      ${pick.run === "long" && !pick.hold && pick.phase !== "taper" ? `<p class="quiet">Each long run adds a little, up to ${pick.cap} km${pick.phase === "build" ? " for the race" : ` (about ${PLAN.run.long.capMin} min)`}, then it holds.</p>` : ""}
+      ${pick.run === "long" && !pick.restart && !pick.hold && pick.phase !== "taper" ? `<p class="quiet">Each long run adds a little, up to ${pick.cap} km${pick.phase === "build" ? " for the race" : ` (about ${PLAN.run.long.capMin} min)`}, then it holds.</p>` : ""}
       <div class="field">
         <label class="label" for="run-time">Your time (optional)</label>
         <input id="run-time" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="10k 52:30" aria-describedby="time-hint">
@@ -1273,7 +1296,8 @@ function runDone() {
   const { pick, t } = ui.run;
   const text = (document.getElementById("run-time")?.value || "").trim();
   const parsed = R.parseTimeLine(text);
-  const a = { id: newId("r"), date: today(), t: now(), kind: "run", run: pick.run };
+  // after a month with no running, the long-run slot is an easy run first
+  const a = { id: newId("r"), date: today(), t: now(), kind: "run", run: pick.restart ? "easy" : pick.run };
   if (pick.km) a.km = pick.km;
   if (text) a.time = text;
   const undoData = { id: a.id, paceRef: db().settings.paceRef ?? null };
@@ -1431,6 +1455,7 @@ app.addEventListener("click", (ev) => {
     case "pick-up": if (w) { w.touchedAt = now(); M.clockRun(w, now()); persist(); } awake.on(); go("set"); break;
     case "warm-done": if (w) { w.warm = "done"; ui.warmOpen = false; persist(); render(); say("Warm-up done"); } break;
     case "warm-open": ui.warmOpen = !ui.warmOpen; render(); break;
+    case "dock-done": ui.dockOpen = false; render(); document.querySelector("[data-act=dock-edit]")?.focus({ preventScroll: true }); break;
     case "dock-edit": ui.dockOpen = true; render(); document.querySelector("#v-reps, #v-sec")?.closest(".stepper")?.querySelector("[data-d]:not(:disabled)")?.focus({ preventScroll: true }); break;
     case "exit-pause": dropSheet(); goHome({ text: `${w?.name || "Workout"} paused. Resume it here any time today.` }); break;
     case "retry-save": if (persist()) { const b = document.getElementById("save-error"); if (b) b.hidden = true; } break;
@@ -1511,7 +1536,7 @@ function boot() {
     }
   }
   if (store.readOnly) ui.saveFailed = true;
-  if (store.migrated && !ui.bootToast) ui.bootToast = store.migrated.from === 1 ? "Found your log from the earlier app. Everything is kept, with a backup copy." : "Your data moved to the new format. A backup copy is kept.";
+  // (the "your data moved" note waits for Home, Progress or Plan: a toast here would cover the workout)
   // Started from Home (?start=lift|run|other): render that screen in the very first frame,
   // so the cross-document view transition has its target. The query is dropped so a reload
   // or the back button never starts something twice.

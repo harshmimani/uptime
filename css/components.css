@@ -552,12 +552,13 @@ button { font: inherit; color: inherit; }
 /* ---------------------------------------------------------------- session finished: a green circle fills the screen
    from the Log button (js/motion.js wipeFrom), the summary is painted under it, then it fades away. */
 .finish-wipe {
-  position: fixed; inset: 0; z-index: 40; pointer-events: none; background: var(--c-green);
-  clip-path: circle(0 at var(--x) var(--y)); animation: finish-in 440ms var(--ease-emphasized) forwards;
+  position: fixed; z-index: 40; left: calc(var(--x) - var(--r)); top: calc(var(--y) - var(--r)); width: calc(2 * var(--r)); height: calc(2 * var(--r));
+  border-radius: 50%; pointer-events: none; background: var(--c-green);
+  transform: scale(0); animation: finish-in 440ms var(--ease-emphasized) forwards;
 }
-.finish-wipe.out { animation: finish-out 520ms var(--ease-out) forwards; }
-@keyframes finish-in { to { clip-path: circle(150vmax at var(--x) var(--y)); } }
-@keyframes finish-out { from { clip-path: circle(150vmax at var(--x) var(--y)); opacity: 1; } to { clip-path: circle(150vmax at var(--x) var(--y)); opacity: 0; } }
+.finish-wipe.out { transform: scale(1); animation: finish-out 520ms var(--ease-out) forwards; }
+@keyframes finish-in { to { transform: scale(1); } }
+@keyframes finish-out { from { transform: scale(1); opacity: 1; } to { transform: scale(1); opacity: 0; } }
 
 /* a set that beat last time: the Log button's check says so, and the toast carries a green mark */
 .btn.is-best .btn__done { font-weight: var(--fw-black); }
@@ -566,3 +567,10 @@ button { font: inherit; color: inherit; }
 /* ---------------------------------------------------------------- staggered entrance (js/motion.js staggerIn) */
 .stagger > *, .stagger .ups > li { animation: stagger-rise 460ms var(--ease-emphasized) both; animation-delay: calc(var(--i, 0) * 45ms); }
 @keyframes stagger-rise { from { opacity: 0; transform: translateY(calc(18px * var(--motion-distance))) scale(calc(1 - .015 * var(--motion-distance))); } }
+
+/* ================================================================= follow-up review (27 Nov 2026) */
+/* N6: Video is a 48 × 48 icon-only button (labelled "Video: <exercise>"), so the name and its
+   muscles get the width: names stay on one line more often and a card is much shorter */
+.exrow__video { width: var(--hit-min); min-width: var(--hit-min); height: var(--hit-min); padding: 0; justify-content: center; gap: 0; }
+.exrow__video::after { inset: 4px; border-radius: 50%; }
+.exrow__video svg { width: 18px; height: 18px; margin-left: 2px; }

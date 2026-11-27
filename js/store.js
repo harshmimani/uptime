@@ -45,6 +45,7 @@ export const OLDER_KEY = "fm3";
 export const SCHEMA = 4;
 export const BACKUP_PREFIX = "uptime-backup-v";
 export const LAST_BACKUP_KEY = "uptime-backup-last";
+export const NOTICE_KEY = "uptime-notice-migrated"; // which migration's notice was already shown
 
 export function emptyDB(plan = PLAN) {
   return {
@@ -361,6 +362,21 @@ export function createStore(storage = globalThis.localStorage, plan = PLAN) {
     get db() { return db; },
     get readOnly() { return !!loadError; },
     get migrated() { return migrated; },
+    /**
+     * The "your data moved" note, once: the text the first time a page asks after a migration,
+     * then null (also after a reload, and when a later load runs the same migration again).
+     */
+    takeMigrationNotice() {
+      if (!migrated) return null;
+      const id = String(migrated.from);
+      try {
+        if (storage.getItem(NOTICE_KEY) === id) return null;
+        storage.setItem(NOTICE_KEY, id);
+      } catch { /* can't remember it: still shown only on this load */ }
+      const text = migrated.from === 1 ? "Found your log from the earlier app. Everything is kept, with a backup copy." : "Your data moved to the new format. A backup copy is kept.";
+      migrated = null;
+      return text;
+    },
     load,
     save,
     replace,

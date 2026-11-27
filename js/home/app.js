@@ -86,6 +86,7 @@ function dialSVG(m, { fromIndex }) {
 const ICON = {
   arrow: `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>`,
   check: `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>`,
+  close: `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>`,
 };
 
 function weekTile(m) {
@@ -123,6 +124,14 @@ function banners(m) {
     out += `<div class="notice hm-banner"><span><b>Busy mode is on.</b> 2–3 full-body sessions and a run.</span><button class="btn btn--text hm-banner__act" data-act="busy-off">Turn off</button></div>`;
   }
   return out;
+}
+
+/**
+ * "Your data moved": shown once, in the flow right under This week (never over it or the tab bar,
+ * and never pushing Start or the first row of This week down), with a 48 px close button.
+ */
+function migNote() {
+  return `<div class="notice notice--done hm-banner hm-mig" role="status"><span>${esc(ui.migrated)}</span><button class="btn btn--text hm-mig__x" data-act="mig-dismiss" aria-label="Dismiss this note">${ICON.close}</button></div>`;
 }
 
 function nudge(m) {
@@ -188,6 +197,8 @@ function weekSection(m) {
     <div class="hm-sec__head"><h2 class="hm-sec__title" id="wk-h">This week</h2><span class="meta">${done} of ${m.slots.length} done · last 7 days</span></div>
     <ol class="slots slots--${m.slots.length}">${m.slots.map(slot).join("")}</ol>
     <a class="hm-more" href="plan.html#next"><span>Coming up: the next ${m.slots.length} sessions in order</span>${ICON.arrow}</a>
+    ${resumeInfo() ? "" : `<a class="btn btn--text hm-other hm-other--below" href="workout.html?start=other" data-act="other">Log something else</a>`}
+    ${ui.migrated ? migNote() : ""}
   </section>`;
 }
 
@@ -410,6 +421,11 @@ app.addEventListener("click", (ev) => {
       break;
     case "busy-off": setBusy(false); break;
     case "busy-on": setBusy(true); break;
+    case "mig-dismiss":
+      ui.migrated = null;
+      app.querySelector(".hm-mig")?.remove();
+      app.querySelector(".hm-start")?.focus({ preventScroll: true });
+      break;
     case "nudge-dismiss":
       db().settings.busyNudgeDismissed = model.nudge.block;
       persist();
@@ -471,9 +487,9 @@ function boot() {
     const i = m.nodes.findIndex((x) => x.id === seen.next);
     advanceFrom = i >= 0 && seen.next !== m.next ? i : null;
   }
+  ui.migrated = store.takeMigrationNotice();
   render({ intro, advanceFrom, enter: !intro });
   writeJSON(localStorage, SEEN_KEY, { day: today(), next: m.next });
-  if (store.migrated && !ui.bootToast) ui.bootToast = store.migrated.from === 1 ? "Found your log from the earlier app. Everything is kept, with a backup copy." : "Your data moved to the new format. A backup copy is kept.";
   if (ui.bootToast) toast(ui.bootToast, null, null, 8000);
   takeFlash();
 }

@@ -280,10 +280,10 @@ async function home() {
     noErrors("progress history", errors);
     await ctx.close();
   }
-  { // Plan opens on the week
+  { // Plan opens on Coming up; an old #week link lands there too
     const { pg, ctx, errors } = await open({ width: 390, height: 844 });
-    await pg.goto(`${origin}/plan.html`);
-    check((await pg.textContent(".subnav [aria-current=page]")).trim() === "Week" && await pg.locator(".week-ups > li").count() >= 6, "Plan: the week plan comes first, every session listed");
+    await pg.goto(`${origin}/plan.html#week`);
+    check((await pg.textContent(".subnav [aria-current=page]")).trim() === "Coming up" && await pg.locator(".coming .ups > li").count() >= 6, "Plan: Coming up comes first, every session listed");
     noErrors("plan", errors);
     await ctx.close();
   }
