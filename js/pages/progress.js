@@ -84,7 +84,7 @@ function liftsSection() {
   const cards = P.mainLifts().map(liftCard).filter(Boolean);
   return `<section class="section" aria-labelledby="lifts-h">
     <h2 id="lifts-h">Main lifts</h2>
-    ${cards.length ? cards.join("") : `<div class="card"><p class="meta">Your first numbers show up after one session. Each main lift gets its own trend: squat, deadlift, bench and overhead press.</p></div>`}
+    ${cards.length ? cards.join("") : `<div class="card"><p class="meta">Your first numbers show up after one session. Each main lift gets its own trend: split squat, deadlift, bench and overhead press.</p></div>`}
   </section>`;
 }
 

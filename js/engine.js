@@ -233,12 +233,13 @@ export function nextSession(log, { busy = false, threeLifts = false } = {}, plan
 
 /**
  * The Lower due next in a three-lift build: the build Lower whose main lift wasn't done last
- * time (squat first). Every build Lower has Nordics and heavy slow calf raises.
+ * time (split squat first). Every build Lower has Nordics and heavy slow calf raises.
  */
 function buildLower(L, plan) {
   const [squat, hinge] = plan.run.race.buildLowers || ["LA", "LB"];
+  const mainLift = (id) => sessionDef(id, plan)?.items.find((it) => it.role === "main" && it.ex)?.ex;
   const last = [...L].reverse().find((e) => e.c.slot === "lift" && e.c.liftKind === "lower" && !e.c.busy);
-  const squatted = last && sessionDef(last.session, plan)?.items.some((it) => it.ex === "smith-machine-back-squat");
+  const squatted = last && mainLift(last.session) === mainLift(squat);
   return squatted ? hinge : squat;
 }
 
@@ -711,6 +712,19 @@ function increment(item, kg, plan) {
 export function progression(history = [], item, plan = PLAN) {
   const h = history.filter(comparable).sort((a, b) => a.date.localeCompare(b.date));
   if (!h.length) return { action: "start", kg: item.start?.kg ?? null };
+  // start.atLeastFrom: an exercise that became a main lift (Bulgarian split squat, 27 Nov 2026).
+  // Until it's been logged on or after that date, its lighter accessory weights don't hold it
+  // back: the first session starts at least at start.kg.
+  const floor = item.start?.atLeastFrom && item.start.kg && !history.some((x) => x.date >= item.start.atLeastFrom) ? item.start.kg : null;
+  if (floor) {
+    const p = progressionFrom(h, item, plan);
+    return p.kg != null && p.kg >= floor ? p
+      : { action: "increase", kg: floor, reps: item.reps ? repRange(item, floor, plan) : undefined };
+  }
+  return progressionFrom(h, item, plan);
+}
+
+function progressionFrom(h, item, plan) {
   const last = h[h.length - 1];
   const { topKg } = sessionScore(last.sets);
   const stall = detectStall(h, plan.rules.stallSessions);

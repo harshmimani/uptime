@@ -95,7 +95,7 @@ test("legacyReport lists matched first, says why the rest aren't mapped, hides r
   assert.deepEqual([bench.to, bench.last.kg, bench.last.reps, bench.sessions], ["dumbbell-bench-press", 15, 8, 1]);
   const squat = rows.find((r) => r.id === "barbell-back-squat");
   assert.equal(squat.to, null);
-  assert.match(squat.why, /Smith/);
+  assert.match(squat.why, /split squat/);
   assert.equal(squat.lastKg, 60);
   const firstUnmatched = rows.findIndex((r) => !r.to);
   assert.ok(rows.slice(firstUnmatched).every((r) => !r.to), "matched first");
@@ -121,7 +121,7 @@ test("old weights prefill the workout and show in Progress", () => {
   assert.equal(P.liftTrend(db, "smith-machine-back-squat")[0].kg, 40);
   const other = P.otherLifts(db);
   assert.ok(other.every((o) => !P.mainLifts().includes(o.ex)));
-  assert.ok(!other.some((o) => o.ex === "one-arm-dumbbell-row"), "no weight, no row");
+  assert.ok(!other.some((o) => ["one-arm-dumbbell-row", "dumbbell-bent-over-row"].includes(o.ex)), "no weight, no row");
 });
 
 test("old CSV exports import (both formats); old backups import as additions", () => {

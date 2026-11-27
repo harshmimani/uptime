@@ -59,7 +59,7 @@ const BACK = BODY.concat([
 const MIRROR = ' transform="matrix(-1 0 0 1 100 0)"';
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-/** The guide entry for an exercise: { m, s, steps, mistake, yt? } (empty lists if none). */
+/** The guide entry for an exercise: { m, s, steps, mistake, breath?, yt? } (empty lists if none). */
 export function guideFor(ex, plan = PLAN) {
   return plan.guide?.[ex] || { m: [], s: [], steps: [], mistake: "" };
 }
@@ -110,7 +110,8 @@ export function miniMap(ex, plan = PLAN) {
 }
 
 /**
- * The how-to card: map, muscles, steps, the mistake to avoid and the YouTube link.
+ * The how-to card: map, muscles, steps, the breathing cue (where set), the mistake to avoid and
+ * the YouTube link.
  * `name` and `cue` come from the caller (exName/exCue know about swaps and the sport name).
  */
 export function howToHTML(ex, { name, cue, headingId = "howto-h", headingTag = "h2", plan = PLAN } = {}) {
@@ -127,6 +128,7 @@ export function howToHTML(ex, { name, cue, headingId = "howto-h", headingTag = "
       </dl>
     </figure>
     ${g.steps.length ? `<span class="label">How to</span><ol class="steps">${g.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>` : ""}
+    ${g.breath ? `<div class="notice"><div><b>Breathing</b> ${esc(g.breath)}</div></div>` : ""}
     ${g.mistake ? `<div class="notice notice--avoid"><div><b>Main mistake</b> ${esc(g.mistake)}</div></div>` : ""}
     <a class="btn btn--secondary btn--wide" href="${esc(youtubeURL(ex, plan))}" target="_blank" rel="noopener noreferrer">Watch on YouTube<span class="sr-only"> (opens a search for ${esc(title)})</span></a>
   </div>`;
