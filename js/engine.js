@@ -244,6 +244,29 @@ export function runPick(log, today, settings = {}, plan = PLAN) {
   return pick;
 }
 
+/**
+ * What's coming, in order: one full cycle from the next session. The lifts keep their fixed
+ * order; the run and the sport/conditioning slot float, so they're placed where the spacing
+ * rules like them: before an upper (or full-body) session, never right before a lower one.
+ * Busy mode: its full-body sessions and one run. Returns [{ type: "lift", id } | { type: "run", pick } | { type: "sport" }].
+ */
+export function upcoming(log, settings = {}, today, plan = PLAN) {
+  const busy = isBusy(settings, today);
+  const rot = busy ? plan.busy.rotation : plan.rules.rotation;
+  const start = Math.max(0, rot.indexOf(nextSession(log, { busy }, plan)));
+  const out = rot.map((_, i) => ({ type: "lift", id: rot[(start + i) % rot.length] }));
+  const floats = [{ type: "run", pick: runPick(log, today, settings, plan) }];
+  if (!busy) floats.push({ type: "sport" });
+  let from = 1;
+  for (const f of floats) {
+    let i = out.findIndex((x, j) => j >= from && x.type === "lift" && sessionDef(x.id, plan)?.kind !== "lower");
+    if (i < 0) i = out.length;
+    out.splice(i, 0, f);
+    from = i + 2;
+  }
+  return out;
+}
+
 // --------------------------------------------------------- rolling week + levels
 
 /** Counts over the rolling 7 days ending on `end` (inclusive). */

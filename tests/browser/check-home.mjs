@@ -163,13 +163,18 @@ async function introAndLayout(label, viewport) {
     const zone = await pg.evaluate(() => { const r = document.querySelector(".hm-start").getBoundingClientRect(); return r.top > innerHeight * 0.6 && r.bottom <= innerHeight - 56 && r.height >= 48; });
     check(zone, `${label}: Start sits in the thumb zone, above the tabs, ≥ 48 px`);
   }
-  // second open the same day: instant, nothing animates
+  // second open the same day: no intro, only the quick entrance (≤ 0.8 s), and Start never moves
   await pg.reload();
-  const still = await pg.evaluate(() => ({
-    intro: document.getElementById("app").classList.contains("is-intro"),
-    anims: document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).length,
-  }));
-  check(!still.intro && still.anims === 0, `${label}: later opens the same day appear instantly (no intro, ${still.anims} animations)`);
+  const still = await pg.evaluate(() => {
+    const anims = document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity);
+    const b = document.querySelector(".hm-start");
+    return {
+      intro: document.getElementById("app").classList.contains("is-intro"),
+      longest: Math.max(0, ...anims.map((a) => a.effect.getComputedTiming().endTime)),
+      start: getComputedStyle(b).opacity === "1" && b.getAnimations().length === 0 && !b.closest(".dial-card").getAnimations().length,
+    };
+  });
+  check(!still.intro && still.longest <= 800 && still.start, `${label}: later opens the same day: no intro, a quick entrance (${Math.round(still.longest)} ms), Start still`);
   noErrors(label, errors);
   await ctx.close();
 }

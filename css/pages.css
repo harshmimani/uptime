@@ -124,3 +124,82 @@ html:has(.tabs) { scroll-padding: 120px 0 112px; }
   .scr[data-screen="plan"], .scr[data-screen="progress"] { max-width: 920px; }
   .scr[data-screen="plan"] .tabs, .scr[data-screen="progress"] .tabs { margin-inline: 0; }
 }
+
+/* ---------------------------------------------------------------- Plan › Coming up: the next sessions, in order
+   Made to be shown to someone across a table: big names, a clear order, one tap to open. */
+.coming { max-width: 760px; }
+.ups { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); position: relative; }
+.up { border-radius: var(--r-lg); background: var(--c-surface-1); box-shadow: var(--elev-1); }
+.up[open] { background: var(--c-surface-2); box-shadow: var(--elev-2); }
+.up summary {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) 24px; gap: var(--sp-3); align-items: center;
+  min-height: 72px; padding: var(--sp-3) var(--sp-4); list-style: none; cursor: pointer; border-radius: var(--r-lg);
+  transition: transform var(--dur-instant) var(--ease-out);
+}
+.up summary::-webkit-details-marker { display: none; }
+.up summary:active { transform: scale(calc(1 - .015 * var(--motion-distance))); }
+.up summary:focus-visible { outline: 2px solid var(--c-focus); outline-offset: -2px; }
+.up__n {
+  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--c-line-strong); color: var(--c-text-2); font-weight: var(--fw-bold);
+}
+.ups > li:first-child .up__n { background: var(--c-action); box-shadow: none; color: var(--c-on-action); }
+.up__text { display: grid; gap: 1px; min-width: 0; }
+.up__when { font-size: var(--fs-label); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-text-3); }
+.ups > li:first-child .up__when { color: var(--c-green); }
+.up__name { font-size: var(--fs-h2); font-weight: var(--fw-black); font-stretch: var(--fstretch-display); letter-spacing: var(--tracking-tight); line-height: 1.1; color: var(--c-text); }
+.up__meta { font-size: var(--fs-small); color: var(--c-text-2); }
+.up__chev { width: 12px; height: 12px; justify-self: center; border-right: 2px solid var(--c-text-3); border-bottom: 2px solid var(--c-text-3); transform: rotate(45deg) translate(-3px, -3px); transition: transform var(--dur-fast) var(--ease-out); }
+.up[open] .up__chev { transform: rotate(-135deg) translate(-3px, -3px); }
+.up__body { display: grid; gap: var(--sp-3); padding: 0 var(--sp-4) var(--sp-4); }
+.up[open] .up__body { animation: up-open var(--dur-slow) var(--ease-emphasized) both; }
+@keyframes up-open { from { opacity: 0; transform: translateY(calc(-6px * var(--motion-distance))); } }
+.up__map { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: var(--sp-4); align-items: center; padding-bottom: var(--sp-2); border-bottom: 1px solid var(--c-line); }
+.up__map .mmap { width: 120px; height: auto; }
+.up__map b { color: var(--c-text); font-weight: var(--fw-semibold); }
+@media (min-width: 720px) {
+  .up summary { min-height: 88px; padding: var(--sp-4) var(--sp-5); grid-template-columns: 48px minmax(0, 1fr) 24px; gap: var(--sp-4); }
+  .up__n { width: 48px; height: 48px; font-size: var(--fs-lead); }
+  .up__name { font-size: var(--fs-h1); }
+  .up__body { padding: 0 var(--sp-5) var(--sp-5); grid-template-columns: 180px minmax(0, 1fr); align-items: start; column-gap: var(--sp-5); }
+  .up__body > :not(.up__map) { grid-column: 2; }
+  .up__body > .up__map { grid-row: 1 / span 9; grid-template-columns: 1fr; border-bottom: 0; position: sticky; top: var(--sp-4); }
+  .up__map .mmap { width: 100%; }
+  .up--run .up__body, .up--sport .up__body { grid-template-columns: minmax(0, 1fr); }
+  .up--run .up__body > *, .up--sport .up__body > * { grid-column: 1; }
+}
+
+/* ---------------------------------------------------------------- tab-to-tab motion (js/nav.js sets the type)
+   The page slides the way the tabs sit, with a little depth; the tab bar stays put. */
+html:active-view-transition-type(forward)::view-transition-old(root) { animation: vt-leave-l 300ms var(--ease-in-out) both; }
+html:active-view-transition-type(forward)::view-transition-new(root) { animation: vt-enter-r 460ms var(--ease-emphasized) 40ms both; }
+html:active-view-transition-type(backward)::view-transition-old(root) { animation: vt-leave-r 300ms var(--ease-in-out) both; }
+html:active-view-transition-type(backward)::view-transition-new(root) { animation: vt-enter-l 460ms var(--ease-emphasized) 40ms both; }
+@keyframes vt-leave-l { to { opacity: 0; transform: translateX(-6%) scale(.98); } }
+@keyframes vt-leave-r { to { opacity: 0; transform: translateX(6%) scale(.98); } }
+@keyframes vt-enter-r { from { opacity: 0; transform: translateX(8%); } }
+@keyframes vt-enter-l { from { opacity: 0; transform: translateX(-8%); } }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  html:active-view-transition-type(forward)::view-transition-old(root), html:active-view-transition-type(backward)::view-transition-old(root) { animation: vt-out 200ms linear both; }
+  html:active-view-transition-type(forward)::view-transition-new(root), html:active-view-transition-type(backward)::view-transition-new(root) { animation: vt-in 200ms linear both; }
+}
+
+/* ---------------------------------------------------------------- polish: Plan's sections as a quiet tab strip
+   Six heavy outlined chips ran off the phone; a text strip with a green bar reads as one control. */
+.subnav { gap: 0; border-bottom: 1px solid var(--c-line); padding-bottom: 0; }
+.subnav .chip {
+  position: relative; border: 0; border-radius: 0; background: none; padding: 0 var(--sp-3);
+  color: var(--c-text-2); font-size: var(--fs-small); font-weight: var(--fw-semibold);
+}
+.subnav .chip:first-child { padding-left: 0; }
+.subnav .chip[aria-current="page"] { background: none; color: var(--c-text); }
+.subnav .chip[aria-current="page"]::after {
+  content: ""; position: absolute; left: var(--sp-3); right: var(--sp-3); bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--c-action);
+}
+.subnav .chip:first-child[aria-current="page"]::after { left: 0; }
+.subnav .chip:focus-visible { outline: 2px solid var(--c-focus); outline-offset: -4px; }
+@media (hover: hover) { .subnav .chip:hover { color: var(--c-text); } }
+/* the strip scrolls on narrow phones: fade its right edge so the rest reads as "more this way" */
+@media (max-width: 520px) { .subnav { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); } }

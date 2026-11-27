@@ -127,3 +127,46 @@ export class RestTimer {
     this.onOver?.();
   }
 }
+
+/**
+ * A burst of green from a point (a logged set, a finished session). Decoration only:
+ * nothing under reduced motion, and the nodes remove themselves.
+ * opts.big: the session-done version (more sparks, further, two rings).
+ */
+export function celebrate(x, y, { big = false } = {}) {
+  if (reducedMotion() || typeof document === "undefined") return;
+  const box = document.createElement("div");
+  box.className = "burst";
+  box.setAttribute("aria-hidden", "true");
+  box.style.transform = `translate(${x}px, ${y}px)`;
+  const n = big ? 34 : 14, reach = big ? 190 : 90;
+  const colors = ["var(--c-green)", "var(--c-action)", "var(--c-green-deep)", "var(--c-text)"];
+  let html = big ? `<b></b><b style="--ring:200px;animation-delay:120ms"></b>` : `<b style="--ring:90px"></b>`;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + Math.random() * 0.5;
+    const d = reach * (0.55 + Math.random() * 0.6);
+    const s = (big ? 6 : 5) + Math.random() * (big ? 8 : 5);
+    const bar = Math.random() < 0.4;
+    html += `<i style="--x:${(Math.cos(a) * d).toFixed(1)}px;--y:${(Math.sin(a) * d - (big ? 40 : 10)).toFixed(1)}px;--s:${s.toFixed(1)}px;--c:${colors[i % (big ? 4 : 2)]};--t:${Math.round((big ? 900 : 620) + Math.random() * 300)}ms;--d:${Math.round(Math.random() * (big ? 160 : 60))}ms;--rot:${Math.round(Math.random() * 360)}deg${bar ? ";--r:2px" : ""}"></i>`;
+  }
+  box.innerHTML = html;
+  document.body.append(box);
+  setTimeout(() => box.remove(), big ? 1600 : 1100);
+}
+
+/** Primary buttons light up under the finger: a soft glow from the press point. One listener for the page. */
+export function installPressGlow(root = document) {
+  if (typeof document === "undefined") return;
+  root.addEventListener("pointerdown", (e) => {
+    const b = e.target.closest?.(".btn--primary");
+    if (!b || b.disabled || reducedMotion()) return;
+    const r = b.getBoundingClientRect();
+    const g = document.createElement("span");
+    g.className = "press-glow";
+    g.setAttribute("aria-hidden", "true");
+    g.style.setProperty("--px", `${e.clientX - r.left}px`);
+    g.style.setProperty("--py", `${e.clientY - r.top}px`);
+    b.append(g);
+    setTimeout(() => g.remove(), 600);
+  }, { passive: true });
+}

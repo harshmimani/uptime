@@ -300,3 +300,66 @@ body { overscroll-behavior-y: none; }
   ::view-transition-old(root) { animation: vt-out 200ms linear both; }
   ::view-transition-new(root) { animation: vt-in 200ms linear both; }
 }
+
+/* the way to Plan › Coming up, under the week's slots */
+.hm-more {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: var(--hit-min);
+  margin-top: var(--sp-2); padding: 0 var(--sp-4); border-radius: var(--r-md); text-decoration: none;
+  color: var(--c-text); font-size: var(--fs-small); font-weight: var(--fw-semibold);
+  box-shadow: inset 0 0 0 1px var(--c-line); transition: transform var(--dur-instant) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+.hm-more:hover { background: var(--c-surface-1); }
+.hm-more:active { transform: scale(calc(1 - .02 * var(--motion-distance))); }
+.hm-more:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
+
+/* ================================================================= the living field (js/field.js)
+   A WebGL canvas behind the Next-up card, under the glow and grain. Fades in once it has a frame. */
+.dial-card > .field {
+  position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; pointer-events: none;
+  opacity: 0; transition: opacity 700ms var(--ease-out);
+}
+.dial-card > .field.on { opacity: 1; }
+.dial-card .next__glow, .dial-card .grain { z-index: -1; }
+
+/* ================================================================= every other open: quick and light
+   The name sets itself fast and the cards below come up in a short stagger (about 0.5 s).
+   The Next-up card and Start stay still, so Start is tappable from the first frame. */
+.is-enter .dial__name.kt--stretch.play .ch {
+  animation: ch-stretch 460ms var(--ease-emphasized) both;
+  animation-delay: calc(30ms + var(--i) * var(--stagger) * .5);
+  transform-origin: 50% 100%;
+}
+.is-enter .dial__label, .is-enter .dial__meta { animation: hm-fade 420ms var(--ease-out) 120ms both; }
+.is-enter .hm-week .slots > li, .is-enter .tile, .is-enter .hm-recent, .is-enter .hm-more, .is-enter .hm-week .hm-sec__head {
+  animation: hm-rise 420ms var(--ease-emphasized) both;
+}
+.is-enter .hm-week .hm-sec__head { animation-delay: 40ms; }
+.is-enter .slots > li:nth-child(1) { animation-delay: 60ms; }
+.is-enter .slots > li:nth-child(2) { animation-delay: 90ms; }
+.is-enter .slots > li:nth-child(3) { animation-delay: 120ms; }
+.is-enter .slots > li:nth-child(4) { animation-delay: 150ms; }
+.is-enter .slots > li:nth-child(5) { animation-delay: 180ms; }
+.is-enter .slots > li:nth-child(6) { animation-delay: 210ms; }
+.is-enter .hm-more { animation-delay: 240ms; }
+.is-enter .tile:nth-child(1) { animation-delay: 250ms; }
+.is-enter .tile:nth-child(2) { animation-delay: 280ms; }
+.is-enter .hm-recent { animation-delay: 310ms; }
+/* the intro gets the same stagger for the slots */
+.is-intro .slots > li { animation: hm-rise var(--dur-hero) var(--ease-emphasized) both; animation-delay: calc(260ms + var(--n, 0) * 50ms); }
+.is-intro .slots > li:nth-child(2) { --n: 1; } .is-intro .slots > li:nth-child(3) { --n: 2; } .is-intro .slots > li:nth-child(4) { --n: 3; }
+.is-intro .slots > li:nth-child(5) { --n: 4; } .is-intro .slots > li:nth-child(6) { --n: 5; }
+.is-intro .hm-week { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .is-enter .dial__name.kt--stretch.play .ch { animation: hm-fade 200ms linear both; }
+  .is-enter .hm-week .slots > li, .is-enter .tile, .is-enter .hm-recent, .is-enter .hm-more, .is-enter .hm-week .hm-sec__head, .is-intro .slots > li { animation: hm-fade 200ms linear both; }
+}
+
+/* the session name: bigger, tighter, a touch of green light under it */
+.dial__name { text-shadow: 0 0 40px color-mix(in srgb, var(--c-green) 22%, transparent); }
+
+/* polish: the "also fits today" line is glass on the living field, not a black slab */
+.dial-card .float {
+  background: color-mix(in srgb, var(--c-surface-2) 62%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-text) 12%, transparent);
+}

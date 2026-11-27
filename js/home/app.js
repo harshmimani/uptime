@@ -16,7 +16,7 @@ import * as E from "../engine.js";
 import { createStore, isoDate } from "../store.js";
 import * as M from "../workout/model.js";
 import { homeModel } from "./model.js";
-import { splitLetters, playIn, countTo, reducedMotion, buzz as rawBuzz } from "../motion.js";
+import { splitLetters, playIn, countTo, reducedMotion, buzz as rawBuzz, installPressGlow } from "../motion.js";
 import { tabBar } from "../nav.js";
 import { startServiceWorker } from "../sw-client.js";
 import { setUnits, units, toUnit, wu } from "../units.js";
@@ -191,6 +191,7 @@ function weekSection(m) {
   return `<section class="hm-week" aria-labelledby="wk-h">
     <div class="hm-sec__head"><h2 class="hm-sec__title" id="wk-h">This week</h2><span class="meta">${done} of ${m.slots.length} done · last 7 days</span></div>
     <ol class="slots slots--${m.slots.length}">${m.slots.map(slot).join("")}</ol>
+    <a class="hm-more" href="plan.html#next"><span>Coming up: the next ${m.slots.length} sessions in order</span>${ICON.arrow}</a>
   </section>`;
 }
 
@@ -302,13 +303,16 @@ document.addEventListener("keydown", (ev) => {
 // ------------------------------------------------------------------ render
 
 let model = null;
+let field = null; // the living background (js/field.js), once it has loaded
 
-function render({ intro = false, advanceFrom = null } = {}) {
+function render({ intro = false, advanceFrom = null, enter = false } = {}) {
   model = homeModel(db(), today());
   const m = model;
   const d = new Date();
   const date = d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
-  app.className = `home${intro ? " is-intro" : ""}${advanceFrom != null ? " is-advance" : ""}`;
+  // is-intro: the full intro (first open of the day). is-enter: every other open gets a quick
+  // version: the name sets itself and the cards below arrive in a stagger. Start never moves.
+  app.className = `home${intro ? " is-intro" : enter ? " is-enter" : ""}${advanceFrom != null ? " is-advance" : ""}`;
   app.innerHTML = `
     <header class="hm-head"><span class="hm-brand" aria-hidden="true"><i></i>Uptime</span><span class="label">${esc(date)}</span></header>
     <div class="hm-notes">${banners(m)}${nudge(m)}</div>
@@ -321,7 +325,8 @@ function render({ intro = false, advanceFrom = null } = {}) {
     <div id="sheet-root"></div>`;
   if (ui.sheet) paintSheet();
   paintToast();
-  if (intro || advanceFrom != null) animate(intro);
+  field?.mount(app.querySelector(".dial-card"));
+  if (intro || enter || advanceFrom != null) animate(intro);
 }
 
 function animate(intro) {
@@ -464,7 +469,7 @@ function boot() {
     const i = m.nodes.findIndex((x) => x.id === seen.next);
     advanceFrom = i >= 0 && seen.next !== m.next ? i : null;
   }
-  render({ intro, advanceFrom });
+  render({ intro, advanceFrom, enter: !intro });
   writeJSON(localStorage, SEEN_KEY, { day: today(), next: m.next });
   if (store.migrated && !ui.bootToast) ui.bootToast = store.migrated.from === 1 ? "Found your log from the earlier app. Everything is kept, with a backup copy." : "Your data moved to the new format. A backup copy is kept.";
   if (ui.bootToast) toast(ui.bootToast, null, null, 8000);
@@ -472,6 +477,7 @@ function boot() {
 }
 
 boot();
+installPressGlow(document);
 
 // Back from the Workout section through the browser's back button: the page may come from
 // the back/forward cache, so read the data again (a session may have been logged meanwhile).
@@ -482,7 +488,7 @@ window.addEventListener("pageshow", (e) => {
   const seen = readJSON(localStorage, SEEN_KEY) || {};
   const m = homeModel(db(), today());
   const i = m.nodes.findIndex((x) => x.id === seen.next);
-  render({ advanceFrom: seen.next && seen.next !== m.next ? (i >= 0 ? i : -1) : null });
+  render({ advanceFrom: seen.next && seen.next !== m.next ? (i >= 0 ? i : -1) : null, enter: true });
   writeJSON(localStorage, SEEN_KEY, { day: today(), next: m.next });
   takeFlash();
 });
@@ -499,6 +505,8 @@ function later() {
       document.head.append(l);
     }
   });
+  // the living green field behind Next up: fetched only after the page is idle, never delaying Start
+  idle(() => import("../field.js").then((f) => { field = f.startField(); field.mount(app.querySelector(".dial-card")); }).catch(() => {}), { timeout: 2500 });
   // desktop-only light; the loader decides, and phones never fetch the effect itself
   if (matchMedia("(min-width: 1024px)").matches) import("../ambient-loader.js").then((a) => a.loadAmbient(document.body)).catch(() => {});
 }

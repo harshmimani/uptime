@@ -13,6 +13,7 @@ import { mmss } from "../workout/run.js";
 import { exName } from "../workout/model.js";
 import { pastSessions, lastWeekSummary } from "../history.js";
 import { pastRow, pastDetail, lastWeekHTML } from "../session-view.js";
+import { installPressGlow } from "../motion.js";
 
 const store = createStore();
 const db = () => store.db;
@@ -265,4 +266,5 @@ wireCharts(app);
 render();
 if (location.hash === "#history") document.getElementById("history")?.scrollIntoView({ block: "start" });
 
+installPressGlow(document);
 startServiceWorker();
