@@ -36,7 +36,7 @@ test("Lower B jump slot uses block 1; Upper B ladder level 1 expands to two item
   const lb = M.newWorkout({ id: "x", sessionId: "LB", date: "2026-11-26", now: T0 });
   assert.equal(lb.items[0].ex, "broad-jump");
   const ub = M.newWorkout({ id: "x", sessionId: "UB", date: "2026-11-26", now: T0 });
-  assert.deepEqual(ub.items.slice(0, 2).map((i) => i.ex), ["dead-hang", "scap-pull-up"]);
+  assert.deepEqual(ub.items.slice(0, 2).map((i) => i.ex), ["scap-pull-up", "foot-assisted-pull-up"]);
   assert.deepEqual(ub.items.slice(0, 2).map((i) => i.key), ["0.0", "0.1"]);
 });
 
@@ -114,11 +114,42 @@ test("prefill: last time's numbers, a beat target, and the progression jump", ()
   assert.equal(M.beats({ kg: 15, reps: 8 }, p.lastSet), false);
   assert.equal(M.beats({ kg: 17.5, reps: 5 }, p.lastSet), true);
 
-  const allTop = () => [{ date: "2026-11-20", sets: [{ kg: 15, reps: 8 }, { kg: 15, reps: 8 }, { kg: 15, reps: 8 }] }];
-  p = M.prefill(w, "1", allTop);
+  assert.deepEqual(p.range, [6, 10]); // 15 kg dumbbells: 6–10 reps
+
+  const allTop = (kg, reps) => () => [{ date: "2026-11-20", sets: [{ kg, reps }, { kg, reps }, { kg, reps }] }];
+  p = M.prefill(w, "1", allTop(15, 8));
+  assert.equal(p.target.kind, "beat"); // 8 of 10: not the top yet
+  p = M.prefill(w, "1", allTop(15, 10));
   assert.equal(p.kg, 17.5);
-  assert.equal(p.reps, 5);
+  assert.equal(p.reps, 6);
   assert.equal(p.target.kind, "up");
+  p = M.prefill(w, "1", allTop(17.5, 10));
+  assert.equal(p.kg, 20);
+  assert.equal(p.reps, 5); // 20 kg and up: 5–8
+  assert.deepEqual(p.range, [5, 8]);
+});
+
+test("prefill: lateral raises at the top of the range hold the weight with 3-s lowers once", () => {
+  const w = mk({ sessionId: "UB" });
+  const key = w.items.find((i) => i.ex === "dumbbell-lateral-raise").key;
+  M.jumpTo(w, key);
+  const top = { date: "2026-11-20", sets: [{ kg: 5, reps: 20 }, { kg: 5, reps: 20 }] };
+  let p = M.prefill(w, key, (ex) => (ex === "dumbbell-lateral-raise" ? [top] : []));
+  assert.equal(p.kg, 5);
+  assert.equal(p.target.kind, "slow");
+  p = M.prefill(w, key, (ex) => (ex === "dumbbell-lateral-raise" ? [{ ...top, date: "2026-11-16" }, top] : []));
+  assert.equal(p.kg, 7.5);
+  assert.equal(p.target.kind, "up");
+});
+
+test("warm-up: lower days get single-leg balance; Lower B adds pull-up practice", () => {
+  const la = M.warmup(mk({ sessionId: "LA" }), () => []);
+  assert.ok(la.general.some((g) => /Single-leg balance/.test(g)));
+  assert.ok(!la.general.some((g) => /Pull-up practice/.test(g)));
+  const lb = M.warmup(mk({ sessionId: "LB" }), () => [], undefined, { ladderLevel: 1 });
+  assert.ok(lb.general.some((g) => /Pull-up practice: 2 × 2 of your ladder move \(negative pull-up\)/.test(g)));
+  const ua = M.warmup(mk(), () => []);
+  assert.ok(!ua.general.some((g) => /balance|Pull-up practice/.test(g)));
 });
 
 test("prefill: return after a gap lowers the weight; a changed weight carries forward", () => {
@@ -247,10 +278,14 @@ test("run: paces come from the latest time line, else an old time trial, else th
 
 test("run: one-line targets for each run", () => {
   const t = (pick) => R.runTarget(pick, 1500);
-  assert.equal(t({ run: "interval", phase: "none" }).target, "6 × 800 m at 5:00/km, 2 min jog between");
+  assert.equal(t({ run: "interval", phase: "none" }).target, "4 × 800 m at 5:00/km, 2 min jog between");
+  assert.equal(t({ run: "interval", reps: 6, phase: "none" }).target, "6 × 800 m at 5:00/km, 2 min jog between");
   assert.equal(t({ run: "tempo", phase: "none" }).target, "20 min at 5:15/km");
   assert.equal(t({ run: "long", km: 9, phase: "none" }).target, "9 km easy at 6:15–6:40/km");
-  assert.match(t({ run: "long", km: 12, hold: true, phase: "none" }).target, /^12–14 km easy/);
+  assert.match(t({ run: "long", km: 11, hold: true, phase: "none" }).target, /^11 km easy/);
+  assert.match(t({ run: "long", km: 11, hold: true, phase: "none" }).note, /cap \(about 70 min\)/);
+  assert.equal(t({ run: "easy" }).target, "30–40 min easy at 6:15–6:40/km");
+  assert.match(t({ run: "tempo", phase: "build", distance: "21k" }).note, /ceiling/);
   assert.match(t({ run: "interval", phase: "build", distance: "10k" }).target, /^5 × 1 km/);
   assert.match(t({ run: "tempo", phase: "taper", distance: "21k" }).target, /^10 min at/);
   assert.equal(t({ run: "race", phase: "race", distance: "21k" }).name, "Half marathon race");

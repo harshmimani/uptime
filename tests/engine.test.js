@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {
   addDays, nextSession, planToday, returnAdjustment, prescribe, rollingProgress, streak,
   weekLevel, windowStats, deloadStatus, detectStall, progression, doubleAllowed, setBusy, isBusy,
-  nextRunType, longRunKm, racePhase, runPick,
+  nextRunType, longRunKm, racePhase, runPick, longPick, intervalReps, longCapKm, repRange, shortItems,
+  threeLiftBuild, liftCycle, FULL_THREE_LIFTS,
 } from "../js/engine.js";
 
 // Day 0 is a Monday, but nothing in the engine depends on that.
@@ -12,6 +13,7 @@ const d = (n) => addDays(BASE, n);
 const lift = (n, session, extra = {}) => ({ date: d(n), session, ...extra });
 const run = (n, kind = "interval", extra = {}) => ({ date: d(n), kind: "run", run: kind, ...extra });
 const sport = (n, extra = {}) => ({ date: d(n), kind: "sport", ex: "basketball", ...extra });
+const long = (n, km, extra = {}) => ({ date: d(n), kind: "run", run: "long", km, ...extra });
 const lifts = (o) => [o.primary, ...o.options].filter((x) => x.type === "lift");
 
 describe("Train 3 days, skip 4, come back", () => {
@@ -124,11 +126,16 @@ describe("Sport on a day I didn't plan", () => {
     assert.equal(nextSession(withSport), "LB");
   });
 
-  test("it fills the sport/conditioning slot", () => {
+  test("a game fills the Run slot: it replaces the quality run, never the long run", () => {
     const p = rollingProgress([...base, sport(4)], d(4));
-    assert.equal(p.cond, 1);
+    assert.equal(p.run, 1);
+    assert.equal(p.cond, 0);
     assert.equal(p.lifts, 3);
     assert.equal(p.level, "Good");
+    const today = planToday([...base, sport(4)], {}, d(6));
+    const all = [today.primary, ...today.options];
+    assert.equal(all.filter((o) => o.type === "run").length, 0); // no quality run due this week
+    assert.ok(all.some((o) => o.ex === "long-run")); // the long run still is
   });
 
   test("next day: Lower is not the headline after sport, but is still offered", () => {
@@ -324,13 +331,39 @@ describe("Spacing and floating sessions", () => {
     assert.ok(["run", "conditioning"].includes(p.primary.type));
   });
 
-  test("the run slot cycles interval → tempo → long", () => {
+  test("the quality run alternates tempo and intervals; games and long runs don't move it", () => {
     assert.equal(planToday([lift(0, "LB"), run(1, "interval")], {}, d(9)).options.find((o) => o.type === "run").run, "tempo");
-    assert.equal(nextRunType([], d(0)), "interval");
-    assert.equal(nextRunType([run(1, "tempo")], d(9)), "long");
-    assert.equal(nextRunType([run(1, "long", { km: 8 })], d(9)), "interval");
+    assert.equal(nextRunType([], d(0)), "tempo");
+    assert.equal(nextRunType([run(1, "tempo")], d(9)), "interval");
+    assert.equal(nextRunType([run(1, "interval"), long(3, 8)], d(9)), "tempo");
+    assert.equal(nextRunType([run(1, "tempo"), sport(2)], d(9)), "interval"); // the game stood in; intervals still due
     assert.equal(nextRunType([run(1, "time-trial")], d(9)), "interval"); // old logs don't break the cycle
-    assert.equal(nextRunType([run(1, "tempo"), run(2, "easy")], d(9)), "long"); // easy runs fill the conditioning slot
+    assert.equal(nextRunType([run(1, "tempo"), run(2, "easy")], d(9)), "interval");
+  });
+
+  test("the long run fills the sport/conditioning slot, with its distance", () => {
+    const p = planToday([lift(0, "UA"), lift(1, "LA"), run(2, "tempo"), lift(3, "UB")], {}, d(5));
+    const l = [p.primary, ...p.options].find((o) => o.ex === "long-run");
+    assert.equal(l.type, "conditioning");
+    assert.equal(l.run, "long");
+    assert.equal(l.km, 8);
+    // an easy run or other cardio fills the slot too
+    const q = planToday([lift(0, "UA"), run(1, "easy"), lift(2, "LA")], {}, d(4));
+    assert.ok(![q.primary, ...q.options].some((o) => o.type === "conditioning"));
+  });
+
+  test("no basketball or intervals the day after Lower B: flagged, never blocked", () => {
+    const p = planToday([run(-10, "tempo"), lift(0, "UB"), lift(2, "LB")], {}, d(3));
+    assert.equal(p.primary.type, "lift");
+    assert.equal(p.primary.session, "UA");
+    const r = p.options.find((o) => o.type === "run");
+    assert.equal(r.run, "interval");
+    assert.ok(r.cautions.includes("interval-after-lower-b"));
+    assert.ok(p.hints.includes("no-sprint-after-lower-b"));
+    // after Lower A there's no such flag
+    const q = planToday([run(-10, "tempo"), lift(0, "UA"), lift(2, "LA")], {}, d(3));
+    assert.ok(!q.hints.includes("no-sprint-after-lower-b"));
+    assert.ok(!(q.options.find((o) => o.type === "run")?.cautions || []).includes("interval-after-lower-b"));
   });
 
   test("usually-busy weekday suggests the Short version", () => {
@@ -350,10 +383,22 @@ describe("Week levels", () => {
   });
 
   test("rolling 7 days, not a calendar week", () => {
-    const log = [lift(0, "UA"), lift(1, "LA"), run(2), lift(3, "UB"), lift(4, "LB"), sport(5)];
+    const log = [lift(0, "UA"), lift(1, "LA"), run(2), lift(3, "UB"), lift(4, "LB"), long(5, 8)];
     assert.equal(rollingProgress(log, d(6)).level, "Full");
     assert.equal(rollingProgress(log, d(7)).level, "Good"); // day 0 dropped out
     assert.deepEqual(rollingProgress(log, d(7)).missing.Full, { lifts: 1, run: 0, cond: 0 });
+  });
+
+  test("Full needs the long-run slot: two hard runs or a run and a game make a Good week", () => {
+    assert.equal(weekLevel({ lifts: 4, run: 2, cond: 0 }), "Good");
+    const log = [lift(0, "UA"), lift(1, "LA"), run(2), lift(3, "UB"), lift(4, "LB"), sport(5)];
+    assert.equal(rollingProgress(log, d(6)).level, "Good");
+    assert.deepEqual(rollingProgress(log, d(6)).missing.Full, { lifts: 0, run: 0, cond: 1 });
+  });
+
+  test("a 21K build counts 3 lifts and 3 runs as Full", () => {
+    assert.equal(weekLevel({ lifts: 3, run: 1, cond: 2 }, FULL_THREE_LIFTS), "Full");
+    assert.equal(weekLevel({ lifts: 3, run: 1, cond: 1 }, FULL_THREE_LIFTS), "Good");
   });
 });
 
@@ -389,13 +434,49 @@ describe("Stall detection and progression", () => {
   });
 });
 
-describe("Runs: long run build and race mode", () => {
-  test("long runs build 1 km at a time from 8 km, then hold at 12–14 km", () => {
-    assert.deepEqual(longRunKm([], d(0)), { km: 8, hold: false });
-    assert.deepEqual(longRunKm([run(0, "long", { km: 8 })], d(21)), { km: 9, hold: false });
-    assert.deepEqual(longRunKm([run(0, "long", { km: 12 })], d(21)), { km: 12, hold: true });
-    assert.deepEqual(longRunKm([run(0, "long", { km: 11 })], d(60)), { km: 9, hold: false }); // long gap: 2 km lower
-    assert.deepEqual(longRunKm([run(0, "long", { km: 19 })], d(21)), { km: 12, hold: true }); // after a race build
+describe("Runs: intervals, the long run and race mode", () => {
+  test("intervals start at 4 × 800 m and add a rep every second session, up to 6", () => {
+    assert.equal(intervalReps([], d(0)), 4);
+    const iv = (days) => days.map((n) => run(n, "interval"));
+    assert.equal(intervalReps(iv([0]), d(10)), 4);
+    assert.equal(intervalReps(iv([0, 10]), d(20)), 5);
+    assert.equal(intervalReps(iv([0, 10, 20]), d(30)), 5);
+    assert.equal(intervalReps(iv([0, 10, 20, 30]), d(40)), 6);
+    assert.equal(intervalReps(iv([0, 10, 20, 30, 40, 50]), d(60)), 6);
+    assert.equal(intervalReps(iv([0, 10, 20, 30]), d(75)), 4); // over 30 days since: start again
+    assert.equal(intervalReps(iv([0, 50, 60]), d(70)), 5); // only the unbroken run of sessions counts
+    assert.equal(runPick(iv([0, 10]), d(15), {}).reps, undefined); // next is tempo
+    assert.equal(runPick([...iv([0, 10]), run(12, "tempo")], d(20), {}).reps, 5);
+  });
+
+  test("the long-run cap: 10–12 km, about 70 min at easy pace", () => {
+    assert.equal(longCapKm({}), 10); // 28:30 5K: easy ≈ 6:57/km
+    assert.equal(longCapKm({ paceRef: { km: 5, sec: 1500 } }), 11); // 25:00
+    assert.equal(longCapKm({ paceRef: { km: 5, sec: 1320 } }), 12); // 22:00
+    assert.equal(longCapKm({ paceRef: { km: 5, sec: 1100 } }), 12); // never past 12
+  });
+
+  test("long runs: 8 km, then at most 10% over the longest of 30 days, then hold at the cap", () => {
+    assert.deepEqual(longRunKm([], d(0)), { km: 8, cap: 10, hold: false });
+    assert.equal(longRunKm([long(0, 8)], d(7)).km, 8.5);
+    assert.equal(longRunKm([long(0, 8), long(7, 8.5)], d(14)).km, 9);
+    assert.equal(longRunKm([long(0, 9)], d(7)).km, 9.5);
+    assert.equal(longRunKm([long(0, 9.5)], d(7)).km, 10);
+    assert.deepEqual(longRunKm([long(0, 10)], d(7)), { km: 10, cap: 10, hold: true });
+    const fast = { paceRef: { km: 5, sec: 1320 } };
+    assert.equal(longRunKm([long(0, 10)], d(7), fast).km, 11); // about +1 km once at 10
+    assert.equal(longRunKm([long(0, 11)], d(7), fast).km, 12);
+    assert.deepEqual(longRunKm([long(0, 12)], d(7), fast), { km: 12, cap: 12, hold: true });
+  });
+
+  test("long runs after a gap: 15–30 days repeat it, over 30 start 2 km lower", () => {
+    const fast = { paceRef: { km: 5, sec: 1320 } };
+    assert.equal(longRunKm([long(0, 11)], d(14), fast).km, 12);
+    assert.equal(longRunKm([long(0, 11)], d(15), fast).km, 11);
+    assert.equal(longRunKm([long(0, 11)], d(30), fast).km, 11);
+    assert.equal(longRunKm([long(0, 11)], d(31), fast).km, 9);
+    assert.equal(longRunKm([long(0, 9)], d(60)).km, 8); // never below 8
+    assert.deepEqual(longRunKm([long(0, 18)], d(7)), { km: 10, cap: 10, hold: true }); // after a race build
   });
 
   const race = (distance, inDays, from = 100) => ({ race: { distance, date: d(from + inDays) } });
@@ -412,19 +493,24 @@ describe("Runs: long run build and race mode", () => {
     assert.equal(racePhase(race("10k", -1), d(100)).kind, "none"); // past race: back to normal
   });
 
-  test("a 10K/21K build alternates quality and long runs, with longer long runs", () => {
+  test("a race build: quality runs still alternate; the long run builds 1 km at a time to 15 (10K) or 18 km (21K)", () => {
     const s = race("21k", 60);
-    assert.equal(nextRunType([run(90, "interval")], d(100), s), "long");
-    assert.equal(nextRunType([run(85, "interval"), run(90, "long", { km: 13 })], d(100), s), "tempo");
-    assert.equal(nextRunType([run(85, "tempo"), run(90, "long", { km: 13 })], d(100), s), "interval");
-    assert.deepEqual(longRunKm([run(90, "long", { km: 13 })], d(100), s), { km: 15, hold: false });
-    assert.deepEqual(longRunKm([run(90, "long", { km: 19 })], d(100), s), { km: 19, hold: false }); // capped
-    assert.equal(nextRunType([run(90, "interval")], d(100), race("5k", 40)), "tempo"); // 5K keeps the cycle
+    assert.equal(nextRunType([run(90, "interval")], d(100), s), "tempo");
+    assert.equal(nextRunType([run(85, "interval"), long(90, 13)], d(100), s), "tempo");
+    assert.equal(longRunKm([long(90, 13)], d(100), s).km, 14);
+    assert.equal(longRunKm([long(90, 17)], d(100), s).km, 18);
+    assert.deepEqual(longRunKm([long(90, 18)], d(100), s), { km: 18, cap: 18, hold: true }); // capped
+    assert.equal(longRunKm([long(90, 15)], d(100), race("10k", 40)).km, 15);
+    assert.equal(longRunKm([long(90, 12)], d(100), race("5k", 40)).km, 10); // a 5K keeps the normal cap
+    assert.equal(runPick([run(90, "tempo")], d(100), s).reps, undefined); // 21K intervals are 3 × 2 km
+    assert.equal(runPick([run(90, "tempo")], d(100), race("5k", 40)).reps, 4);
   });
 
   test("taper shortens the long run; race week is easy; race day is the race", () => {
-    assert.deepEqual(longRunKm([run(90, "long", { km: 19 })], d(100), race("21k", 12)), { km: 11, hold: false });
+    assert.deepEqual(longRunKm([long(90, 18)], d(100), race("21k", 12)), { km: 11, cap: 11, hold: false });
     assert.equal(nextRunType([run(90, "interval")], d(100), race("10k", 4)), "shakeout");
+    const wk = planToday([lift(97, "UA"), run(98, "tempo")], race("10k", 4), d(100));
+    assert.ok(![wk.primary, ...wk.options].some((o) => o.ex === "long-run")); // race week: no long run
     const p = planToday([lift(99, "UA")], race("10k", 0), d(100));
     assert.equal(p.primary.type, "run");
     assert.equal(p.primary.run, "race");
@@ -436,12 +522,12 @@ describe("Runs: long run build and race mode", () => {
     const p = planToday([lift(97, "UA"), run(98, "interval")], race("10k", 1), d(100));
     assert.notEqual(p.primary.type, "lift");
     assert.ok(lifts(p)[0].cautions.includes("lower-before-race"));
-    // Lower yesterday, long run next: the long run is flagged, not headlined
-    const q = planToday([run(80, "tempo"), lift(98, "UB"), lift(99, "LB")], {}, d(100));
-    const r = [q.primary, ...q.options].find((o) => o.type === "run");
-    assert.equal(r.run, "long");
+    // Lower yesterday: the long run is flagged, not headlined
+    const q = planToday([run(80, "tempo"), lift(97, "UB"), lift(99, "LB")], {}, d(100));
+    const r = [q.primary, ...q.options].find((o) => o.ex === "long-run");
+    assert.equal(r.km, 8);
     assert.ok(r.cautions.includes("long-run-after-lower"));
-    assert.notEqual(q.primary.type, "run");
+    assert.notEqual(q.primary, r);
   });
 
   test("taper and race week suggest the Short version for lifts", () => {
@@ -450,14 +536,133 @@ describe("Runs: long run build and race mode", () => {
   });
 });
 
-test("upcoming: one cycle from the next session; run and sport never right before a lower session", async () => {
+describe("21K build: three lifts and three runs", () => {
+  const s = { race: { distance: "21k", date: d(160) } }; // build from day 76
+  test("only a 21K build, never in Busy mode", () => {
+    assert.equal(threeLiftBuild(s, d(70)), false);
+    assert.equal(threeLiftBuild(s, d(80)), true);
+    assert.equal(threeLiftBuild({ race: { distance: "10k", date: d(160) } }, d(100)), false);
+    assert.equal(threeLiftBuild({ ...s, modeLog: [{ date: d(90), busy: true }] }, d(100)), false);
+  });
+
+  test("Upper A → one Lower (A and B take turns) → Upper B → Upper A", () => {
+    const o = { threeLifts: true };
+    assert.equal(nextSession([], o), "UA");
+    assert.equal(nextSession([lift(80, "UA")], o), "LA");
+    assert.equal(nextSession([lift(80, "UA"), lift(81, "LA")], o), "UB");
+    assert.equal(nextSession([lift(80, "UA"), lift(81, "LA"), lift(83, "UB")], o), "UA");
+    assert.equal(nextSession([lift(80, "UA"), lift(81, "LA"), lift(83, "UB"), lift(85, "UA")], o), "LB");
+    assert.equal(nextSession([lift(81, "LB"), lift(83, "UB"), lift(85, "UA")], o), "LA");
+    // mid-cycle of the normal rotation when the build starts: it carries on from there
+    assert.equal(nextSession([lift(70, "UB")], o), "UA");
+  });
+
+  test("planToday follows it, offers the easy run, and Full means 3 lifts + 3 runs", () => {
+    const log = [lift(80, "UA"), lift(81, "LA"), run(82, "tempo"), lift(83, "UB"), long(84, 10)];
+    const p = planToday(log, s, d(85));
+    assert.equal(p.threeLifts, true);
+    assert.equal(p.next, "UA");
+    assert.ok([p.primary, ...p.options].some((o) => o.ex === "easy-run"));
+    assert.equal(p.progress.level, "Good");
+    assert.deepEqual(p.progress.missing.Full, { lifts: 0, run: 0, cond: 1 });
+    assert.equal(planToday([...log, run(85, "easy")], s, d(86)).progress.level, "Full");
+    assert.deepEqual(liftCycle(log, s, d(85)), ["UA", "LB", "UB"]);
+    assert.deepEqual(liftCycle(log.slice(0, 2), s, d(82)), ["UA", "LA", "UB"]);
+  });
+
+  test("after race day the normal four-lift rotation is back", () => {
+    assert.equal(threeLiftBuild(s, d(161)), false);
+    assert.equal(planToday([lift(158, "UB")], s, d(162)).next, "LB");
+  });
+});
+
+describe("Deload skip and the 6-week check", () => {
+  const steady = Array.from({ length: 40 }, (_, i) => lift(i * 2, ["UA", "LA", "UB", "LB"][i % 4]));
+
+  test("steady training: the deload is due at 6 weeks, with the checkpoint tests", () => {
+    const s = deloadStatus(steady, {}, d(42));
+    assert.deepEqual(s.reasons, ["time"]);
+    assert.equal(s.checkpoint, true);
+    assert.equal(deloadStatus(steady, {}, d(41)).checkpoint, false);
+  });
+
+  test("two Busy weeks in the 6 before: skipped, tests still due, clock restarts", () => {
+    const settings = { modeLog: [{ date: d(14), busy: true }, { date: d(28), busy: false }] };
+    const s = deloadStatus(steady, settings, d(42));
+    assert.equal(s.suggested, false);
+    assert.equal(s.skipped, d(42));
+    assert.equal(s.checkpoint, true);
+    assert.equal(deloadStatus(steady, settings, d(49)).checkpoint, false); // a week later
+    assert.equal(deloadStatus(steady, settings, d(60)).suggested, false); // 6 weeks from the skip, not 6 + 2
+  });
+
+  test("two Minimum weeks (2 lifts or fewer) skip it too; one doesn't", () => {
+    const thin = steady.filter((e) => !(e.date >= d(14) && e.date < d(28) && e.session.startsWith("L")));
+    assert.equal(deloadStatus(thin, {}, d(42)).suggested, false);
+    const oneThin = steady.filter((e) => !(e.date >= d(14) && e.date < d(21) && e.session.startsWith("L")));
+    assert.equal(deloadStatus(oneThin, {}, d(42)).suggested, true);
+  });
+
+  test("Rough check-ins still trigger a deload in a light stretch", () => {
+    const settings = { modeLog: [{ date: d(14), busy: true }, { date: d(28), busy: false }] };
+    const rough = [...steady.filter((e) => e.date < d(40)), lift(40, "UA", { checkIn: "Rough" }), lift(41, "LA", { checkIn: "Rough" })];
+    assert.ok(deloadStatus(rough, settings, d(42), { pendingCheckIn: "Rough" }).reasons.includes("rough"));
+  });
+});
+
+describe("Rep ranges by dumbbell weight, slow lowers and the Short version", () => {
+  const s = (date, kg, reps) => ({ date: d(date), sets: reps.map((r) => ({ kg, reps: r })) });
+  const bench = { ex: "dumbbell-bench-press", role: "main", sets: 3, reps: [6, 10], byLoad: true };
+
+  test("bands: up to 10 kg 8–15, 12.5–17.5 kg 6–10, from 20 kg 5–8", () => {
+    assert.deepEqual(repRange(bench, 7.5), [8, 15]);
+    assert.deepEqual(repRange(bench, 10), [8, 15]);
+    assert.deepEqual(repRange(bench, 12.5), [6, 10]);
+    assert.deepEqual(repRange(bench, 17.5), [6, 10]);
+    assert.deepEqual(repRange(bench, 20), [5, 8]);
+    assert.deepEqual(repRange({ ex: "x", reps: [8, 12] }, 30), [8, 12]); // not byLoad: its own range
+  });
+
+  test("double progression follows the band", () => {
+    assert.equal(progression([s(0, 10, [10, 10, 10])], bench).action, "hold"); // 10 of 15
+    const up = progression([s(0, 10, [15, 15, 15])], bench);
+    assert.equal(up.action, "increase");
+    assert.equal(up.kg, 12.5);
+    assert.deepEqual(up.reps, [6, 10]);
+    assert.equal(progression([s(0, 20, [8, 8, 8])], bench).kg, 22.5);
+  });
+
+  test("lateral raise: 12–20, then a session of 3-s lowers before the next dumbbell", () => {
+    const raise = { ex: "dumbbell-lateral-raise", sets: 2, reps: [12, 20], slowFirst: true };
+    const first = progression([s(0, 5, [20, 20])], raise);
+    assert.equal(first.action, "hold");
+    assert.equal(first.slow, true);
+    assert.equal(first.kg, 5);
+    const second = progression([s(0, 5, [20, 20]), s(4, 5, [20, 20])], raise);
+    assert.equal(second.action, "increase");
+    assert.equal(second.kg, 7.5);
+  });
+
+  test("Short keeps the first 3 stations: lower days keep their calf work", () => {
+    const ex = (id) => prescribe(id, { short: true }).items.map((i) => i.ex || i.slot);
+    assert.deepEqual(ex("LA"), ["jump", "smith-machine-back-squat", "smith-calf-raise", "copenhagen-side-plank"]);
+    assert.deepEqual(ex("LB"), ["jump", "barbell-deadlift", "nordic-hamstring-curl", "seated-dumbbell-calf-raise"]);
+    assert.deepEqual(ex("UA"), ["ladder", "dumbbell-bench-press", "smith-machine-inverted-row"]);
+    assert.equal(shortItems([{ ex: "a" }, { ex: "b", pair: "x" }, { ex: "c" }, { ex: "d", pair: "x" }, { ex: "e" }]).length, 4);
+  });
+});
+
+test("upcoming: one cycle from the next session; the runs never right before a lower session", async () => {
   const { upcoming } = await import("../js/engine.js");
   const order = (log, settings = {}) => upcoming(log, settings, "2026-11-27").map((x) => (x.type === "lift" ? x.id : x.type));
-  assert.deepEqual(order([]), ["UA", "LA", "run", "UB", "LB", "sport"]);
+  assert.deepEqual(order([]), ["UA", "LA", "run", "UB", "LB", "long"]);
   const did = (session) => [{ date: "2026-11-26", type: "lift", session }];
-  assert.deepEqual(order(did("UA")), ["LA", "run", "UB", "LB", "sport", "UA"]);
-  assert.deepEqual(order(did("LA")), ["UB", "LB", "run", "UA", "LA", "sport"]);
-  assert.deepEqual(order(did("UB")), ["LB", "run", "UA", "LA", "sport", "UB"]);
+  assert.deepEqual(order(did("UA")), ["LA", "run", "UB", "LB", "long", "UA"]);
+  assert.deepEqual(order(did("LA")), ["UB", "LB", "run", "UA", "LA", "long"]);
+  assert.deepEqual(order(did("UB")), ["LB", "run", "UA", "LA", "long", "UB"]);
   const busy = { modeLog: [{ date: "2026-11-20", busy: true }] };
   assert.deepEqual(order([], busy), ["FB1", "run", "FB2", "FB3"]);
+  const half = { race: { distance: "21k", date: "2027-01-30" } };
+  assert.deepEqual(order([], half), ["UA", "LA", "run", "UB", "long", "easy"]);
+  assert.deepEqual(order([{ date: "2026-11-26", session: "LA" }, { date: "2026-11-26", session: "UB" }], half), ["UA", "LB", "run", "UB", "long", "easy"]);
 });

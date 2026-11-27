@@ -36,7 +36,8 @@ const plan = {
     goals: { fiveKSec: 1500, pullUps: 10 },
     notes: [
       "Left Achilles was sore earlier and settled with physio: jumps and speed work progress only while it stays quiet.",
-      "Basketball occasionally; football rarely.",
+      "Runs 5K, 10K and 21K; Strava records every run.",
+      "Plays basketball regularly.",
       "No-gym: large outdoor steps, optional backpack.",
     ],
   },
@@ -53,18 +54,28 @@ const plan = {
     sessionMaxMin: 50,
     shortMaxMin: 30,
     repRanges: { main: [5, 8], accessory: [8, 15] },
+    // Light dumbbells jump a lot in one step (7.5 → 10 kg is +33%), so pressing items marked
+    // `byLoad` use a wider range at light weights. Weight is per hand.
+    dumbbellBands: [
+      { upToKg: 10, reps: [8, 15] },
+      { upToKg: 17.5, reps: [6, 10] },
+      { upToKg: null, reps: [5, 8] },
+    ],
     repsInReserve: [1, 3],
     increments: {
       lowerMain: 2.5, // Smith squat, deadlift
       upperMain: [1, 2.5],
-      dumbbell: "next dumbbell up",
+      dumbbell: "next dumbbell up; items marked slowFirst do one session of 3-s lowers at the top of the range first",
       carry: "add 10 s per set up to 60 s, then the next dumbbell up and back to 40 s",
       calf: "add reps to the top of the range, then add load",
       jump: "3 × 3 → 4 × 3, then move to the next block",
     },
     stallSessions: 2,
     stallAdvice: "Two sessions without progress: drop about 10% and build back, or switch to the next rep range for 3 weeks.",
-    deload: { everyDays: [42, 56], roughCheckInsPerRotation: 3, setsFactor: 0.5 },
+    // Scheduled deload every 6 weeks (overdue at 8), skipped when the 6 weeks before it were
+    // already light: a 7+ day gap (that resets the clock anyway) or 2 light 7-day blocks
+    // (Minimum lifting, 2 lifts or fewer, or Busy mode on). The Rough check-in trigger always applies.
+    deload: { everyDays: [42, 56], roughCheckInsPerRotation: 3, setsFactor: 0.5, skipIfLightBlocks: 2 },
     returnAfterGap: [
       { minDays: 7, maxDays: 13, loadFactor: 0.9, setsDelta: 0, duration: "first session" },
       { minDays: 14, maxDays: null, loadFactor: 0.8, setsDelta: -1, duration: "first week" },
@@ -75,14 +86,20 @@ const plan = {
     },
     checkpoint: {
       everyDays: 42,
-      includes: ["pull-up-max-test", "deload"],
-      why: "Test while fresh: the deload week is also the test week.",
+      includes: ["pull-up-max-test", "heel-raise-test", "deload"],
+      why: "Test while fresh: the deload week is also the test week. When the deload is skipped, still do the tests.",
+      note: "6-week check: test your pull-up max, and single-leg heel raises to fatigue on each side.",
     },
     achilles: {
       ok: "Pain 3/10 or less during the session that settles by the next morning.",
       flare: "More than that, or stiffer next morning: swap jumps for the jump's easier option, and the interval run for a tempo run, for one rotation. If it keeps happening, see your physio.",
       gatesJumpBlocks: true,
+      // A note only: it never blocks or changes a session by itself.
+      heelRaiseTest: "Every 6 weeks: single-leg heel raises to fatigue, each side. Left more than 10% behind the right? Do Lower A's calf raise single-leg (its harder swap), 3 × 6–10 slow, left first.",
+      physio: "Ask your physio to clear you before jump block 3 (pogo hops) and before a 21K build.",
     },
+    // Spacing after Lower B: Nordics and deadlifts leave the hamstrings sore for 24–48 h.
+    afterLowerB: "No basketball or interval run the day after Lower B: choose Upper or an easy run.",
   },
 
   warmup: {
@@ -93,7 +110,11 @@ const plan = {
       "Arm circles and band-free pull-aparts, 10 each",
       "10 slow calf raises",
     ],
-    lowerExtra: ["5 bodyweight squats", "5 lateral lunges per side"],
+    // Balance work cuts ankle sprains in court sports, mostly in people with an earlier sprain.
+    lowerExtra: ["Single-leg balance, 2 × 30 s per side (eyes closed once it's easy)", "5 lateral lunges per side"],
+    // Extra lines for one session (left out of the Short version). {ladder} becomes today's
+    // pull-up ladder move (Upper A's list).
+    extra: { LB: "Pull-up practice: 2 × 2 of your ladder move ({ladder}), easy, about 3 min" },
     ramp: "1–3 lighter sets on the first main lift: about 50%, 70%, then 85% of today's weight, 3–5 reps each.",
   },
 
@@ -123,6 +144,7 @@ const plan = {
     "dumbbell-lateral-raise": {
       name: "Dumbbell lateral raise", kind: "shoulders",
       cue: "Lead with your elbows, stop at shoulder height.",
+      why: "Light dumbbells jump a lot (5 → 7.5 kg is +50%): at the top of the range, do a session of 3-s lowers before the next dumbbell up.",
       swaps: { easier: "seated-dumbbell-lateral-raise", harder: "cable-lateral-raise", none: "backpack-lateral-raise" },
     },
 
@@ -130,7 +152,7 @@ const plan = {
     "smith-machine-inverted-row": {
       name: "Smith machine inverted row", kind: "pull",
       cue: "Body stiff as a plank, chest to the bar.",
-      swaps: { easier: "chest-supported-dumbbell-row", harder: "feet-elevated-inverted-row", none: "towel-door-row" },
+      swaps: { easier: "chest-supported-dumbbell-row", harder: "feet-elevated-inverted-row", none: "backpack-row" },
     },
     "one-arm-dumbbell-row": {
       name: "One-arm dumbbell row", kind: "pull",
@@ -141,7 +163,13 @@ const plan = {
       name: "Half-kneeling single-arm cable pulldown", kind: "pull",
       cue: "Pull your elbow down into your back pocket.",
       why: "Builds the pulling strength a pull-up needs, alongside the ladder.",
-      swaps: { easier: "cable-lat-pulldown", harder: "negative-pull-up", none: "towel-door-row" },
+      swaps: { easier: "cable-lat-pulldown", harder: "negative-pull-up", none: "backpack-row" },
+    },
+    "kneeling-cable-lat-pulldown": {
+      name: "Kneeling cable lat pulldown", kind: "pull",
+      cue: "Kneel tall, pull the bar to your upper chest, elbows to your ribs.",
+      why: "Two-arm vertical pulling: trains the pull out of the dead hang that a pull-up needs.",
+      swaps: { easier: "half-kneeling-cable-pulldown", harder: "foot-assisted-pull-up", none: "backpack-row" },
     },
     "cable-face-pull": {
       name: "Cable face pull", kind: "shoulders",
@@ -214,7 +242,7 @@ const plan = {
     "smith-calf-raise": {
       name: "Heavy slow Smith calf raise", kind: "calf",
       cue: "3 s up, 3 s down, full stretch at the bottom.",
-      why: "Heavy, slow loading is the core of Achilles care and keeps it ready for jumps and speed.",
+      why: "Heavy, slow loading is the core of Achilles care and keeps it ready for jumps and speed. Every 6 weeks, test single-leg heel raises; if the left is more than 10% behind, do this single-leg, left first.",
       swaps: { easier: "bodyweight-calf-raise", harder: "single-leg-dumbbell-calf-raise", none: "step-calf-raise" },
     },
     "seated-dumbbell-calf-raise": {
@@ -303,6 +331,13 @@ const plan = {
       cue: "Chin over the bar, elbows tight, hold still.",
       swaps: { easier: "dead-hang", harder: "negative-pull-up", none: "top-hold" },
     },
+    "foot-assisted-pull-up": {
+      name: "Foot-assisted pull-up", kind: "pull-up",
+      cue: "Feet on the floor, chin over the bar, legs help as little as possible, 3-s lower.",
+      why: "Trains the pull out of the dead hang, the part negatives miss.",
+      swaps: { easier: "smith-machine-inverted-row", harder: "negative-pull-up", none: "foot-assisted-pull-up" },
+      noGymNote: "Any sturdy bar or railing at chest height.",
+    },
     "pull-up-attempt": {
       name: "Pull-up attempt + 2 negatives", kind: "pull-up",
       cue: "One strict try from a dead hang, then two slow lowers.",
@@ -352,7 +387,7 @@ const plan = {
     "feet-elevated-inverted-row": { name: "Feet-elevated inverted row", kind: "pull", cue: "Feet on the bench, chest to the bar." },
     "towel-door-row": { name: "Towel door row", kind: "pull", cue: "Towel round both handles of a shut door, lean back, row." },
     "paused-one-arm-dumbbell-row": { name: "Paused one-arm dumbbell row", kind: "pull", cue: "2-s hold at the top." },
-    "backpack-row": { name: "Backpack row", kind: "pull", cue: "Hinge forward, row the bag to your hip." },
+    "backpack-row": { name: "Backpack row", kind: "pull", cue: "Hinge forward, row the bag to your hip, 3-s lower." },
     "cable-lat-pulldown": { name: "Cable lat pulldown", kind: "pull", cue: "Chest up, pull the bar to your upper chest." },
     "rear-delt-dumbbell-raise": { name: "Rear-delt dumbbell raise", kind: "shoulders", cue: "Chest on an incline bench, arms out wide." },
     "paused-cable-face-pull": { name: "Face pull with 2-s hold", kind: "shoulders", cue: "Hold at your eyes for 2 s." },
@@ -405,9 +440,10 @@ const plan = {
     // Conditioning and running
     "strides": { name: "Strides", kind: "run", cue: "Build to fast but relaxed over 15 s, walk back." },
     "easy-run": { name: "Easy run", kind: "run", cue: "Conversational: you can speak full sentences." },
+    "long-run": { name: "Long easy run", kind: "run", cue: "Conversational the whole way. Walk breaks are fine." },
     "tempo": { name: "Tempo run", kind: "run", cue: "Comfortably hard: a few words at a time." },
     "five-k-time-trial": { name: "5K time trial", kind: "run", cue: "Kept so old logs still have a name." },
-    "basketball": { name: "Basketball", kind: "sport", cue: "Counts as hard conditioning." },
+    "basketball": { name: "Basketball", kind: "sport", cue: "A hard day: it takes the place of that rotation's quality run." },
     "bike-or-incline-walk": { name: "Bike or incline walk", kind: "conditioning", cue: "Steady, slightly out of breath." },
     "stair-session": { name: "Stair session", kind: "conditioning", cue: "Walk or jog up, walk down, steady rhythm." },
   },
@@ -442,6 +478,10 @@ const plan = {
     "one-arm-dumbbell-row": { m: ["lats", "upperback"], s: ["biceps", "reardelts"],
       steps: ["Hand and knee on a bench, back flat, dumbbell hanging.", "Pull the dumbbell toward your hip in an arc.", "Pause with your elbow just past your back.", "Lower to a full stretch."],
       mistake: "Twisting your chest open to heave the weight up. Keep your shoulders square to the floor." },
+    "kneeling-cable-lat-pulldown": { m: ["lats"], s: ["biceps", "upperback"],
+      yt: "kneeling cable lat pulldown",
+      steps: ["Straight bar on the high pulley. Kneel facing it, far enough back that the stack lifts with your arms long.", "Hands just wider than shoulders, chest up, ribs down.", "Pull the bar to your upper chest, driving your elbows down to your ribs.", "Let it rise slowly until your arms are straight."],
+      mistake: "Leaning back and rowing it to your belly. Stay tall and pull down." },
     "half-kneeling-cable-pulldown": { m: ["lats"], s: ["biceps", "upperback", "obliques"],
       steps: ["Set the cable high and kneel on the knee on the same side as your working arm.", "Arm long, reach up into a stretch.", "Pull your elbow down toward your back pocket.", "Let it rise slowly until your arm is straight again."],
       mistake: "Pulling with your hand and biceps. Think elbow to hip so your lat does the work." },
@@ -545,6 +585,10 @@ const plan = {
       yt: "pull up top hold",
       steps: ["Step up from a bench so your chin is over the bar.", "Squeeze the bar, elbows tight to your sides, chest up.", "Hold with your chin above the bar.", "Lower slowly when you can't hold any more."],
       mistake: "Craning your neck to keep the chin up. Hold with your arms, not your neck." },
+    "foot-assisted-pull-up": { m: ["lats", "biceps"], s: ["upperback", "forearms"],
+      yt: "feet assisted pull up",
+      steps: ["Lock the Smith bar at chest height and hang under it, arms straight, feet on the floor in front of you.", "Pull your shoulders down, then pull your chin over the bar, using your legs as little as possible.", "Lower for 3 seconds to straight arms.", "Getting easy: heels only on the floor, then feet up on a bench."],
+      mistake: "Standing up with your legs. They only help with what your arms can't finish." },
     "pull-up-attempt": { m: ["lats", "biceps"], s: ["upperback", "forearms"],
       yt: "first pull up progression",
       steps: ["From a dead hang, pull your shoulders down first.", "Drive your elbows toward your hips: one honest effort.", "Made it or not, finish with 2 slow negatives from the top.", "Log the strict reps you got, even 0."],
@@ -629,7 +673,7 @@ const plan = {
       mistake: "Shortening the pause as you tire. Count it out." },
     "backpack-row": { m: ["lats", "upperback"], s: ["biceps"],
       yt: "backpack bent over row",
-      steps: ["Hinge forward, back flat, holding a loaded bag.", "Row the bag to your hip or belly.", "Lower slowly."],
+      steps: ["Hinge forward, back flat, holding a loaded bag.", "Row the bag to your hip or belly.", "Lower for 3 seconds."],
       mistake: "Standing up as you row. Hold the hinge." },
     "cable-lat-pulldown": { m: ["lats"], s: ["biceps", "upperback"],
       yt: "lat pulldown",
@@ -821,6 +865,10 @@ const plan = {
       yt: "running strides",
       steps: ["Build to fast but relaxed over 15–20 seconds.", "Tall posture, drive your arms.", "Walk back to recover."],
       mistake: "Sprinting flat out. Strides are fast and relaxed." },
+    "long-run": { m: ["quads", "calves"], s: ["glutes", "hamstrings"],
+      yt: "long run easy pace",
+      steps: ["Start slower than feels necessary.", "Stay conversational: full sentences the whole way.", "Take water if it's over an hour or hot.", "Walk breaks are fine; the distance is the point, not the pace."],
+      mistake: "Running it at tempo pace. Easy is the whole point." },
     "easy-run": { m: ["quads", "calves"], s: ["glutes", "hamstrings"],
       yt: "easy run pace",
       steps: ["Run tall, shoulders relaxed.", "Short, quick steps under your hips.", "Slow down if you can't speak in full sentences."],
@@ -835,7 +883,7 @@ const plan = {
       mistake: "Going out too fast." },
     "basketball": { m: ["quads", "calves", "glutes"], s: ["adductors", "hamstrings", "shoulders"],
       yt: "basketball conditioning",
-      steps: ["Warm up before you play.", "Land jumps softly, knees over toes.", "Count it as a hard day."],
+      steps: ["Warm up before you play.", "Land jumps softly, knees over toes.", "Count it as a hard day: it replaces that rotation's quality run, never the long run.", "Not the day after Lower B: sore hamstrings and sprinting don't mix."],
       mistake: "Playing cold. Warm up first." },
     "bike-or-incline-walk": { m: ["quads", "glutes"], s: ["calves", "hamstrings"],
       yt: "incline treadmill walk",
@@ -898,13 +946,15 @@ const plan = {
   // ---------------------------------------------------------- pull-up ladder
   // Starts at level 1 (pullUpMax 0). The A list is used in Upper A, B in Upper B.
   // Max test at every checkpoint. Logs from the old app keep these ids.
+  // Levels 1–2: negatives train the lowering only, so Upper B adds a concentric pull
+  // (foot-assisted pull-ups) for the sticking point out of the dead hang.
   ladder: [
     {
       level: 1, name: "Negatives",
       a: [{ ex: "negative-pull-up", sets: 4, reps: [3, 3], tempo: "5-s lower", rest: 90 }],
       b: [
-        { ex: "dead-hang", sets: 2, sec: [30, 40], rest: 60 },
-        { ex: "scap-pull-up", sets: 2, reps: [6, 8], rest: 60 },
+        { ex: "scap-pull-up", sets: 1, reps: [6, 8], rest: 60 },
+        { ex: "foot-assisted-pull-up", sets: 3, reps: [5, 8], tempo: "3-s lower", rest: 90, note: "Getting easy: heels only, then feet on a bench." },
       ],
       pass: "3 × 3 negatives, each lowered over 5 s, the last one still slow.",
     },
@@ -912,8 +962,8 @@ const plan = {
       level: 2, name: "Slow negatives",
       a: [{ ex: "negative-pull-up", sets: 4, reps: [3, 3], tempo: "8–10-s lower", rest: 90 }],
       b: [
-        { ex: "top-hold", sets: 3, sec: [10, 15], rest: 60 },
-        { ex: "dead-hang", sets: 2, sec: [40, 45], rest: 60 },
+        { ex: "scap-pull-up", sets: 1, reps: [6, 8], rest: 60 },
+        { ex: "foot-assisted-pull-up", sets: 3, reps: [5, 8], tempo: "3-s lower", rest: 90, note: "Getting easy: heels only, then feet on a bench." },
       ],
       pass: "3 × 3 negatives at 10 s each.",
     },
@@ -969,14 +1019,18 @@ const plan = {
   ],
 
   // ---------------------------------------------------------------- sessions
+  // Each full session fits 50 min (Short: 30 min). byLoad: the rep range follows the
+  // dumbbell weight (rules.dumbbellBands); `reps` is the range at the starting weight.
+  // slowFirst: at the top of the range, one session of 3-s lowers before the next dumbbell.
+  // optional: done only when there's time; the note says when.
   sessions: {
     UA: {
       name: "Upper A", kind: "upper", focus: "Horizontal press, pull-ups",
       items: [
         { slot: "ladder", list: "a", role: "main" },
-        { ex: "dumbbell-bench-press", role: "main", sets: 3, reps: [5, 8], rest: 120, start: { kg: 12.5, note: "per hand" } },
+        { ex: "dumbbell-bench-press", role: "main", sets: 3, reps: [6, 10], byLoad: true, rest: 120, start: { kg: 12.5, note: "per hand" } },
         { ex: "smith-machine-inverted-row", role: "accessory", sets: 3, reps: [8, 12], rest: 90, start: { note: "bar at hip height" } },
-        { ex: "half-kneeling-cable-pulldown", role: "accessory", sets: 2, reps: [10, 12], perSide: true, rest: 60, pair: "b", start: { note: "light" } },
+        { ex: "kneeling-cable-lat-pulldown", role: "accessory", sets: 3, reps: [6, 10], rest: 60, pair: "b", note: "Stop 1–2 reps short of failure.", start: { note: "light" } },
         { ex: "hammer-curl", role: "accessory", sets: 2, reps: [10, 15], rest: 60, pair: "a", start: { kg: 7.5, note: "per hand" } },
         { ex: "cable-rope-pushdown", role: "accessory", sets: 2, reps: [10, 15], rest: 60, pair: "a", start: { note: "light" } },
         { ex: "pallof-press", role: "core", sets: 2, reps: [10, 10], perSide: true, rest: 45, pair: "b", start: { note: "light" } },
@@ -986,41 +1040,45 @@ const plan = {
       name: "Upper B", kind: "upper", focus: "Overhead press, pull-ups",
       items: [
         { slot: "ladder", list: "b", role: "main" },
-        { ex: "standing-dumbbell-overhead-press", role: "main", sets: 3, reps: [5, 8], rest: 120, start: { kg: 7.5, note: "per hand" } },
+        { ex: "standing-dumbbell-overhead-press", role: "main", sets: 3, reps: [8, 15], byLoad: true, rest: 120, start: { kg: 7.5, note: "per hand" } },
         { ex: "one-arm-dumbbell-row", role: "accessory", sets: 3, reps: [8, 12], perSide: true, rest: 90, start: { kg: 15 } },
-        { ex: "incline-dumbbell-press", role: "accessory", sets: 3, reps: [8, 12], rest: 90, pair: "b", start: { kg: 10, note: "per hand" } },
-        { ex: "dumbbell-lateral-raise", role: "accessory", sets: 2, reps: [12, 15], rest: 60, pair: "a", start: { kg: 5, note: "per hand" } },
+        { ex: "incline-dumbbell-press", role: "accessory", sets: 2, reps: [8, 15], byLoad: true, rest: 90, pair: "b", start: { kg: 10, note: "per hand" } },
+        { ex: "dumbbell-lateral-raise", role: "accessory", sets: 2, reps: [12, 20], slowFirst: true, rest: 60, pair: "a", start: { kg: 5, note: "per hand" } },
         { ex: "cable-face-pull", role: "accessory", sets: 2, reps: [12, 15], rest: 60, pair: "a", start: { note: "light" } },
-        { ex: "hanging-knee-raise", role: "core", sets: 3, reps: [8, 12], rest: 90, pair: "b" },
+        { ex: "hanging-knee-raise", role: "core", sets: 2, reps: [8, 12], rest: 90, pair: "b" },
       ],
     },
+    // Lower days put the calf raises third, so the Short version (first 3 stations, a superset
+    // counting as one) always keeps the Achilles work. Single-leg quad volume was trimmed
+    // instead: squats, jumps, running and basketball already load it.
     LA: {
-      name: "Lower A", kind: "lower", focus: "Squat, jump",
+      name: "Lower A", kind: "lower", focus: "Squat, jump, calves",
       items: [
         { slot: "jump", role: "jump" },
         { ex: "smith-machine-back-squat", role: "main", sets: 3, reps: [5, 8], rest: 150, start: { kg: 40, note: "added to the bar" } },
-        { ex: "bulgarian-split-squat", role: "accessory", sets: 3, reps: [8, 10], perSide: true, rest: 90, start: { kg: 7.5, note: "per hand" } },
+        { ex: "smith-calf-raise", role: "accessory", sets: 3, reps: [6, 10], tempo: "3 s up, 3 s down", rest: 60, pair: "a", note: "Same Smith bar as the squat.", start: { kg: 40 } },
+        { ex: "copenhagen-side-plank", role: "core", sets: 2, sec: [15, 20], perSide: true, rest: 60, pair: "a" },
         { ex: "dumbbell-romanian-deadlift", role: "accessory", sets: 3, reps: [8, 12], rest: 90, start: { kg: 15, note: "per hand" } },
-        { ex: "farmer-carry", role: "carry", sets: 2, sec: [40, 50], rest: 60, start: { kg: 20, note: "per hand" } },
-        { ex: "smith-calf-raise", role: "accessory", sets: 3, reps: [6, 10], tempo: "3 s up, 3 s down", rest: 60, pair: "a", start: { kg: 40 } },
-        { ex: "copenhagen-side-plank", role: "core", sets: 2, sec: [15, 20], perSide: true, rest: 45, pair: "a" },
+        { ex: "bulgarian-split-squat", role: "accessory", sets: 2, reps: [8, 10], perSide: true, rest: 75, start: { kg: 7.5, note: "per hand" } },
+        { ex: "farmer-carry", role: "carry", sets: 2, sec: [40, 50], rest: 60, optional: true, note: "Only if you're under about 42 minutes; otherwise skip it.", start: { kg: 20, note: "per hand" } },
       ],
     },
     LB: {
-      name: "Lower B", kind: "lower", focus: "Hinge, jump",
+      name: "Lower B", kind: "lower", focus: "Hinge, jump, calves",
       items: [
         { slot: "jump", role: "jump" },
         { ex: "barbell-deadlift", role: "main", sets: 3, reps: [5, 6], rest: 150, start: { kg: 62.5, note: "total" } },
-        { ex: "dumbbell-lateral-lunge", role: "accessory", sets: 3, reps: [8, 8], perSide: true, rest: 90, start: { kg: 7.5 } },
-        { ex: "nordic-hamstring-curl", role: "accessory", sets: 3, reps: [3, 5], rest: 90 },
-        { ex: "suitcase-carry", role: "carry", sets: 3, sec: [30, 45], perSide: true, rest: 60, start: { kg: 15 } },
-        { ex: "seated-dumbbell-calf-raise", role: "accessory", sets: 3, reps: [10, 15], rest: 45, start: { kg: 15 } },
+        { ex: "nordic-hamstring-curl", role: "accessory", sets: 3, reps: [3, 5], rest: 75, pair: "a" },
+        { ex: "seated-dumbbell-calf-raise", role: "accessory", sets: 3, reps: [10, 15], rest: 75, pair: "a", start: { kg: 15 } },
+        { ex: "dumbbell-lateral-lunge", role: "accessory", sets: 2, reps: [8, 8], perSide: true, rest: 75, start: { kg: 7.5 } },
+        { ex: "suitcase-carry", role: "carry", sets: 2, sec: [30, 45], perSide: true, rest: 45, start: { kg: 15 } },
       ],
     },
   },
 
-  // Short version: first N items of any session, at this many work sets.
-  short: { items: 3, sets: 2, note: "First 3 exercises, 2 sets each. Under 30 minutes." },
+  // Short version: the first N stations of any session (a superset pair counts as one
+  // station), at this many work sets.
+  short: { items: 3, sets: 2, note: "First 3 exercises (a superset counts as one), 2 sets each. Under 30 minutes." },
 
   // ------------------------------------------------------------- busy mode
   // 2–3 full-body sessions of about 40 min plus 1 run. Its own rotation;
@@ -1035,8 +1093,8 @@ const plan = {
           { ex: "squat-jump", role: "jump", sets: 3, reps: [3, 3], rest: 75 },
           { ex: "smith-machine-back-squat", role: "main", sets: 3, reps: [5, 8], rest: 150 },
           { slot: "ladder", list: "a", role: "main" },
-          { ex: "dumbbell-bench-press", role: "accessory", sets: 3, reps: [6, 10], rest: 90 },
-          { ex: "farmer-carry", role: "carry", sets: 2, sec: [40, 60], rest: 60 },
+          { ex: "dumbbell-bench-press", role: "accessory", sets: 3, reps: [6, 10], byLoad: true, rest: 90 },
+          { ex: "smith-calf-raise", role: "accessory", sets: 2, reps: [6, 10], tempo: "3 s up, 3 s down", rest: 60 },
         ],
       },
       FB2: {
@@ -1044,8 +1102,8 @@ const plan = {
         items: [
           { ex: "broad-jump", role: "jump", sets: 3, reps: [3, 3], rest: 75 },
           { ex: "barbell-deadlift", role: "main", sets: 3, reps: [5, 5], rest: 150 },
-          { ex: "standing-dumbbell-overhead-press", role: "main", sets: 3, reps: [5, 8], rest: 120 },
-          { ex: "one-arm-dumbbell-row", role: "accessory", sets: 3, reps: [8, 12], perSide: true, rest: 60 },
+          { ex: "standing-dumbbell-overhead-press", role: "main", sets: 3, reps: [8, 15], byLoad: true, rest: 120 },
+          { ex: "one-arm-dumbbell-row", role: "accessory", sets: 2, reps: [8, 12], perSide: true, rest: 60 },
           { ex: "suitcase-carry", role: "carry", sets: 2, sec: [30, 45], perSide: true, rest: 60 },
         ],
       },
@@ -1054,7 +1112,7 @@ const plan = {
         items: [
           { ex: "bulgarian-split-squat", role: "accessory", sets: 3, reps: [8, 10], perSide: true, rest: 90 },
           { slot: "ladder", list: "b", role: "main" },
-          { ex: "incline-dumbbell-press", role: "accessory", sets: 3, reps: [8, 12], rest: 90 },
+          { ex: "incline-dumbbell-press", role: "accessory", sets: 2, reps: [8, 15], byLoad: true, rest: 90 },
           { ex: "nordic-hamstring-curl", role: "accessory", sets: 2, reps: [3, 5], rest: 90 },
           { ex: "smith-calf-raise", role: "accessory", sets: 3, reps: [6, 10], rest: 45, pair: "a" },
           { ex: "pallof-press", role: "core", sets: 2, reps: [10, 10], perSide: true, rest: 45, pair: "a" },
@@ -1076,15 +1134,20 @@ const plan = {
   },
 
   // ----------------------------------------------------------------- running
-  // One run slot per rotation. Strava records the runs; Uptime only says what
-  // today's run is (one line) and takes one tap for Done. An optional line like
-  // "10k 52:30" updates the paces and nothing else.
+  // Two runs per rotation. Strava records them; Uptime only says what today's run is (one
+  // line) and takes one tap for Done. An optional line like "10k 52:30" updates the paces
+  // and nothing else.
+  // - The Run slot is the quality run: tempo and intervals take turns. A basketball game
+  //   takes its place that rotation (it's already a hard day).
+  // - The sport/conditioning slot is the long easy run by default (other easy cardio when a
+  //   long run doesn't fit). A game never replaces the long run.
+  // The long run follows a 30-day rule: never more than 10% beyond the longest run of the
+  // last 30 days (large single-run spikes went with more injuries in a 5,205-runner cohort).
   run: {
-    perRotation: 1,
-    // The run slot cycles so 5K speed, 10K/21K strength and endurance all stay maintained.
-    cycle: ["interval", "tempo", "long"],
+    perRotation: 1, // quality runs per rotation; the long run fills the sport/conditioning slot
+    cycle: ["tempo", "interval"], // the quality run alternates
     busy: "tempo", // Busy mode: one tempo run, cycle untouched
-    names: { interval: "Intervals", tempo: "Tempo run", long: "Long easy run", shakeout: "Easy shakeout", race: "Race day" },
+    names: { interval: "Intervals", tempo: "Tempo run", long: "Long easy run", easy: "Easy run", shakeout: "Easy shakeout", race: "Race day" },
     warmup: "10 min easy jog and 4 strides first.",
     // Paces come from your latest time line, turned into a 5K-equivalent with
     // Riegel's formula (T2 = T1 × (d2/d1)^1.06). Seconds per km.
@@ -1092,11 +1155,15 @@ const plan = {
       riegel: 1.06,
       tempoOffset: 15,      // 5K pace + 15 s/km: comfortably hard
       easyOffset: [75, 100], // 5K pace + 75–100 s/km: full sentences
+      // Riegel assumes you're trained for the distance; on low mileage its 21K pace is a ceiling.
+      halfCeiling: "Riegel's half-marathon pace assumes big mileage: treat it as the fastest you'd go, not a target.",
     },
     // reps × distance at a race pace; `at`: "5k" | "10k" | "21k" | "tempo"
     interval: {
-      base: { text: "6 × 800 m", at: "5k", jog: "2 min jog between" },
-      "5k": { text: "6 × 800 m", at: "5k", jog: "2 min jog between" },
+      // Starts at 4 × 800 m and adds a rep every second interval session, up to 6.
+      // More than `resetDays` since the last interval session: back to the start.
+      base: { reps: [4, 6], addEvery: 2, resetDays: 30, dist: "800 m", at: "5k", jog: "2 min jog between" },
+      "5k": { reps: [4, 6], addEvery: 2, resetDays: 30, dist: "800 m", at: "5k", jog: "2 min jog between" },
       "10k": { text: "5 × 1 km", at: "10k", jog: "90 s jog between" },
       "21k": { text: "3 × 2 km", at: "21k", jog: "2 min jog between" },
       taper: { text: "4 × 400 m", jog: "full recovery" }, // at race pace
@@ -1110,11 +1177,18 @@ const plan = {
     },
     long: {
       startKm: 8,
-      stepKm: 1,       // each long run adds 1 km...
-      holdKm: [12, 14], // ...up to 12, then hold at 12–14 km
-      backOffKm: 2,     // more than `gapDays` since the last long run: start 2 km lower
-      gapDays: 35,
+      growth: 0.1,       // at most 10% beyond the longest run of the last `lookbackDays`
+      lookbackDays: 30,
+      maxStepKm: 1,      // and never more than 1 km at a time
+      roundKm: 0.5,      // distances round down to the half km (8 → 8.5 → 9 → 9.5 → 10 → 11)
+      repeatAfterDays: 14, // last long run over 14 days ago: repeat its distance
+      backOffKm: 2,      // nothing in the last 30 days: start 2 km below the last one
+      // Normal weeks cap the long run at 10–12 km and about 70 min at easy pace:
+      // the slower you are, the closer to 10 km. Only race mode goes beyond.
+      capKm: [10, 12],
+      capMin: 70,
     },
+    easyMinutes: [30, 40], // the extra easy run in a 21K build
     shakeout: "20–30 min easy + 4 strides",
     // Optional race mode. Weeks before the race lean toward its distance, then taper.
     race: {
@@ -1122,26 +1196,30 @@ const plan = {
       buildDays: { "5k": 56, "10k": 70, "21k": 84 }, // the last 8, 10, 12 weeks
       taperDays: { "5k": 7, "10k": 10, "21k": 14 },
       raceWeekDays: 6, // last 6 days: only easy shakeouts in the run slot
-      // In the build, 10K and 21K alternate a quality run with a long run.
-      buildCycle: { "5k": ["interval", "tempo", "long"], "10k": ["interval", "long", "tempo", "long"], "21k": ["interval", "long", "tempo", "long"] },
-      longMaxKm: { "5k": 12, "10k": 15, "21k": 19 },
-      longStepKm: { "5k": 1, "10k": 1, "21k": 2 },
+      longMaxKm: { "5k": null, "10k": 15, "21k": 18 }, // null: the normal cap
+      longStepKm: 1,
       taperLongFactor: 0.6, // taper long run ≈ 60% of the longest
       liftShortInTaper: true,
+      // A 21K build trades one lift for a third run: Upper A, one Lower (A and B take turns),
+      // Upper B, plus an easy run. One strength session a week maintains strength and power,
+      // so this holds for 12 weeks. Won't run three times a week? Race a 10K instead.
+      threeLifts: ["21k"],
     },
-    spacing: "No Lower the day before a long run or race; avoid intervals or Lower the day after basketball when another option exists.",
+    timeNote: "Long runs go past the 50-minute cap: about 70 min in normal weeks, up to about 2 hours in a half-marathon build.",
+    spacing: "No Lower the day before a long run or race. Avoid intervals or Lower the day after basketball when another option exists. No basketball or intervals the day after Lower B.",
   },
 
-  // Fills the sport slot in the rotation. Basketball when it happens;
-  // otherwise any conditioning. Easy running is suggested first because it
-  // is the quickest route to the 5K goal.
+  // Fills the sport/conditioning slot when the long run doesn't fit. Basketball is listed
+  // here for logging, but it fills the Run slot (fills: "run"): a game replaces the quality
+  // run, never the long run.
   conditioning: {
-    name: "Sport or conditioning",
+    name: "Long run or conditioning",
+    default: "long",
     options: [
-      { ex: "easy-run", minutes: [30, 40], hard: false, recommended: true, note: "Best for the 5K goal." },
-      { ex: "basketball", minutes: [60, 120], hard: true },
-      { ex: "bike-or-incline-walk", minutes: [30, 45], hard: false },
-      { ex: "stair-session", minutes: [20, 30], hard: false, note: "From jump block 2, if the Achilles is quiet." },
+      { ex: "easy-run", minutes: [30, 40], hard: false, fills: "long", note: "When there's no time for the long run." },
+      { ex: "basketball", minutes: [60, 120], hard: true, fills: "run", note: "Replaces this rotation's quality run." },
+      { ex: "bike-or-incline-walk", minutes: [30, 45], hard: false, fills: "long" },
+      { ex: "stair-session", minutes: [20, 30], hard: false, fills: "long", note: "From jump block 2, if the Achilles is quiet." },
     ],
   },
 
@@ -1154,8 +1232,9 @@ const plan = {
         { week: 12, oneRun: [1620, 1650], withEasyRun: [1575, 1605] },
         { week: 24, oneRun: [1560, 1605], withEasyRun: [1500, 1545] },
       ],
+      // oneRun: Busy mode or game weeks (one run); withEasyRun: the normal plan (quality + long run).
       sub25: { oneRun: "about 9–12 months", withEasyRun: "about 5–7 months" },
-      note: "One run a week keeps you improving, but slowly. Easy runs in the conditioning slot roughly halve the time. Busy weeks push it back; getting leaner pulls it forward.",
+      note: "With a quality run and a long run every rotation, the faster column is the realistic one. Busy weeks push it back; getting leaner pulls it forward.",
     },
     pullUps: [
       { milestone: "First strict rep", eta: "about 6–10 weeks" },
@@ -1183,9 +1262,9 @@ const plan = {
       tip: "A 10-minute walk after meals is the easiest way to get there. It's a nudge, never a failure.",
     },
     sleep: { hours: [7, 9], tip: "After a short night, check in Okay or Rough and the app goes lighter." },
-    rest: "At least 1 full rest day per rotation, and never 3 hard days in a row.",
-    deload: "Every 6 weeks with the checkpoint, or sooner after 3 Rough check-ins in one rotation. Same exercises, about half the sets.",
-    achilles: "Pain 3/10 or less that settles by the next morning is fine. More than that: jumps and intervals are swapped for one rotation.",
+    rest: "At least 1 full rest day per rotation, and never 3 hard days in a row. No basketball or intervals the day after Lower B.",
+    deload: "Every 6 weeks with the checkpoint, or sooner after 3 Rough check-ins in one rotation. Same exercises, about half the sets. Skipped when the 6 weeks were already light (a week off, or two Minimum or Busy weeks).",
+    achilles: "Pain 3/10 or less that settles by the next morning is fine. More than that: jumps and intervals are swapped for one rotation. Every 6 weeks, compare single-leg heel raises side to side.",
   },
 
   // ------------------------------------------------------------------- fuel
@@ -1257,6 +1336,7 @@ const plan = {
       lead: "You never miss a session. The next one simply waits for you.",
       points: [
         "Strength sessions always go in the same order: Upper A, Lower A, Upper B, Lower B, then again. A missed day doesn't skip a session; the app shows the next one in line.",
+        "Each rotation also has two runs: a quality run (tempo and intervals take turns) and a long easy run. A basketball game stands in for the quality run.",
         "A calendar plan breaks the first time life gets busy, and a broken plan is how people quit. A rotation bends instead.",
         "Upper and lower alternate, so training two days in a row is fine: one half rests while the other works.",
         "Progress is counted over the last 7 days, not Monday to Sunday, so there's no \"week is ruined\" moment.",
@@ -1269,6 +1349,7 @@ const plan = {
       points: [
         "Each exercise has a rep range, like 5–8. Keep the same weight and add reps session by session.",
         "When every set reaches the top of the range, go up the smallest jump: 2.5 kg on squats and deadlifts, 1–2.5 kg on upper-body lifts, or the next dumbbell. Reps drop back to the bottom of the range.",
+        "Light dumbbells jump a lot in one step, so presses use a wider range while they're light: up to 10 kg per hand 8–15 reps, 12.5–17.5 kg 6–10, from 20 kg 5–8. Lateral raises: 12–20, then a session of 3-second lowers before the next dumbbell.",
         "Most sets stop with 1–3 good reps left. You get stronger without grinding, and form stays clean.",
         "Two sessions in a row with no progress: drop about 10% and build back up, or switch rep range for a few weeks. Stalls are normal, not failure.",
         "The app does the maths: it prefills the weight and tells you when you've earned a jump.",
@@ -1278,8 +1359,8 @@ const plan = {
       id: "short-busy", title: "Short version and Busy mode",
       lead: "Something always beats nothing. Both modes exist so you never have to skip.",
       points: [
-        "Short version: the first 3 exercises with 2 sets each, under 30 minutes. Pick it any day you're short on time or energy. Check in as Rough and the app suggests it.",
-        "The first exercises are the main lifts, so a Short session keeps the work that matters most.",
+        "Short version: the first 3 exercises with 2 sets each, under 30 minutes (a superset counts as one). Pick it any day you're short on time or energy. Check in as Rough and the app suggests it.",
+        "The first exercises are the main lifts, and on lower days the calf raises come third, so a Short session keeps the work that matters most, Achilles care included.",
         "Busy mode is for a stretch of weeks: exams, deadlines, travel. You get 2–3 full-body sessions of about 40 minutes plus one run.",
         "Your rotation waits while Busy mode is on, and carries on where it stopped when you turn it off.",
         "Two full-body sessions a week holds almost all of your strength and fitness for weeks. Busy weeks keep the streak alive.",
@@ -1290,10 +1371,33 @@ const plan = {
       lead: "A planned easy week so you come back stronger, not worn down.",
       points: [
         "Every 6–8 weeks, or after 3 Rough check-ins within one rotation, do a deload: the same exercises at about half the sets.",
+        "If the last 6 weeks were already light (a week or more off, or two Minimum or Busy weeks), the scheduled deload is skipped: life already gave you one. The tests still happen.",
         "Hard training builds fatigue faster than you notice. An easy week lets it clear, and strength usually shows up afterwards.",
         "Keep the weights about the same and do fewer sets. You keep the skill and the habit; the fatigue goes.",
-        "The deload week is also the best time to test a pull-up max or run a hard time line, because you're fresh.",
+        "The deload week is also the best time to test a pull-up max, compare single-leg heel raises side to side, or run a hard time line, because you're fresh.",
         "Coming back from a break works the same way: 7–13 days off starts at about 90%; 14 or more starts at 80% with a set fewer for the first week.",
+      ],
+    },
+    {
+      id: "running", title: "Two runs a rotation",
+      lead: "One quality run for speed, one long easy run for endurance. That's what carries a 10K and a half.",
+      points: [
+        "Quality run: tempo and intervals take turns. Intervals start at 4 × 800 m and add a rep every second time, up to 6.",
+        "Long run: starts at 8 km and grows by at most 10% over your longest run of the last 30 days, about 1 km at a time once you're at 10 km. Normal weeks stop at about 10–12 km, around 70 minutes.",
+        "Last long run more than 2 weeks ago? Repeat that distance. Nothing for a month? Start 2 km lower.",
+        "Basketball replaces the quality run that rotation, never the long run. It's already a hard day.",
+        "A half-marathon build (race mode, last 12 weeks) adds an easy 30–40 min run, builds the long run to 18 km, and drops to three lifts: Upper A, one Lower (A and B take turns), Upper B.",
+        "Long runs go past the 50-minute cap. That's the price of a half, and the plan says so honestly.",
+      ],
+    },
+    {
+      id: "achilles", title: "Achilles care",
+      lead: "Jumps, intervals and basketball load the tendon. Slow, heavy calf raises build it back.",
+      points: [
+        "The calf raises sit third on both lower days, so even the Short version keeps them.",
+        "Pain 3/10 or less that settles by next morning is fine. More than that, or stiffer next morning: easier jumps and tempo instead of intervals for one rotation.",
+        "Every 6 weeks: single-leg heel raises to fatigue on each side. Left more than 10% behind? Do Lower A's calf raise single-leg, 3 × 6–10 slow, left first. It's a check, not a gate: training carries on either way.",
+        "Ask your physio to clear you before jump block 3 (pogo hops) and before a half-marathon build.",
       ],
     },
     {

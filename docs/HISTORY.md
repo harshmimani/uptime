@@ -20,6 +20,7 @@ A review of every commit before the Uptime redesign, so the next upgrade builds 
 - **Thumb-first.** Navigation moved from the top of the screen to the bottom.
 - **Teaching more.** Every exercise gained cues for what to feel, how to breathe and why it is there.
 - **Running shrank.** From a long run plus an easy run down to one 4 to 5 km jog, even though running is the owner's strongest sport.
+- **Running grew back (27 Nov 2026).** A senior coach's review (6.5/10) found one run per rotation couldn't carry a 10K or 21K. Each rotation now has a quality run and a long run (10% / 30-day rule, 10–12 km cap), basketball replaces the quality run, a 21K build trades a lift for a third run, lower days were trimmed to fit 50 min with the calf work kept in the Short version, and Upper B got a concentric pull-up progression.
 
 ## Tried, then dropped
 
