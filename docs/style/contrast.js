@@ -20,7 +20,10 @@ export const PAIRS = [
   { fg: "--c-text-3", bg: "--c-card-glow-max", kind: "text", use: "Next-up label at the card's brightest point" },
   // Actions
   { fg: "--c-on-action", bg: "--c-action", kind: "text", use: "Primary button label" },
-  { fg: "--c-on-green", bg: "--c-green", kind: "text", use: "Button after a set is logged" },
+  { fg: "--c-on-green", bg: "--c-green", kind: "text", use: "Text on a bright-green fill" },
+  { fg: "--c-on-green-deep", bg: "--c-green-deep", kind: "text", use: "Log button after a set is logged" },
+  { fg: "--c-green", bg: "--c-toast", on: "--c-bg", kind: "text", use: "Active tab label on the tab bar" },
+  ...["--c-bg", "--c-surface-1", "--c-surface-2"].map(bg => ({ fg: "--c-action", bg, kind: "ui", use: "Green buttons, selected chips and switches against the page" })),
   { fg: "--c-bg", bg: "--c-text", kind: "text", use: "Selected reps chip, rotation 'next' step" },
   { fg: "--c-text-3", bg: "--c-surface-3", kind: "text", use: "Disabled primary button (exempt, kept readable)" },
   // Green as text
@@ -40,13 +43,14 @@ export const PAIRS = [
   { fg: "--c-text-2", bg: "--c-surface-3", kind: "ui", use: "Rest ring arc against its track" },
   { fg: "--c-green", bg: "--c-surface-3", kind: "ui", use: "Finished ring and week segments against the track" },
   { fg: "--c-green", bg: "--c-surface-2", kind: "ui", use: "Done segment on the card" },
-  { fg: "--c-action", bg: "--c-surface-2", kind: "ui", use: "Primary button edge on the card" },
   { fg: "--c-text", bg: "--c-surface-1", kind: "ui", use: "Rotation highlight against unvisited steps" },
   // Muscle map (the muscles are also written out, so this is a courtesy, held to the UI bar anyway)
+  // Main muscles are green and helpers a grey-green, so the two are told apart by hue as well as
+  // lightness (and both are written out next to every map): the helper pairs use lower minimums.
   ...["--c-surface-1", "--c-surface-2"].map(bg => ({ fg: "--c-map-main", bg, kind: "ui", use: "Main muscle on the card" })),
   { fg: "--c-map-main", bg: "--c-map-idle", kind: "ui", use: "Main muscle against an idle one" },
-  { fg: "--c-map-also", bg: "--c-map-idle", kind: "ui", use: "Secondary muscle against an idle one" },
-  { fg: "--c-map-main", bg: "--c-map-also", kind: "ui", use: "Main muscle against a secondary one" },
+  { fg: "--c-map-also", bg: "--c-map-idle", kind: "ui", use: "Secondary muscle against an idle one", min: 1.8 },
+  { fg: "--c-map-main", bg: "--c-map-also", kind: "ui", use: "Main muscle against a secondary one", min: 1.4 },
   { fg: "--c-map-idle", bg: "--c-map-body", kind: "ui", use: "Idle muscle against the body outline", min: 1.2 },
 ];
 

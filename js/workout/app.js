@@ -11,6 +11,7 @@ import PLAN from "../plan.js";
 import * as E from "../engine.js";
 import { createStore, engineLog, exerciseHistory, isoDate, newId, oldLastKg } from "../store.js";
 import { howToHTML, miniMap, muscleLine } from "../muscles.js";
+import { exerciseList } from "../session-view.js";
 import * as M from "./model.js";
 import { startServiceWorker } from "../sw-client.js";
 import * as R from "./run.js";
@@ -41,6 +42,9 @@ const ui = {
   infoEx: null,      // the exercise the "info" sheet explains
   alerted: {},       // rest/work end timestamps already announced
   run: null,         // today's run screen: { pick, t, raceOpen, raceDraft }
+  sheetEntry: false, // an open sheet has its own history entry (the back gesture closes it)
+  ignorePop: false,  // the next popstate is our own dropSheet(), not the user
+  undoSnap: null,    // Undo for skip / remove / add a set (model snapshot)
 };
 
 // ------------------------------------------------------------------ helpers
@@ -48,6 +52,9 @@ const ui = {
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const fmtKg = M.fmtKg;
 const clock = (ms) => R.mmss(ms / 1000);
+const BACK_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 5l-7 7 7 7"/></svg>`;
+/** The top-left way out, on every Workout screen. */
+const backBtn = (act, label, text = "Back") => `<button class="back" type="button" data-act="${act}" aria-label="${esc(label)}">${BACK_ICON}<span>${esc(text)}</span></button>`;
 const CHECK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>`;
 const dayName = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long" });
 const shortDate = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
@@ -66,7 +73,7 @@ function persist() {
 }
 
 function go(view, { vt = false } = {}) {
-  ui.sheet = null;
+  dropSheet();
   ui.toast = null; // a toast belongs to the screen it was raised on
   clearTimeout(toast.t);
   const paint = () => {
@@ -156,12 +163,42 @@ function afterRender(focus) {
 // Home is its own page. A toast meant for Home (Undo on a run, "Back to it") travels in
 // sessionStorage and is shown there; js/home/app.js carries out its Undo.
 
+// Leaving goes *back* to Home when Home opened this page, so the phone's back gesture and
+// the browser's history stay one clean step: Home ⇄ Workout. Opened any other way (a link,
+// the app opening straight into a running workout), Home replaces this page instead.
 function goHome(flash = null, { replace = false } = {}) {
   if (flash) { try { sessionStorage.setItem("uptime-flash", JSON.stringify(flash)); } catch { /* the toast is a nicety */ } }
   awake.off();
-  if (replace) location.replace("index.html");
-  else location.href = "index.html";
+  if (!replace && history.state?.home) history.go(ui.sheetEntry ? -2 : -1);
+  else location.replace("index.html");
 }
+
+// ---------------------------------------------------------------- sheets and the back gesture
+// An open sheet is its own history entry, so the phone's back gesture closes the sheet
+// rather than leaving the workout. Back on a screen with no sheet goes to Home, and the
+// workout stays saved there (Home offers Resume): nothing is ever lost to a back press.
+
+function pushSheet() {
+  if (ui.sheetEntry) return;
+  history.pushState({ ...(history.state || {}), sheet: true }, "");
+  ui.sheetEntry = true;
+}
+/** Close the sheet as part of another action: its history entry goes too. */
+function dropSheet() {
+  ui.sheet = null;
+  if (ui.sheetEntry) {
+    ui.sheetEntry = false;
+    ui.ignorePop = true;
+    history.back();
+  }
+}
+addEventListener("popstate", () => {
+  if (ui.ignorePop) { ui.ignorePop = false; return; }
+  if (ui.sheetEntry && !history.state?.sheet) {
+    ui.sheetEntry = false;
+    if (ui.sheet) closeSheetNow();
+  }
+});
 
 // ---------------------------------------------------------------- check-in
 
@@ -185,13 +222,10 @@ function viewCheckin() {
     label = `${def.name} · about ${M.estimateMin(cur)} min`;
     full = `${f.length} exercises · about ${M.estimateMin(f)} min`;
     short = `${s.length} exercises · ${s.every((x) => x.sets <= PLAN.short.sets) ? "2 sets each" : "fewer sets"}`;
-    list = f.map((it, i) => {
+    list = exerciseList(f.map((it, i) => {
       const out = pd.short && i >= s.length;
-      const sets = pd.short && !out ? s[i].sets : it.sets;
-      return `<li class="exrow${out ? " out" : ""}"><button type="button" data-act="info" data-ex="${esc(it.ex)}" aria-label="${esc(`${M.exName(it.ex)}, ${sets} sets of ${M.rangeText(it)}${out ? ", not in the Short version" : ""}. How to do it`)}">
-        ${miniMap(it.ex)}<span class="exrow__text"><b>${esc(M.exName(it.ex))}</b><span>${esc(muscleLine(it.ex))}</span></span>
-        <span class="exrow__dose num">${sets} × ${esc(M.rangeText(it).replace(" reps", ""))}</span></button></li>`;
-    }).join("");
+      return { ...it, sets: pd.short && !out ? s[i].sets : it.sets, out };
+    }), { label: "Today's exercises" });
     if (pd.adjust.loadFactor < 1) notes.push(`Weights today: about ${Math.round(pd.adjust.loadFactor * 100)}% of last time${pd.adjust.setsDelta ? ", one set fewer per exercise" : ""}.`);
     if (pd.adjust.deload) notes.push("Deload week: same exercises, about half the sets.");
     else if (pd.deload?.suggested) notes.push("A deload is due: same exercises, about half the sets, for a week.");
@@ -199,7 +233,7 @@ function viewCheckin() {
   }
   return `<main class="scr vt-card" data-screen="checkin">
     <header class="scr__head">
-      <div class="row between"><span class="label">${esc(label)}</span><button class="btn btn--text" data-act="home">Not now</button></div>
+      <div class="row head-row">${backBtn("home", "Back to Home")}<span class="label">${esc(label)}</span></div>
       <h1 class="h1">How do you feel today?</h1>
       <p class="meta" style="margin:0">Rough switches to the Short version. You can change it any time.</p>
     </header>
@@ -211,7 +245,7 @@ function viewCheckin() {
         <button type="button" data-act="pick-length" data-short="1" aria-pressed="${!!pd.short}"><b>Short</b><span>${esc(short)}</span></button>
       </div>
       <div class="row between" style="align-items:baseline"><h2 class="label" id="today-h">Today's exercises</h2><span class="exrow__more">Tap one for how-to</span></div>
-      <ol class="exrows" aria-labelledby="today-h">${list}</ol>
+      ${list}
       ${pd.type === "lift" ? `<button class="btn btn--text" style="justify-self:start" data-act="toggle-nogym">${pd.noGym ? "Back to the gym version" : "No gym today? Use the no-gym version"}</button>` : ""}
     </div>
     <div class="scr__foot">
@@ -248,9 +282,20 @@ function headerFor(w, it) {
     return `<i class="${cls}" style="--fill:${(d / x.sets).toFixed(2)}"></i>`;
   }).join("");
   return `<header class="scr__head vt-card">
-    <div class="row between"><span class="label">${esc(w.name)}${w.short ? " · Short" : ""} · ${pos} of ${w.items.length}</span><span class="meta num" id="elapsed" aria-label="Time in session"></span></div>
+    <div class="row between head-row"><div class="row" style="min-width:0">${backBtn("exit", `Exit ${w.name}`, "Exit")}<span class="label">${esc(w.name)}${w.short ? " · Short" : ""} · ${pos} of ${w.items.length}</span></div><span class="meta num" id="elapsed" aria-label="Time in session"></span></div>
     <div class="segs" aria-hidden="true">${segs}</div>
   </header>`;
+}
+
+/** Previous / next exercise. Moving never drops anything: open sets wait where they were. */
+function exNav(w, it) {
+  const pos = w.items.indexOf(it) + 1;
+  const prev = M.neighbour(w, -1), next = M.neighbour(w, 1);
+  return `<nav class="exnav" aria-label="Move between exercises">
+    <button class="btn btn--text" data-act="prev-ex" ${prev ? `aria-label="${esc(`Previous exercise: ${M.exName(prev.ex)}`)}"` : "disabled"}>‹ Previous</button>
+    <span class="quiet num">Exercise ${pos} of ${w.items.length}</span>
+    <button class="btn btn--text" data-act="next-ex" ${next ? `aria-label="${esc(`Next exercise: ${M.exName(next.ex)}`)}"` : "disabled"}>Next ›</button>
+  </nav>`;
 }
 
 function targetLine(p, it) {
@@ -296,10 +341,49 @@ function logLabel(w, p, v, it) {
   return v.kg != null && v.kg > 0 ? `${what} · ${reps} × ${fmtKg(v.kg)} ${unitLabel()}` : `${what} · ${reps} reps`;
 }
 
+/** The sets logged for one exercise, each with Remove (Undo brings it back). */
+function loggedList(w, it) {
+  const mine = w.log.map((l, i) => ({ l, i })).filter((x) => x.l.key === it.key);
+  if (!mine.length) return "";
+  return `<ul class="logged" aria-label="Logged sets">${mine.map(({ l, i }, j) => {
+    const val = `${l.sec != null ? `${l.sec} s` : `${l.reps}`}${l.kg ? ` × ${fmtKg(l.kg)} ${unitLabel()}` : l.sec != null ? "" : " reps"}`;
+    return `<li class="${j === mine.length - 1 && ui.justLogged ? "enter" : ""}"><span>Set ${l.n}${l.ex !== it.ex ? ` · ${esc(M.exName(l.ex))}` : ""}</span><b class="num">${val}</b>
+      <button class="btn btn--text logged__rm" data-act="remove-set" data-i="${i}" aria-label="${esc(`Remove set ${l.n}, ${val}`)}">Remove</button></li>`;
+  }).join("")}</ul>`;
+}
+
+/** An exercise with nothing left to log (finished, skipped, or opened again with Previous). */
+function viewReview(w, it) {
+  const d = M.doneCount(w, it.key);
+  const nx = M.nextStep(w, null);
+  const status = d === 0 && it.skipped ? "Skipped today." : `${d} ${d === 1 ? "set" : "sets"} done${it.skipped ? `, ${it.skipped} skipped` : ""}.`;
+  return `<main class="scr" data-screen="review">
+    ${headerFor(w, it)}
+    <div class="scr__body">
+      ${saveErrorBox()}
+      ${w.rest ? timerBoxHTML({ kind: "rest", label: "Rest", next: "" }) : ""}
+      ${exNav(w, it)}
+      <div>
+        <div class="ex-title"><h1 class="ex-name" id="ex-name">${esc(M.exName(it.ex))}</h1>
+          <button class="btn btn--text howto-btn" data-act="info" data-ex="${esc(it.ex)}" aria-label="How to do ${esc(M.exName(it.ex))}: muscles, steps and video">How to</button></div>
+        <p class="meta cue">${esc(status)} Remove a set to log it again, or add one more.</p>
+      </div>
+      ${loggedList(w, it)}
+    </div>
+    <div class="scr__foot">
+      <div class="toast-slot" id="toast-slot" aria-live="polite"></div>
+      <div class="row"><button class="btn btn--secondary grow" data-act="add-set">Add a set</button><button class="btn btn--secondary grow" data-act="open-all">All exercises</button></div>
+      ${nx ? `<button class="btn btn--primary" data-act="next-open"><span class="btn__label">Next: ${esc(M.exName(M.item(w, nx.key).ex))}</span></button>`
+        : `<button class="btn btn--primary" data-act="finish-done"><span class="btn__label">Finish session</span></button>`}
+    </div>
+  </main>`;
+}
+
 function viewSet() {
   const w = db().active;
   const it = M.item(w, w.cur);
   if (!it) return viewResume(); // nothing left in focus: offer Finish rather than a blank screen
+  if (!M.isOpen(w, it)) return viewReview(w, it);
   const p = M.prefill(w, w.cur, hist);
   const v = currentValues(w, p);
   const mine = w.log.filter((l) => l.key === it.key);
@@ -342,6 +426,7 @@ function viewSet() {
         <p class="quiet">Stays here until you log set 1.</p>
       </section>` : ""}
       ${rampHere && rampHere.ex === it.ex ? `<div class="notice"><div><b>Ramp-up first:</b> ${rampText(rampHere)}. No rest needed between them.</div></div>` : ""}
+      ${exNav(w, it)}
       ${tags.length ? `<div class="tags">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
       <div>
         <div class="ex-title"><h1 class="ex-name" id="ex-name">${esc(M.exName(it.ex))}</h1>
@@ -354,12 +439,12 @@ function viewSet() {
       <div class="setline"><b>Set ${p.n} of ${it.sets}</b><span class="meta">${esc(M.rangeText(it))}</span></div>
       ${targetLine(p, it)}
       ${p.prog.action === "reset" ? `<div class="notice"><div>${esc(PLAN.rules.stallAdvice)}</div></div>` : ""}
-      ${mine.length ? `<ul class="logged" aria-label="Logged sets">${mine.map((l, i) => `<li class="${i === mine.length - 1 && ui.justLogged ? "enter" : ""}"><span>Set ${l.n}${l.ex !== it.ex ? ` · ${esc(M.exName(l.ex))}` : ""}</span><b class="num">${l.sec != null ? `${l.sec} s` : `${l.reps}`}${l.kg ? ` × ${fmtKg(l.kg)} ${unitLabel()}` : l.sec != null ? "" : " reps"}</b></li>`).join("")}</ul>` : ""}
+      ${loggedList(w, it)}
     </div>
     <div class="scr__foot">
       <div class="toast-slot" id="toast-slot" aria-live="polite"></div>
       <div class="steppers">${steppers.join("")}</div>
-      <div class="row"><button class="btn btn--secondary grow" data-act="open-swap" ${w.work ? "disabled" : ""}>Swap</button><button class="btn btn--secondary grow" data-act="open-all">All exercises</button></div>
+      <div class="row tools"><button class="btn btn--secondary grow" data-act="open-swap" ${w.work ? "disabled" : ""}>Swap</button><button class="btn btn--secondary grow" data-act="open-skip" ${w.work ? "disabled" : ""}>Skip</button><button class="btn btn--secondary grow" data-act="open-all">All</button></div>
       <button class="btn btn--primary" id="log-btn" data-act="log">
         <span class="btn__label" id="log-label">${esc(logLabel(w, p, v, it))}</span>
         <span class="btn__done" aria-hidden="true">${CHECK.replace("<svg", '<svg class="check"')}<span id="done-label">Logged</span></span>
@@ -641,6 +726,29 @@ function restSkip() {
 
 function viewSheet() {
   const w = db().active;
+  if (ui.sheet === "exit") {
+    const n = w.log.length, total = M.totalSets(w);
+    return `<div class="scrim" data-act="close-sheet"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
+      <h2 class="sheet__title" id="sheet-h">Leave ${esc(w.name)}?</h2>
+      ${n ? `<button class="opt" data-act="exit-save"><b>Save and finish</b><span>Keeps your ${n} of ${total} sets as a partial session. It counts toward your week.</span></button>`
+        : `<p class="meta" style="margin:0">Nothing is logged yet, so there's nothing to save.</p>`}
+      <button class="opt opt--danger" data-act="exit-discard"><b>${n ? "Discard workout" : "Leave without saving"}</b><span>${n ? `The ${n} logged ${n === 1 ? "set is" : "sets are"} dropped. You can undo on the next screen.` : "You can come back to it from Home."}</span></button>
+      <button class="btn btn--secondary btn--wide" data-act="close-sheet">Keep going</button>
+    </div>`;
+  }
+  if (ui.sheet === "skip") {
+    const it = M.item(w, w.cur);
+    const left = it.sets - M.doneCount(w, it.key);
+    return `<div class="scrim" data-act="close-sheet"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
+      <h2 class="sheet__title" id="sheet-h">Skip on ${esc(M.exName(it.ex))}</h2>
+      <button class="opt" data-act="skip-set"><b>Skip this set</b><span>${left > 1 ? `${left - 1} ${left - 1 === 1 ? "set" : "sets"} left after it.` : "That was the last one, so the next exercise comes up."}</span></button>
+      ${left > 1 ? `<button class="opt" data-act="skip-ex"><b>Skip the rest of ${esc(M.exName(it.ex))}</b><span>Drops the ${left} sets left today. Logged sets stay.</span></button>` : ""}
+      <p class="quiet">Skipped sets aren't logged and never count against you. Undo is on the next screen.</p>
+      <button class="btn btn--secondary btn--wide" data-act="close-sheet">Keep this set</button>
+    </div>`;
+  }
   if (ui.sheet === "info") {
     return `<div class="scrim" data-act="close-sheet"></div>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
@@ -669,13 +777,13 @@ function viewSheet() {
     const rows = w.items.map((it) => {
       const d = M.doneCount(w, it.key);
       const done = d >= it.sets;
-      return `<button class="opt opt--row ${done ? "done" : ""}" data-act="jump" data-key="${esc(it.key)}" ${it.key === w.cur ? 'aria-current="true"' : ""} ${done ? "disabled" : ""}>
-        <span><b>${esc(M.exName(it.ex))}</b><br><span>${esc(M.rangeText(it))}${it.pair ? " · superset" : ""}</span></span><span class="num">${d}/${it.sets}</span></button>`;
+      return `<button class="opt opt--row ${done ? "done" : ""}" data-act="jump" data-key="${esc(it.key)}" ${it.key === w.cur ? 'aria-current="true"' : ""}>
+        <span><b>${esc(M.exName(it.ex))}</b><br><span>${esc(M.rangeText(it))}${it.pair ? " · superset" : ""}${it.skipped ? ` · ${it.skipped} skipped` : ""}</span></span><span class="num">${d}/${it.sets}</span></button>`;
     }).join("");
     return `<div class="scrim" data-act="close-sheet"></div>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
       <h2 class="sheet__title" id="sheet-h">All exercises</h2>
-      <p class="quiet">Station taken? Tap any exercise to do it now.</p>
+      <p class="quiet">Station taken? Tap any exercise to do it now, or a finished one to look back at it.</p>
       <div class="seg-ctl seg-ctl--small" role="group" aria-label="Session length">
         <button type="button" data-act="set-length" data-short="0" aria-pressed="${!w.short}"><b>Full</b></button>
         <button type="button" data-act="set-length" data-short="1" aria-pressed="${!!w.short}"><b>Short</b></button>
@@ -691,16 +799,65 @@ function viewSheet() {
 }
 
 function openSheet(name, trigger) {
+  pushSheet();
   ui.sheet = name;
   ui.sheetTrigger = trigger?.dataset.act ? `[data-act="${trigger.dataset.act}"]${trigger.dataset.ex ? `[data-ex="${CSS.escape(trigger.dataset.ex)}"]` : ""}` : null;
   ui.swapAlways = false;
   render();
 }
 function closeSheet() {
+  if (ui.sheetEntry) { history.back(); return; } // popstate closes it
+  closeSheetNow();
+}
+function closeSheetNow() {
   const back = ui.sheetTrigger;
   ui.sheet = null;
   render();
   if (back) document.querySelector(back)?.focus({ preventScroll: true });
+}
+
+// ---------------------------------------------------------------- skip, remove, move (all with Undo)
+
+function withUndo(change, text) {
+  const w = db().active;
+  if (!w) return;
+  const snap = M.snapshot(w);
+  const res = change(w) || {};
+  dropSheet();
+  if (res.finished) {
+    if (!w.log.length) { // everything skipped, nothing logged: nothing to save
+      M.restore(w, snap);
+      db().active = null;
+      persist();
+      goHome({ text: "Nothing logged, so nothing saved.", action: "Back to it", kind: "undo-leave", data: w });
+      return;
+    }
+    persist();
+    finishWorkout(false);
+    toast(`${text} Session saved.`, "Resume", "resume", 10000);
+    return;
+  }
+  persist();
+  ui.undoSnap = snap;
+  render({ focus: true });
+  toast(text, "Undo", "undo-snap");
+}
+function undoSnap() {
+  const w = db().active;
+  if (!w || !ui.undoSnap) return;
+  M.restore(w, ui.undoSnap);
+  ui.undoSnap = null;
+  persist();
+  ui.toast = null;
+  render({ focus: true });
+  say("Undone");
+}
+function moveTo(key) {
+  const w = db().active;
+  if (!key || !M.jumpTo(w, key)) return;
+  persist();
+  dropSheet();
+  render({ focus: true });
 }
 
 function swapTo(ex) {
@@ -716,7 +873,7 @@ function swapTo(ex) {
     else db().settings.swapsAlways[it.planEx] = ex;
   }
   persist();
-  ui.sheet = null;
+  dropSheet();
   ui.undoSwap = { key, before, always, planEx: it.planEx, prevAlways };
   render({ focus: true });
   toast(ex === it.planEx ? `Back to ${M.exName(ex)}` : `Swapped for ${M.exName(ex)}${always ? " every time" : ""}`, "Undo", "undo-swap");
@@ -766,16 +923,16 @@ function finishWorkout(early) {
   if (early) toast(`Saved as partial · ${w.log.length} of ${M.totalSets(w)} sets`, "Resume", "resume", 10000);
 }
 
-function finishNow() {
+/** Exit › Discard: the workout is dropped, with Undo on Home ("Back to it" restores it as it was). */
+function discard() {
   const w = db().active;
-  if (!w.log.length) {
-    db().active = null;
-    persist();
-    awake.off();
-    goHome({ text: "Nothing logged, so nothing saved.", action: "Back to it", kind: "undo-leave", data: w });
-    return;
-  }
-  finishWorkout(true);
+  if (!w) return goHome();
+  db().active = null;
+  persist();
+  awake.off();
+  goHome(w.log.length
+    ? { text: `${w.name} discarded. Nothing saved.`, action: "Undo", kind: "undo-leave", data: w }
+    : { text: "Nothing logged, so nothing saved.", action: "Back to it", kind: "undo-leave", data: w });
 }
 
 function resumeFinished() {
@@ -820,7 +977,7 @@ function viewSummary() {
   const s = ui.summary;
   const t = s.partial ? `${s.name} saved` : `${s.name} done`;
   return `<main class="scr" data-screen="summary">
-    <header class="scr__head"><span class="label">${esc(shortDate(s.date))} · ${s.minutes} min · ${s.sets} ${s.sets === 1 ? "set" : "sets"}</span></header>
+    <header class="scr__head"><div class="row head-row">${backBtn("home", "Done, back to Home", "Home")}<span class="label">${esc(shortDate(s.date))} · ${s.minutes} min · ${s.sets} ${s.sets === 1 ? "set" : "sets"}</span></div></header>
     <div class="scr__body">
       <svg class="done-mark ${s.partial ? "done-mark--partial" : ""}" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27"/><path d="M20 33l8 8 16-17"/></svg>
       <h1 class="h1" data-kt>${esc(t)}</h1>
@@ -852,7 +1009,7 @@ function viewResume() {
   const ago = now() - w.lastSetAt;
   const h = Math.floor(ago / 3600000), m = Math.round((ago % 3600000) / 60000);
   return `<main class="scr" data-screen="resume">
-    <header class="scr__head"><span class="label">${esc(name)} · started ${new Date(w.startedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
+    <header class="scr__head"><div class="row head-row">${backBtn("home", "Back to Home (the workout stays open)")}<span class="label">${esc(name)} · started ${new Date(w.startedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span></div>
       <h1 class="h1">${esc(name)} is still open</h1></header>
     <div class="scr__body">
       <section class="card"><b>${w.log.length} of ${total} sets logged</b>
@@ -896,7 +1053,7 @@ function viewRun() {
     </section>` : "";
   return `<main class="scr vt-card" data-screen="run">
     <header class="scr__head">
-      <div class="row between"><span class="label">${esc(shortDate(today()))} · Today's run</span><button class="btn btn--text" data-act="home">Not now</button></div>
+      <div class="row head-row">${backBtn("home", "Back to Home")}<span class="label">${esc(shortDate(today()))} · Today's run</span></div>
       <h1 class="h1" data-kt>${esc(t.name)}</h1>
     </header>
     <div class="scr__body">
@@ -970,7 +1127,7 @@ function viewOther() {
   const when = (d, label) => `<button class="chip" type="button" data-act="${saved ? "edit-date" : "pick-date"}" data-d="${d}" aria-pressed="${(saved ? saved.date : o.date) === d}">${label}</button>`;
   const dates = `<div class="when" role="group" aria-label="When">${when(today(), "Today")}${when(E.addDays(today(), -1), "Yesterday")}</div>`;
   return `<main class="scr" data-screen="other">
-    <header class="scr__head"><div class="row between"><span class="label">Unplanned session</span><button class="btn btn--text" data-act="home">Close</button></div>
+    <header class="scr__head"><div class="row head-row">${backBtn("home", "Back to Home")}<span class="label">Unplanned session</span></div>
       <h1 class="h1">Log something else</h1></header>
     <div class="scr__body">
       ${saveErrorBox()}
@@ -1018,6 +1175,31 @@ app.addEventListener("click", (ev) => {
   const w = db().active;
   switch (act) {
     case "home": goHome(); break;
+    case "exit": if (w?.kind === "lift") openSheet("exit", el); else goHome(); break;
+    case "exit-save": if (w?.log.length) { dropSheet(); finishWorkout(true); } else discard(); break;
+    case "exit-discard": discard(); break;
+    case "open-skip": openSheet("skip", el); break;
+    case "skip-set": {
+      const name = M.exName(M.item(w, w.cur).ex);
+      withUndo((x) => M.skipSet(x), `Skipped a set of ${name}.`);
+      break;
+    }
+    case "skip-ex": {
+      const name = M.exName(M.item(w, w.cur).ex);
+      withUndo((x) => M.skipExercise(x), `Skipped ${name}.`);
+      break;
+    }
+    case "remove-set": {
+      const l = w.log[Number(el.dataset.i)];
+      if (l) withUndo((x) => { M.removeLogged(x, Number(el.dataset.i)); }, `Set ${l.n} removed.`);
+      break;
+    }
+    case "add-set": withUndo((x) => { M.addSet(x, x.cur); }, "Set added."); break;
+    case "undo-snap": undoSnap(); break;
+    case "prev-ex": moveTo(M.neighbour(w, -1)?.key); break;
+    case "next-ex": moveTo(M.neighbour(w, 1)?.key); break;
+    case "next-open": moveTo(M.nextStep(w, null)?.key); break;
+    case "finish-done": finishWorkout(false); break;
     case "start-run": startRun(); break;
     case "open-other": ui.other = { date: today(), savedId: null, editing: false }; go("other"); break;
     case "pick-length": ui.pending.short = el.dataset.short === "1"; render(); break;
@@ -1049,10 +1231,12 @@ app.addEventListener("click", (ev) => {
     case "toggle-always": ui.swapAlways = !ui.swapAlways; render(); break;
     case "swap-to": swapTo(el.dataset.ex); break;
     case "undo-swap": undoSwap(); break;
-    case "jump": M.jumpTo(w, el.dataset.key); persist(); ui.sheet = null; render({ focus: true }); break;
-    case "set-length": ui.sheet = null; setLength(el.dataset.short === "1"); break;
+    case "jump": moveTo(el.dataset.key); break;
+    case "set-length": dropSheet(); setLength(el.dataset.short === "1"); break;
     case "toggle-sound": db().settings.sound = db().settings.sound === false; persist(); render(); if (db().settings.sound) { unlockAudio(); sound("tick"); } break;
-    case "finish-now": ui.sheet = null; finishNow(); break;
+    case "finish-now":
+      if (w?.log.length) { dropSheet(); finishWorkout(true); } else discard();
+      break;
     case "resume": resumeFinished(); break;
     case "pick-up": awake.on(); go("set"); break;
     case "retry-save": if (persist()) { const b = document.getElementById("save-error"); if (b) b.hidden = true; } break;
@@ -1134,6 +1318,17 @@ function boot() {
   // Started from Home (?start=lift|run|other): render that screen in the very first frame,
   // so the cross-document view transition has its target. The query is dropped so a reload
   // or the back button never starts something twice.
+  // Did Home open this page? Then Back/Exit/Done go back to it (one history step), so the
+  // phone's back gesture keeps working. Remembered in this history entry, so a reload keeps it.
+  if (history.state?.home === undefined) {
+    let home = false;
+    try {
+      const r = document.referrer ? new URL(document.referrer) : null;
+      home = !!r && r.origin === location.origin && /\/(index\.html)?$/.test(r.pathname) && !sessionStorage.getItem("uptime-redirect");
+      sessionStorage.removeItem("uptime-redirect");
+    } catch { /* treated as not from Home */ }
+    history.replaceState({ ...(history.state || {}), home }, "");
+  }
   const start = new URLSearchParams(location.search).get("start");
   if (start) {
     // changing the URL while the incoming transition runs would cancel it: wait for it to end

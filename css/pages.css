@@ -19,8 +19,11 @@ html:has(.tabs) { scroll-padding: 120px 0 112px; }
   font-size: var(--fs-label); font-weight: var(--fw-semibold); letter-spacing: .02em;
 }
 .tabs__tab svg { width: 24px; height: 24px; }
-.tabs__tab[aria-current="page"] { color: var(--c-text); }
+.tabs__tab { position: relative; }
+.tabs__tab[aria-current="page"] { color: var(--c-green); }
 .tabs__tab[aria-current="page"] svg { stroke-width: 2.4; }
+/* the active tab: a short green bar on top, so it reads without relying on colour alone */
+.tabs__tab[aria-current="page"]::before { content: ""; position: absolute; top: 0; left: 50%; width: 28px; height: 3px; margin-left: -14px; border-radius: 0 0 3px 3px; background: var(--c-action); }
 .tabs__tab:focus-visible { outline: 2px solid var(--c-focus); outline-offset: -2px; }
 .scr__foot--tabs { padding-bottom: 0; gap: 0; }
 .scr__foot--tabs .toast-slot { bottom: calc(100% + var(--sp-2)); }
@@ -108,3 +111,16 @@ html:has(.tabs) { scroll-padding: 120px 0 112px; }
 .file-btn { position: relative; }
 .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .file-btn:focus-within { outline: 2px solid var(--c-focus); outline-offset: 2px; }
+
+/* ---------------------------------------------------------------- Plan › Week: every session in full */
+.plan-session { gap: var(--sp-2); }
+.plan-session__head { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: var(--sp-3); align-items: start; }
+.plan-session__head h3 { font-size: var(--fs-lead); font-weight: var(--fw-bold); display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.plan-session__n { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--c-action); color: var(--c-on-action); font-weight: var(--fw-bold); }
+.plan-session .exrows { margin-top: var(--sp-1); }
+.pill { font-size: var(--fs-label); font-weight: var(--fw-bold); letter-spacing: .02em; color: var(--c-green); padding: 2px 8px; border-radius: var(--r-pill); box-shadow: inset 0 0 0 1.5px var(--c-green); }
+/* wider screens: the tab pages use the room instead of one narrow column */
+@media (min-width: 960px) {
+  .scr[data-screen="plan"], .scr[data-screen="progress"] { max-width: 920px; }
+  .scr[data-screen="plan"] .tabs, .scr[data-screen="progress"] .tabs { margin-inline: 0; }
+}

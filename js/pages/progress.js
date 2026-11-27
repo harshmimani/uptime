@@ -11,6 +11,8 @@ import { tabBar, esc, showToast, say, dayMonth } from "../nav.js";
 import { setUnits, units, wu, fmtW, fromUnit, toUnit } from "../units.js";
 import { mmss } from "../workout/run.js";
 import { exName } from "../workout/model.js";
+import { pastSessions, lastWeekSummary } from "../history.js";
+import { pastRow, pastDetail, lastWeekHTML } from "../session-view.js";
 
 const store = createStore();
 const db = () => store.db;
@@ -153,6 +155,60 @@ function weightSection() {
   </section>`;
 }
 
+// ------------------------------------------------------------------ history: past sessions, with a detail sheet
+
+const ui = { shown: 12, sheet: null, sheetEntry: false, trigger: null };
+
+function historySection() {
+  const all = pastSessions(db());
+  if (!all.length) return `<section class="section" id="history" aria-labelledby="hist-h"><h2 id="hist-h">Past sessions</h2>
+    <div class="card"><p class="meta">Every session you finish (or save part of) shows up here, with its sets and weights.</p></div></section>`;
+  const list = all.slice(0, ui.shown);
+  return `<section class="section" id="history" aria-labelledby="hist-h">
+    <h2 id="hist-h">Past sessions</h2>
+    <div class="card" style="padding-block:var(--sp-1)"><ol class="pasts">${list.map((e) => pastRow(e, today())).join("")}</ol></div>
+    ${all.length > list.length ? `<button class="btn btn--secondary btn--wide" data-act="more">Show ${Math.min(12, all.length - list.length)} more</button>` : ""}
+  </section>`;
+}
+
+function sheetHTML() {
+  if (!ui.sheet) return "";
+  const e = pastSessions(db()).find((x) => x.id === ui.sheet);
+  if (!e) return "";
+  return `<div class="scrim" data-act="close-sheet"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
+      <h2 class="sheet__title" id="sheet-h">${esc(e.name)}</h2>${pastDetail(e)}
+      <button class="btn btn--text" style="justify-self:center" data-act="close-sheet">Close</button>
+    </div>`;
+}
+function paintSheet() {
+  const root = document.getElementById("sheet-root");
+  root.innerHTML = sheetHTML();
+  root.querySelector(".sheet")?.focus();
+}
+function closeSheetNow() {
+  ui.sheet = null;
+  paintSheet();
+  if (ui.trigger) app.querySelector(ui.trigger)?.focus({ preventScroll: true });
+}
+app.addEventListener("click", (ev) => {
+  const el = ev.target.closest("[data-act]");
+  if (!el) return;
+  if (el.dataset.act === "past") {
+    if (!ui.sheetEntry) { history.pushState({ sheet: true }, ""); ui.sheetEntry = true; }
+    ui.sheet = el.dataset.id;
+    ui.trigger = `[data-act=past][data-id="${el.dataset.id}"]`;
+    paintSheet();
+  } else if (el.dataset.act === "close-sheet") {
+    if (ui.sheetEntry) history.back(); else closeSheetNow();
+  } else if (el.dataset.act === "more") {
+    ui.shown += 12;
+    render();
+  }
+});
+addEventListener("popstate", () => { if (ui.sheetEntry && !history.state?.sheet) { ui.sheetEntry = false; closeSheetNow(); } });
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && ui.sheet) { if (ui.sheetEntry) history.back(); else closeSheetNow(); } });
+
 // ------------------------------------------------------------------ page
 
 function render() {
@@ -165,6 +221,8 @@ function render() {
       ${store.readOnly ? `<div class="notice notice--warn"><div><b>Saved data couldn't be read.</b> Nothing is changed or deleted. Export a backup from Plan › Settings.</div></div>` : ""}
       ${mig ? `<div class="notice notice--done"><div><b>${mig.from === 1 ? "Found your log from the earlier app." : "Your data moved to the new format."}</b> Everything is kept, and a backup copy of the old data is saved.</div></div>` : ""}
       ${first ? `<div class="notice"><div>Your first numbers show up after one session. Until then, this is where the streak, lift trends and bodyweight will live.</div></div>` : ""}
+      ${lastWeekHTML(lastWeekSummary(db(), today()))}
+      ${historySection()}
       ${streakCard()}
       ${weeksSection()}
       ${liftsSection()}
@@ -175,7 +233,7 @@ function render() {
       <p class="disclaimer">${esc(PLAN.disclaimer)}</p>
     </div>
     <div class="scr__foot scr__foot--tabs"><div class="toast-slot" id="toast-slot" aria-live="polite"></div>${tabBar("progress")}</div>
-  </main>`;
+  </main><div id="sheet-root">${sheetHTML()}</div>`;
 }
 
 function logWeight(ev) {
@@ -205,5 +263,6 @@ function logWeight(ev) {
 app.addEventListener("submit", (ev) => { if (ev.target.id === "bw-form") logWeight(ev); });
 wireCharts(app);
 render();
+if (location.hash === "#history") document.getElementById("history")?.scrollIntoView({ block: "start" });
 
 startServiceWorker();

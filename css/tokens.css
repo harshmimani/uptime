@@ -5,14 +5,14 @@
    written twice, once for an explicit choice ([data-theme="light"]) and once for System
    on a light phone; tests/contrast.test.js checks both copies match and every pair passes AA.
 
-   Colour rules
-   - Green means progress or completion. Use it for: a logged set, a finished rest,
-     a filled week, the streak, "next time goes up". Never for plain buttons or decoration.
-   - The primary action is off-white on near-black in dark (near-black on white in light):
-     the loudest thing on the screen without spending green on it. When an action
-     completes, it turns green.
-   - In light, "green" is the deep BCG green: the bright one is too pale for text on white.
-   - One warning colour (amber) for a failed save and nothing else urgent.
+   Colour rules (green is the brand, approved 27 Nov 2026; this replaced "green only for progress")
+   - BCG green is the brand colour: the primary actions (Start, Log set, Done), the active tab,
+     selected chips and switches, the Rotation Dial's progress, the week ring and the streak.
+   - In dark the green is the bright BCG green (#29BA74) with near-black text on it; in light
+     it is the deep BCG green (#197A56) with white text, because the bright one is too pale on white.
+   - Completion still shows: a logged set turns the button the deeper green with a check.
+   - Text and surfaces stay neutral greys so the green stays the one loud thing on a screen.
+   - One warning colour (amber) for a failed save, destructive actions and nothing else urgent.
    - Every text/background pair used by the components is listed and checked in
      tests/contrast.test.js (WCAG 2.2 AA: 4.5:1 text, 3:1 large text and UI parts). */
 
@@ -44,11 +44,11 @@
   --c-line: #2A302D;        /* decorative hairlines and dividers (not a control boundary) */
   --c-line-strong: #626B67; /* control boundaries: secondary buttons, chips. ≥3:1 on bg, surface-1, surface-2 */
 
-  /* ---------- Colour: action ---------- */
-  --c-action: #F2F5F3;      /* primary button fill */
-  --c-on-action: #0B0D0C;   /* primary button text */
+  /* ---------- Colour: action (brand green) ---------- */
+  --c-action: #29BA74;      /* primary button fill, active tab chip, selected chips */
+  --c-on-action: #04130B;   /* text on the primary button */
 
-  /* ---------- Colour: brand green (progress and completion only) ---------- */
+  /* ---------- Colour: brand green ---------- */
   --c-green: #29BA74;       /* BCG bright: done states, rings, progress text on dark */
   --c-green-deep: #197A56;  /* BCG deep: filled "done" chips with white text, ring track tint */
   --c-on-green: #04130B;    /* text on bright green */
@@ -75,8 +75,8 @@
   /* Muscle map: body outline < idle muscle < "also works" < main muscle */
   --c-map-body: #1F2422;
   --c-map-idle: #343B38;
-  --c-map-also: #7C8782;
-  --c-map-main: #F2F5F3;
+  --c-map-also: #6B8A7B;
+  --c-map-main: #29BA74;
 
   /* ---------- Type ---------- */
   --font-sans: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -178,8 +178,8 @@
   --c-text-3: #58625D;
   --c-line: #D5DBD8;
   --c-line-strong: #737D78;
-  --c-action: #111614;
-  --c-on-action: #F7F9F8;
+  --c-action: #197A56;
+  --c-on-action: #FFFFFF;
   --c-green: #15704E;
   --c-green-deep: #125E42;
   --c-on-green: #FFFFFF;
@@ -191,10 +191,10 @@
   --c-toast: rgba(255, 255, 255, .97);
   --c-bg-glow-max: #D3E9DE;
   --c-card-glow-max: #DDF5E9;
-  --c-map-body: #DCE2DF;
-  --c-map-idle: #C5CDC9;
-  --c-map-also: #5F6A65;
-  --c-map-main: #0E1311;
+  --c-map-body: #E6EAE8;
+  --c-map-idle: #CDD4D0;
+  --c-map-also: #7FA592;
+  --c-map-main: #197A56;
   --elev-1: 0 1px 0 rgba(255, 255, 255, .7) inset, 0 1px 2px rgba(16, 24, 20, .08);
   --elev-2: 0 1px 0 rgba(255, 255, 255, .8) inset, 0 6px 16px -6px rgba(16, 24, 20, .14);
   --elev-3: 0 1px 0 rgba(255, 255, 255, .8) inset, 0 18px 40px -16px rgba(16, 24, 20, .22);
@@ -215,8 +215,8 @@
     --c-text-3: #58625D;
     --c-line: #D5DBD8;
     --c-line-strong: #737D78;
-    --c-action: #111614;
-    --c-on-action: #F7F9F8;
+    --c-action: #197A56;
+    --c-on-action: #FFFFFF;
     --c-green: #15704E;
     --c-green-deep: #125E42;
     --c-on-green: #FFFFFF;
@@ -228,10 +228,10 @@
     --c-toast: rgba(255, 255, 255, .97);
     --c-bg-glow-max: #D3E9DE;
     --c-card-glow-max: #DDF5E9;
-    --c-map-body: #DCE2DF;
-    --c-map-idle: #C5CDC9;
-    --c-map-also: #5F6A65;
-    --c-map-main: #0E1311;
+    --c-map-body: #E6EAE8;
+    --c-map-idle: #CDD4D0;
+    --c-map-also: #7FA592;
+    --c-map-main: #197A56;
     --elev-1: 0 1px 0 rgba(255, 255, 255, .7) inset, 0 1px 2px rgba(16, 24, 20, .08);
     --elev-2: 0 1px 0 rgba(255, 255, 255, .8) inset, 0 6px 16px -6px rgba(16, 24, 20, .14);
     --elev-3: 0 1px 0 rgba(255, 255, 255, .8) inset, 0 18px 40px -16px rgba(16, 24, 20, .22);

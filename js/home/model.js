@@ -13,6 +13,7 @@ import * as E from "../engine.js";
 import { engineLog } from "../store.js";
 import * as M from "../workout/model.js";
 import * as R from "../workout/run.js";
+import { weekSlots, pastSessions, lastWeekSummary } from "../history.js";
 
 /** Why a lift is flagged today, in a few words (engine caution codes). */
 const REASON = {
@@ -169,6 +170,8 @@ export function homeModel(db, today, plan = PLAN) {
 
   const pr = p.progress;
   const st = p.streak;
+  // the run slot's next run, for "This week" (what it is and its one-line target)
+  const run = R.runTarget(E.runPick(log, today, settings, plan), R.fiveKSec(db.activities, settings, plan), plan);
   return {
     today,
     busy,
@@ -190,6 +193,10 @@ export function homeModel(db, today, plan = PLAN) {
     },
     streak: { weeks: st.weeks, currentMet: st.currentMet },
     stat: standoutStat(db, today),
+    slots: weekSlots(db, today, { next: p.next, busy, runName: run.name }, plan),
+    run,
+    recent: pastSessions(db, { limit: 4 }, plan),
+    lastWeek: lastWeekSummary(db, today, plan),
     nudge: busyNudge(log, settings, today, plan),
     firstEver,
   };

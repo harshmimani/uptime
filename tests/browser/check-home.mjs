@@ -275,7 +275,8 @@ async function states() {
     await pg.goto(home);
     await pg.waitForTimeout(1600);
     check((await pg.textContent(".dial__label")).includes("first session") && (await pg.textContent("#next-title")).includes("Upper A"), "first run: Upper A, your first session");
-    check(await pg.isVisible(".tile--empty"), "first run: the stat tile says when it will appear");
+    check(!(await pg.locator(".tile--stat").count()), "first run: no empty standout stat (it appears once there's a number)");
+    check(await pg.locator(".slot").count() === 6, "first run: This week shows the six slots");
     const inView = await pg.evaluate(() => document.querySelector(".hm-start").getBoundingClientRect().bottom <= innerHeight - 56);
     check(inView, "first run 360×640: Start is on the first screen");
     check(await noHScroll(pg), "first run 360×640: no horizontal scroll");

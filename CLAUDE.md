@@ -69,7 +69,7 @@ When the two conflict, choose what the user is most likely to actually stick wit
 - **Double progression:** when all sets hit the top of the range, add the smallest sensible jump (2.5 kg lower-body main lifts, 1–2.5 kg upper, next dumbbell up). Stalled 2 sessions in a row → suggest a small reset or rep-range change.
 - **Deload** every 6–8 weeks, or after 3+ "Rough" check-ins within one rotation: same exercises, about half the sets.
 - Every exercise has an easier swap, a harder swap, and a no-equipment swap.
-- Every exercise shows the muscles it works (main and secondary) on a small front/back muscle map, 3–4 short how-to steps, the main mistake to avoid, and a **Watch on YouTube** link that is a YouTube *search* for the exercise (so it never goes dead). Content lives in `js/plan.js` under `guide`; the map is drawn by `js/muscles.js`. Learn has every session's exercises and the muscle coverage matrix ("Where the work lands").
+- Every exercise shows the muscles it works (main and secondary) on a front/back muscle map, 3–4 short how-to steps, the main mistake to avoid, and a **Watch on YouTube** link that is a YouTube *search* for the exercise (so it never goes dead). Content lives in `js/plan.js` under `guide`; the map is drawn by `js/muscles.js`. Plan › Week has every session's exercises; Learn has the muscle coverage matrix ("Where the work lands").
 - Before starting, the check-in screen lists today's exercises with sets, reps and muscles; tapping one opens its how-to. During rest the timer always shows **Up next** (the next set, and the next exercise after it).
 - Units: stored in kg. Settings can show weights in lb (requested 26 Nov 2026); switching never changes stored logs.
 
@@ -102,6 +102,8 @@ The user runs 5K, 10K and 21K and **Strava records every run**. Uptime never dup
 - No critical action hidden behind swipe-only gestures or tiny icons. Prefer undo over confirmation dialogs.
 - Logging a set: one tap on the prefilled Log button. A different rep count is two taps (tap the number, then Log); tapping a number never logs on its own, because a wrong log is worse than an extra tap.
 - Unplanned activities (sport, easy run, conditioning) save the moment they're tapped, with sensible defaults (today, typical duration), then show an **Edit** link and **Undo**. No Save button.
+- **Ways out, on every Workout screen:** a back/Exit button at the top left. Exit asks **Save and finish** (saved as a partial session, with Resume to undo) or **Discard** (nothing saved, with Undo on Home). The phone's back gesture and browser back always work: an open sheet closes first; otherwise back goes Home, which offers Resume, and the workout is never lost. Leaving goes *back* to Home when Home opened the Workout, so history stays one clean step.
+- **Skip and fix mid-session:** Skip opens "Skip this set" or "Skip the rest of <exercise>"; skipped sets are not logged and never count against progress. Each logged set has Remove. Previous/Next move between exercises without dropping anything; a finished exercise can be reopened to remove a set or add one. All of these have Undo.
 - Survive interruptions: rest timer based on end timestamps (accurate after screen lock, app switch, calls); in-progress workout saved after every set and restored on reopen. Within 90 minutes of the last logged set, reopening goes straight back to the same set. After more than 90 minutes, it asks **Pick up** or **Finish**; both keep every logged set.
 - Design every state: first-run onboarding (≤3 steps), empty, in-progress, completed, offline, error.
 - WCAG 2.2 AA contrast, visible focus states, screen-reader labels, respects `prefers-reduced-motion`.
@@ -110,12 +112,15 @@ The user runs 5K, 10K and 21K and **Strava records every run**. Uptime never dup
 ## Home page & first impression
 
 - The app has a **Home** page and a **Workout** section. Home is the showpiece: anyone who sees it should immediately feel this is a premium, thoughtfully crafted product, not a template.
-- Navigation: three bottom tabs, **Home**, **Progress** and **Plan**. Food and Learn content lives inside Plan, along with modes and settings. The Workout is not a tab: it is a full-screen mode entered with Start and left from the summary, with the tabs hidden while it runs.
-- Home content, in priority order:
-  1. Today's "Next up" session with one large Start button.
-  2. Rolling-week progress and streak.
-  3. One standout stat (e.g. pull-up max, total kg lifted). Never a run stat: Strava has those.
+- Navigation: three bottom tabs, **Home**, **Progress** and **Plan**. Plan opens on **Week** (every session with its exercises, sets × reps, muscle maps and videos, plus the run and sport slots), then Modes, Fuel, Learn and Settings. Progress starts with **Last 7 days** (sessions, exercises, sets and a combined muscle map) and **Past sessions** (each opens its exercises, sets and weights). The Workout is not a tab: it is a full-screen mode entered with Start and left from the summary, with the tabs hidden while it runs.
+- Home is the hub (approved 27 Nov 2026). Content, in priority order:
+  1. Today's "Next up" session with one large green Start button. On phones it fills the first screen so Start sits in the thumb zone.
+  2. **This week**: the six slots (Upper A, Lower A, Upper B, Lower B, Run, Sport; Busy mode shows its full-body sessions and the run) over the rolling 7 days, each done (with the day), next, or not yet. Tapping a slot opens its exercises with muscle maps, how-to and YouTube links.
+  3. Rolling-week progress and streak.
+  4. One standout stat (e.g. pull-up max, total kg lifted), shown only once there is a real number. Never a run stat: Strava has those.
+  5. The most recent past sessions, each opening its sets and weights, with "See all" to Progress.
   - Plus, only when relevant: the Busy mode banner or suggestion (see Modes), and a quiet "Log something else" link under Next up.
+  - No time-of-day greeting. On desktop Home uses two columns: the session on the left, the week, numbers and history on the right.
 - **Signature moment:** tapping Start morphs the Next-up card into the Workout screen (View Transitions API with a graceful fallback). It should feel like one continuous motion, not a page jump.
 - The full intro animation plays only on the first open of the day; after that, Home appears instantly. If a workout is in progress, the app opens straight to it and skips Home.
 - Showpiece effects may never delay the Start button: it must be tappable within 1 second of opening on a mid-range phone.
@@ -123,9 +128,10 @@ The user runs 5K, 10K and 21K and **Strava records every run**. Uptime never dup
 
 ## Visual direction
 
-- Dark base (near-black, not pure black), BCG green accent (**#29BA74** bright, **#197A56** deep), neutral greys, one warning colour. Green means progress/completion, so don't overuse it.
+- Near-black dark base (not pure black) and a light theme, **BCG green as the brand colour** (**#29BA74** bright, **#197A56** deep), neutral greys, one warning colour.
 - **Themes: Light, Dark and System** (requested 26 Nov 2026, replacing the earlier dark-only decision). Settings › Theme; the default is **System**, which follows the phone. The choice is stored per device in `uptime-theme` and applied in each page's `<head>` before the first paint. Light meets the same AA contrast rules as dark; in light, green text and fills use the deep green because the bright one is too pale on white.
-- **Primary buttons (Start, Log set) are the loudest neutral, not green** (approved 26 Nov 2026): off-white with near-black text in dark, near-black with white text in light. Green appears only for progress and completion: a logged set, rest over, the week ring, the streak, "next time goes up".
+- **Green is the brand** (approved 27 Nov 2026; this reverses the 26 Nov "green only for progress / neutral primary buttons" decision): Start, Log set and the other primary buttons are green, the Rotation Dial's progress is green, and the active tab, selected chips, switches and highlights use it. Dark uses the bright green with near-black text on it; light uses the deep green with white text. A logged set turns the button the deeper green with a check. Text and surfaces stay neutral so the green stays the one loud thing on a screen.
+- Muscle maps: main muscles in green, helper muscles in a grey-green, the rest neutral (like the earlier app). Large and labelled front/back on every exercise's how-to; 64 px wide in lists.
 - Tokens live in `css/tokens.css` (dark in `:root`, light written twice: `[data-theme="light"]` and the System media query; a test keeps the copies identical), components in `css/components.css`; the style preview is `docs/style/index.html`. Every colour pair is checked for AA in both themes by `tests/contrast.test.js` (and `npm run check:style` in a browser).
 - Motion inspired by Active Theory: fluid, physical, purposeful. Every animation communicates state (set done, timer running, rotation advancing).
 - Mobile wow comes from craft: kinetic typography, a subtle animated green gradient or grain, numbers that count up, depth through layering and blur, using CSS `transform`/`opacity` only.

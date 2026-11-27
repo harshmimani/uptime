@@ -20,6 +20,8 @@ import { splitLetters, playIn, countTo, reducedMotion, buzz as rawBuzz } from ".
 import { tabBar } from "../nav.js";
 import { startServiceWorker } from "../sw-client.js";
 import { setUnits, units, toUnit, wu } from "../units.js";
+import { howToHTML } from "../muscles.js";
+import { exerciseList, pastRow, pastDetail, lastWeekHTML } from "../session-view.js";
 
 const SEEN_KEY = "uptime-home";    // { day, next }: when the intro last played, which session was last shown
 const FLASH_KEY = "uptime-flash";  // one toast handed over from the Workout section (sessionStorage)
@@ -31,7 +33,7 @@ const live = document.getElementById("live");
 const today = () => isoDate(new Date());
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const nf = new Intl.NumberFormat("en-GB");
-const ui = { toast: null, saveFailed: store.readOnly, undo: null };
+const ui = { toast: null, saveFailed: store.readOnly, undo: null, sheet: null, sheetEntry: false, trigger: null };
 /** A short tap, unless vibration is off in Settings. */
 const buzz = (ms) => { if (db().settings.vibrate !== false) rawBuzz(ms); };
 
@@ -90,11 +92,6 @@ const ICON = {
   check: `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>`,
 };
 
-function greeting(d = new Date()) {
-  const h = d.getHours();
-  return h < 5 ? "Late one" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-}
-
 function weekTile(m) {
   const w = m.week, s = m.streak;
   const head = w.filled ? `<span class="tile__num num" data-count="${w.filled}">${w.filled}</span><span class="tile__of"> of 6</span>` : `<span class="tile__num num">0</span><span class="tile__of"> of 6</span>`;
@@ -108,14 +105,9 @@ function weekTile(m) {
   </section>`;
 }
 
+/** The standout stat. Shown only once there's a real number behind it. */
 function statTile(st) {
-  if (st.kind === "empty") {
-    return `<section class="tile tile--stat tile--empty" aria-label="Standout stat">
-      <span class="label">Standout stat</span>
-      <svg class="tile__art" viewBox="0 0 120 36" preserveAspectRatio="none" aria-hidden="true"><path d="M2 32 C 30 31, 44 22, 62 20 S 98 8, 118 4"/><circle cx="2" cy="32" r="2.5"/></svg>
-      <p class="tile__note">${esc(st.note)}</p>
-    </section>`;
-  }
+  if (st.kind === "empty") return "";
   if (st.unit === "kg" && units() === "lb") st = { ...st, value: Math.round(toUnit(st.value)), unit: wu() };
   const goal = st.goal ? `<div class="ladder" role="img" aria-label="${st.value} of ${st.goal}">${[...Array(st.goal).keys()].map((i) => `<i class="${i < st.value ? "on" : ""}" style="--i:${i}"></i>`).join("")}</div>` : "";
   return `<section class="tile tile--stat" aria-label="Standout stat">
@@ -180,6 +172,133 @@ function card(m, opts) {
   </section>`;
 }
 
+// ------------------------------------------------------------------ This week: the six slots
+
+const TICK = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
+
+function weekSection(m) {
+  const done = m.slots.filter((x) => x.state === "done").length;
+  const slot = (x) => {
+    const state = x.state === "done" ? `<span class="slot__state slot__state--done">${TICK}${esc(x.day)}</span>`
+      : x.state === "next" ? `<span class="slot__state slot__state--next">Next</span>`
+      : `<span class="slot__state">Not yet</span>`;
+    const name = x.kind === "run" ? (x.what || m.run.name) : x.kind === "sport" ? (x.what || "Sport or conditioning") : x.name;
+    const sub = x.kind === "lift" ? x.focus : x.kind === "run" ? "Run slot" : "Any game or cardio";
+    const said = `${name}: ${x.state === "done" ? `done ${x.day}` : x.state === "next" ? "next up" : "not yet"}. ${sub}. Show details`;
+    return `<li><button type="button" class="slot slot--${x.state}" data-act="slot" data-id="${esc(x.id)}" aria-label="${esc(said)}">
+      <span class="slot__code">${esc(x.short)}</span><span class="slot__name">${esc(name)}</span><span class="slot__sub">${esc(sub)}</span>${state}</button></li>`;
+  };
+  return `<section class="hm-week" aria-labelledby="wk-h">
+    <div class="hm-sec__head"><h2 class="hm-sec__title" id="wk-h">This week</h2><span class="meta">${done} of ${m.slots.length} done · last 7 days</span></div>
+    <ol class="slots slots--${m.slots.length}">${m.slots.map(slot).join("")}</ol>
+  </section>`;
+}
+
+function recentSection(m) {
+  if (!m.recent.length) return "";
+  return `<section class="hm-recent" aria-labelledby="past-h">
+    <div class="hm-sec__head"><h2 class="hm-sec__title" id="past-h">Past sessions</h2><a class="btn btn--text" href="progress.html#history">See all</a></div>
+    <ol class="pasts">${m.recent.map((e) => pastRow(e, m.today)).join("")}</ol>
+  </section>`;
+}
+
+// ------------------------------------------------------------------ sheets: a session's exercises, how-to, a past session
+// Each sheet is its own history entry, so the phone's back gesture closes it.
+
+function sheetHTML() {
+  const sh = ui.sheet;
+  if (!sh) return "";
+  let body = "";
+  if (sh.kind === "info") {
+    const back = sh.from ? slotTitle(sh.from) : null;
+    body = `${howToHTML(sh.ex, { name: PLAN.exercises[sh.ex]?.name, cue: PLAN.exercises[sh.ex]?.cue, headingId: "sheet-h" })}
+      ${back ? `<button class="btn btn--secondary btn--wide" data-act="slot" data-id="${esc(sh.from)}">Back to ${esc(back)}</button>` : ""}`;
+  } else if (sh.kind === "past") {
+    const e = model.recent.find((x) => x.id === sh.id);
+    body = e ? `<h2 class="sheet__title" id="sheet-h">${esc(e.name)}</h2>${pastDetail(e)}` : "";
+  } else body = slotSheet(sh.id);
+  return `<div class="scrim" data-act="close-sheet"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
+      ${body}
+      <button class="btn btn--text" style="justify-self:center" data-act="close-sheet">Close</button>
+    </div>`;
+}
+
+function slotTitle(id) {
+  return model.slots.find((x) => x.id === id)?.name || id;
+}
+
+function slotSheet(id) {
+  const m = model;
+  const x = m.slots.find((s) => s.id === id);
+  if (!x) return "";
+  const status = x.state === "done" ? `<span class="pill">Done ${esc(x.day)}</span>` : x.state === "next" ? `<span class="pill">Next up</span>` : "";
+  if (x.kind === "run") {
+    return `<div class="sheet__head"><h2 class="sheet__title" id="sheet-h">${esc(m.run.name)}</h2>${status}</div>
+      <p class="run-line">${esc(m.run.target)}</p>
+      ${m.run.note ? `<p class="meta" style="margin:0">${esc(m.run.note)}</p>` : ""}
+      <p class="quiet">One run a week, cycling intervals → tempo → long easy run. Strava records it; here it's one tap.</p>
+      <a class="btn btn--primary" href="workout.html?start=run" data-act="go"><span class="btn__label">Open today's run</span></a>`;
+  }
+  if (x.kind === "sport") {
+    const opts = PLAN.conditioning.options.map((c) => {
+      const n = c.ex === "basketball" && db().settings.sportName ? db().settings.sportName : PLAN.exercises[c.ex]?.name || c.ex;
+      return `<li><b>${esc(n)}</b><span>${c.minutes[0]}–${c.minutes[1]} min${c.note ? ` · ${esc(c.note)}` : ""}</span></li>`;
+    }).join("");
+    return `<div class="sheet__head"><h2 class="sheet__title" id="sheet-h">Sport or conditioning</h2>${status}</div>
+      <p class="meta" style="margin:0">A game when there is one; otherwise any of these. An easy run is the best pick for the 5K goal.</p>
+      <ul class="cues">${opts}</ul>
+      <a class="btn btn--secondary btn--wide" href="workout.html?start=other" data-act="go">Log something</a>`;
+  }
+  const def = E.sessionDef(id);
+  const items = M.buildItems(id, { settings: db().settings });
+  const start = x.state === "next" && m.canStart && !resumeInfo()
+    ? `<a class="btn btn--primary" href="workout.html?start=lift" data-act="go"><span class="btn__label">Start ${esc(def.name)}</span></a>` : "";
+  return `<div class="sheet__head"><h2 class="sheet__title" id="sheet-h">${esc(def.name)}</h2>${status}</div>
+    <p class="meta" style="margin:0">${esc(def.focus || "Full body")} · ${items.length} exercises · about ${M.estimateMin(items)} min. Tap one for how-to.</p>
+    ${exerciseList(items, { video: true, label: `${def.name} exercises` })}
+    ${start}`;
+}
+
+function openSheet(sheet, trigger) {
+  if (!ui.sheetEntry) { history.pushState({ sheet: true }, ""); ui.sheetEntry = true; }
+  if (trigger && !ui.sheet) ui.trigger = trigger.dataset.act === "slot" ? `[data-act=slot][data-id="${trigger.dataset.id}"]` : trigger.dataset.act === "past" ? `[data-act=past][data-id="${trigger.dataset.id}"]` : null;
+  ui.sheet = sheet;
+  paintSheet();
+}
+function closeSheet() {
+  if (ui.sheetEntry) { history.back(); return; } // popstate closes it
+  closeSheetNow();
+}
+function closeSheetNow() {
+  ui.sheet = null;
+  paintSheet();
+  if (ui.trigger) app.querySelector(ui.trigger)?.focus({ preventScroll: true });
+  ui.trigger = null;
+}
+function paintSheet() {
+  const root = document.getElementById("sheet-root");
+  if (!root) return;
+  root.innerHTML = sheetHTML();
+  root.querySelector(".sheet")?.focus();
+  document.documentElement.classList.toggle("has-sheet", !!ui.sheet);
+}
+addEventListener("popstate", () => {
+  if (ui.goTo) { const href = ui.goTo; ui.goTo = null; ui.sheetEntry = false; location.href = href; return; }
+  if (ui.sheetEntry && !history.state?.sheet) { ui.sheetEntry = false; if (ui.sheet) closeSheetNow(); }
+});
+document.addEventListener("keydown", (ev) => {
+  if (!ui.sheet) return;
+  if (ev.key === "Escape") closeSheet();
+  if (ev.key === "Tab") { // keep focus inside the sheet
+    const f = [...app.querySelectorAll(".sheet button, .sheet a[href]")];
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+    else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+  }
+});
+
 // ------------------------------------------------------------------ render
 
 let model = null;
@@ -191,12 +310,16 @@ function render({ intro = false, advanceFrom = null } = {}) {
   const date = d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   app.className = `home${intro ? " is-intro" : ""}${advanceFrom != null ? " is-advance" : ""}`;
   app.innerHTML = `
-    <header class="hm-head"><span class="label">${esc(date)}</span><span class="hm-greet">${greeting(d)}</span></header>
-    ${banners(m)}
-    <div class="hm-glance">${nudge(m)}${weekTile(m)}${statTile(m.stat)}</div>
+    <header class="hm-head"><span class="hm-brand" aria-hidden="true"><i></i>Uptime</span><span class="label">${esc(date)}</span></header>
+    <div class="hm-notes">${banners(m)}${nudge(m)}</div>
     ${card(m, { fromIndex: intro || advanceFrom != null ? advanceFrom ?? -1 : null })}
+    ${weekSection(m)}
+    <div class="hm-glance${m.stat.kind === "empty" ? " hm-glance--one" : ""}">${weekTile(m)}${statTile(m.stat)}</div>
+    ${recentSection(m)}
     <p class="disclaimer">${esc(PLAN.disclaimer)}</p>
-    <div class="toast-slot" id="toast-slot" aria-live="polite"></div>`;
+    <div class="toast-slot" id="toast-slot" aria-live="polite"></div>
+    <div id="sheet-root"></div>`;
+  if (ui.sheet) paintSheet();
   paintToast();
   if (intro || advanceFrom != null) animate(intro);
 }
@@ -271,6 +394,13 @@ app.addEventListener("click", (ev) => {
     case "start":
     case "other":
     case "float": leave(el); break;
+    case "slot": openSheet({ kind: "slot", id: el.dataset.id }, el); break;
+    case "past": openSheet({ kind: "past", id: el.dataset.id }, el); break;
+    case "info": openSheet({ kind: "info", ex: el.dataset.ex, from: ui.sheet?.kind === "slot" ? ui.sheet.id : null }, el); break;
+    case "close-sheet": closeSheet(); break;
+    case "go": // leave from inside a sheet: drop the sheet's history entry first, then go
+      if (ui.sheetEntry) { ev.preventDefault(); ui.goTo = el.getAttribute("href"); history.back(); }
+      break;
     case "busy-off": setBusy(false); break;
     case "busy-on": setBusy(true); break;
     case "nudge-dismiss":

@@ -1,4 +1,5 @@
-// Plan tab: Modes (Busy mode switch, the rotation), Fuel, Learn and Settings.
+// Plan tab: the whole week first (every session, exercise and muscle, with videos),
+// then Modes (Busy mode switch, the rotation), Fuel, Learn and Settings.
 // All plan content comes from js/plan.js. Every change saves at once and offers Undo;
 // imports and resets keep a backup copy first (store.replace), so Undo survives a reload.
 
@@ -9,8 +10,10 @@ import * as P from "../progress-data.js";
 import { startServiceWorker } from "../sw-client.js";
 import { tabBar, esc, showToast, say, dayMonth } from "../nav.js";
 import { setUnits, wu, fmtW } from "../units.js";
-import { exName, exCue, buildItems, rangeText } from "../workout/model.js";
-import { howToHTML, miniMap, muscleLine, coverage } from "../muscles.js";
+import { exName, exCue, buildItems, estimateMin } from "../workout/model.js";
+import { howToHTML, coverage } from "../muscles.js";
+import { exerciseList } from "../session-view.js";
+import * as R from "../workout/run.js";
 import { getTheme, setTheme } from "../theme.js";
 import { unlockAudio, sound, setVibration, vibrate } from "../workout/feedback.js";
 
@@ -18,8 +21,8 @@ const store = createStore();
 const db = () => store.db;
 const app = document.getElementById("app");
 const today = () => isoDate(new Date());
-const SECTIONS = [["modes", "Modes"], ["fuel", "Fuel"], ["learn", "Learn"], ["settings", "Settings"]];
-const ui = { section: "modes", diet: "both", focus: null, info: null, infoTrigger: null };
+const SECTIONS = [["week", "Week"], ["modes", "Modes"], ["fuel", "Fuel"], ["learn", "Learn"], ["settings", "Settings"]];
+const ui = { section: "week", diet: "both", focus: null, info: null, infoTrigger: null };
 
 function applyPrefs() {
   setUnits(db().settings.units);
@@ -34,6 +37,43 @@ function persist() {
 }
 
 const sw = (id, on, label) => `<button class="switch" type="button" data-act="${id}" role="switch" aria-checked="${!!on}" aria-labelledby="${id}-l"><span class="switch__track"><span class="switch__knob"></span></span><span aria-hidden="true">${on ? "On" : "Off"}</span></button>`;
+
+// ------------------------------------------------------------------ Week: the whole plan, first
+
+function viewWeek() {
+  const busy = E.isBusy(db().settings, today());
+  const log = engineLog(db());
+  const next = E.nextSession(log, { busy });
+  const ids = busy ? PLAN.busy.rotation : PLAN.rules.rotation;
+  const run = R.runTarget(E.runPick(log, today(), db().settings), R.fiveKSec(db().activities, db().settings));
+  const sessions = ids.map((id, i) => {
+    const def = E.sessionDef(id);
+    const items = buildItems(id, { settings: db().settings });
+    return `<article class="card plan-session" aria-labelledby="ps-${id}">
+      <div class="plan-session__head"><span class="plan-session__n num">${i + 1}</span>
+        <div><h3 id="ps-${id}">${esc(def.name)}${id === next ? ` <span class="pill">Next up</span>` : ""}</h3>
+        <p class="meta">${esc(def.focus || "Full body")} · ${items.length} exercises · about ${estimateMin(items)} min</p></div></div>
+      ${exerciseList(items, { video: true, label: `${def.name} exercises` })}
+    </article>`;
+  }).join("");
+  const cond = PLAN.conditioning.options.map((c) => `<li><b>${esc(c.ex === "basketball" && db().settings.sportName ? db().settings.sportName : exName(c.ex))}</b>${c.minutes[0]}–${c.minutes[1]} min${c.note ? ` · ${esc(c.note)}` : ""}</li>`).join("");
+  return `<section class="section" aria-labelledby="week-h">
+    <h2 id="week-h" class="sr-only">Week plan</h2>
+    <p class="meta">${busy ? "Busy mode is on: full-body sessions of about 40 minutes, plus one run. The main rotation waits." : "Four lifts in a fixed order, one run and one sport or conditioning session, plus at least one rest day. Missed days never skip a session: the next one in line waits."} Tap any exercise for its muscles, steps and a video.</p>
+    ${sessions}
+    <article class="card plan-session" aria-labelledby="ps-run">
+      <div class="plan-session__head"><span class="plan-session__n num">${ids.length + 1}</span>
+        <div><h3 id="ps-run">Run · ${esc(run.name)}</h3><p class="meta">Cycles intervals → tempo → long easy run. Strava records it.</p></div></div>
+      <p class="run-line">${esc(run.target)}</p>
+    </article>
+    ${busy ? "" : `<article class="card plan-session" aria-labelledby="ps-sport">
+      <div class="plan-session__head"><span class="plan-session__n num">${ids.length + 2}</span>
+        <div><h3 id="ps-sport">Sport or conditioning</h3><p class="meta">A game when there is one; otherwise any of these.</p></div></div>
+      <ul class="cues">${cond}</ul>
+    </article>`}
+    <p class="quiet">Rest: at least one full day per rotation, and never three hard days in a row.</p>
+  </section>`;
+}
 
 // ------------------------------------------------------------------ Modes
 
@@ -115,15 +155,6 @@ function rotationSessions() {
   return PLAN.rules.rotation.map((id) => ({ id, name: E.sessionDef(id).name, items: buildItems(id, { settings: db().settings }) }));
 }
 
-function exerciseLibrary(sessions) {
-  return sessions.map((s) => `<details class="explain card" style="padding:0">
-      <summary><span><b>${esc(s.name)}</b><span>${s.items.length} exercises · tap one for muscles, steps and a video</span></span></summary>
-      <div class="explain__body"><ol class="exrows" aria-label="${esc(s.name)} exercises">${s.items.map((it) => `<li class="exrow"><button type="button" data-act="info" data-ex="${esc(it.ex)}" aria-label="${esc(`${exName(it.ex)}, ${it.sets} sets of ${rangeText(it)}. How to do it`)}">
-        ${miniMap(it.ex)}<span class="exrow__text"><b>${esc(exName(it.ex))}</b><span>${esc(muscleLine(it.ex))}</span></span>
-        <span class="exrow__dose num">${it.sets} × ${esc(rangeText(it).replace(" reps", ""))}</span></button></li>`).join("")}</ol></div>
-    </details>`).join("");
-}
-
 function coverageTable(sessions) {
   const rows = coverage(sessions);
   const dot = (n) => (n === 0 ? `<em aria-hidden="true">–</em>` : `<i aria-hidden="true" style="width:${n <= 3 ? 8 : n <= 6 ? 12 : 17}px;height:${n <= 3 ? 8 : n <= 6 ? 12 : 17}px"></i>`);
@@ -142,9 +173,7 @@ function viewLearn() {
   const sessions = rotationSessions();
   return `<section class="section" aria-labelledby="learn-h">
     <h2 id="learn-h" class="sr-only">Learn</h2>
-    <h2>Every exercise</h2>
-    <p class="meta">Which muscles each one works, how to do it, the mistake to avoid and a video.</p>
-    ${exerciseLibrary(sessions)}
+    <p class="meta">Every exercise, with its muscles, steps and a video, is under <a href="#week" data-act="section" data-s="week">Week</a>.</p>
     <h2>Where the work lands</h2>
     ${coverageTable(sessions)}
     <h2>Why it works</h2>
@@ -330,10 +359,10 @@ function resetAll() {
 
 function render() {
   const sec = ui.section;
-  const view = { modes: viewModes, fuel: viewFuel, learn: viewLearn, settings: viewSettings }[sec]();
+  const view = { week: viewWeek, modes: viewModes, fuel: viewFuel, learn: viewLearn, settings: viewSettings }[sec]();
   app.innerHTML = `<main class="scr" data-screen="plan">
     <header class="scr__head">
-      <h1 class="h1 page-title" tabindex="-1">${sec === "modes" ? "Plan" : esc(SECTIONS.find((s) => s[0] === sec)[1])}</h1>
+      <h1 class="h1 page-title" tabindex="-1">${sec === "week" ? "Your plan" : esc(SECTIONS.find((s) => s[0] === sec)[1])}</h1>
       <nav class="subnav" aria-label="Plan sections">${SECTIONS.map(([id, label]) => `<a class="chip" href="#${id}" data-act="section" data-s="${id}"${id === sec ? ' aria-current="page"' : ""}>${label}</a>`).join("")}</nav>
     </header>
     <div class="scr__body">
@@ -349,7 +378,7 @@ function render() {
 
 function fromHash() {
   const h = location.hash.slice(1);
-  ui.section = SECTIONS.some((s) => s[0] === h) ? h : "modes";
+  ui.section = SECTIONS.some((s) => s[0] === h) ? h : "week";
 }
 
 app.addEventListener("click", (ev) => {

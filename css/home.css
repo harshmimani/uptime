@@ -22,16 +22,47 @@ body { overscroll-behavior-y: none; }
     calc(var(--tab-h) + var(--sp-3) + env(safe-area-inset-bottom)) max(var(--sp-4), env(safe-area-inset-left));
 }
 .hm-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); min-height: 28px; }
-.hm-greet { font-size: var(--fs-small); color: var(--c-text-2); font-weight: var(--fw-medium); }
+.hm-brand { display: inline-flex; align-items: center; gap: var(--sp-2); font-weight: var(--fw-black); font-stretch: var(--fstretch-display); font-size: var(--fs-lead); letter-spacing: var(--tracking-tight); }
+.hm-brand i { width: 14px; height: 14px; border-radius: 50%; border: 3.5px solid var(--c-action); }
 
 .hm-banner { align-items: center; justify-content: space-between; padding-block: var(--sp-1); gap: var(--sp-2); }
 .hm-banner > span:first-child { padding-block: var(--sp-2); }
 .hm-banner .row { gap: 0; flex: none; }
 .hm-banner__act { color: var(--c-text); font-weight: var(--fw-bold); }
-.hm-nudge { grid-column: 1 / -1; }
+.hm-notes { display: grid; gap: var(--sp-2); }
+.hm-notes:empty { display: none; }
 
 /* ---------------------------------------------------------------- glance tiles: week + stat */
 .hm-glance { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+.hm-glance--one { grid-template-columns: 1fr; }
+
+/* ---------------------------------------------------------------- sections: This week, Past sessions */
+.hm-sec__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); margin: var(--sp-3) 0 var(--sp-2); }
+.hm-sec__title { margin: 0; font-size: var(--fs-lead); font-weight: var(--fw-bold); letter-spacing: var(--tracking-tight); }
+.hm-sec__head .btn--text { min-height: var(--hit-min); }
+.hm-recent { padding: 0 var(--sp-4); border-radius: var(--r-lg); background: var(--c-surface-1); box-shadow: var(--elev-1); }
+.hm-recent .hm-sec__head { margin: var(--sp-2) 0 0; }
+
+.slots { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
+.slots--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.slot {
+  position: relative; display: grid; align-content: start; gap: 2px; width: 100%; height: 100%; min-height: 112px;
+  padding: var(--sp-3); border: 0; border-radius: var(--r-lg); background: var(--c-surface-1); box-shadow: var(--elev-1);
+  color: var(--c-text-2); font: inherit; text-align: left; cursor: pointer; transition: transform var(--dur-instant) var(--ease-out);
+}
+.slot:active { transform: scale(calc(1 - .03 * var(--motion-distance))); }
+.slot:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
+.slot__code { font-size: var(--fs-h2); font-weight: var(--fw-black); font-stretch: var(--fstretch-display); letter-spacing: var(--tracking-display); line-height: 1; color: var(--c-text); }
+.slot__name { font-size: var(--fs-small); font-weight: var(--fw-semibold); color: var(--c-text); margin-top: var(--sp-1); }
+.slot__sub { font-size: var(--fs-label); line-height: var(--lh-snug); color: var(--c-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot__state { display: inline-flex; align-items: center; gap: 4px; margin-top: auto; padding-top: var(--sp-2); font-size: var(--fs-label); font-weight: var(--fw-bold); letter-spacing: .02em; color: var(--c-text-3); }
+.slot__state svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.slot__state--done { color: var(--c-green); }
+.slot--done .slot__code { color: var(--c-green); }
+.slot--done { box-shadow: var(--elev-1), inset 0 0 0 1.5px var(--c-green-deep); }
+.slot--next { box-shadow: var(--elev-1), inset 0 0 0 2px var(--c-action); }
+.slot__state--next { align-self: start; justify-self: start; padding: 2px var(--sp-2); margin-top: auto; border-radius: var(--r-pill); background: var(--c-action); color: var(--c-on-action); }
+.slot--next .slot__state--next { margin-top: auto; }
 .tile {
   position: relative; display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0;
   padding: var(--sp-3) var(--sp-4) var(--sp-4); border-radius: var(--r-lg);
@@ -57,7 +88,9 @@ body { overscroll-behavior-y: none; }
 
 /* ---------------------------------------------------------------- the Rotation Dial card */
 .dial-card {
-  position: relative; isolation: isolate; overflow: hidden; flex: 1 0 auto;
+  position: relative; isolation: isolate; overflow: hidden; flex: none;
+  /* phones: the card fills the first screen so Start sits in the thumb zone; This week peeks below */
+  min-height: calc(100dvh - var(--tab-h) - 96px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   display: flex; flex-direction: column; gap: var(--sp-2);
   padding: var(--sp-4) var(--sp-4) var(--sp-3); border-radius: var(--r-xl);
   background: var(--c-surface-2); box-shadow: var(--elev-3);
@@ -66,25 +99,25 @@ body { overscroll-behavior-y: none; }
 .dial-card .next__glow { right: -60%; top: -70%; }
 .dial {
   position: relative; container-type: inline-size;
-  width: min(100%, 360px, calc((100dvh - 500px) * 1.333)); min-width: min(100%, 236px); margin: 0 auto;
+  width: min(100%, 360px, calc((100dvh - 420px) * 1.333)); min-width: min(100%, 236px); margin: auto; /* centred in the card's spare height */
 }
 .dial__svg { display: block; width: 100%; height: auto; overflow: visible; }
 
-/* rotation segments: done = green (progress), current = off-white (the action), upcoming = quiet */
+/* rotation segments: done and today's in brand green (the arc fills as the rotation moves), upcoming quiet */
 .dial__seg { fill: none; stroke-width: 11; stroke-linecap: round; }
 .dial__seg--upcoming { stroke: var(--c-surface-3); }
-.dial__seg--current { stroke: var(--c-text); }
+.dial__seg--current { stroke: var(--c-action); stroke-width: 14; }
 .dial__seg--done { stroke: var(--c-green); }
 .dial__code { font: var(--fw-bold) 11px/1 var(--font-sans); letter-spacing: .08em; text-anchor: middle; dominant-baseline: central; fill: var(--c-text-3); }
-.dial__code--current { fill: var(--c-text); }
+.dial__code--current { fill: var(--c-text); font-size: 12px; }
 .dial__code--done { fill: var(--c-green); }
 /* rolling 7 days: six thin ticks round the outside */
 .dial__wk { fill: none; stroke: var(--c-line); stroke-width: 3.5; stroke-linecap: round; }
 .dial__wk--on { stroke: var(--c-green); }
 /* the marker sits on today's segment; drawn at 0° and turned into place */
 .dial__marker { transform-box: view-box; transform-origin: 160px 160px; transform: rotate(var(--a)); }
-.dial__dot { fill: var(--c-bg); stroke: var(--c-text); stroke-width: 3; }
-.dial__halo { fill: var(--c-text); opacity: .1; }
+.dial__dot { fill: var(--c-bg); stroke: var(--c-action); stroke-width: 3.5; }
+.dial__halo { fill: var(--c-action); opacity: .18; }
 
 .dial__center {
   position: absolute; inset: 33% 14% 30%; display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -132,6 +165,7 @@ body { overscroll-behavior-y: none; }
 /* ---------------------------------------------------------------- short phones: keep Start on the first screen */
 @media (max-height: 700px) {
   .home { gap: var(--sp-2); }
+  .dial-card { min-height: calc(100dvh - var(--tab-h) - 64px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
   .tile { padding: var(--sp-2) var(--sp-3) var(--sp-3); }
   .tile__num { font-size: 2rem; }
   .tile--stat:not(.tile--empty) .tile__note, .tile--week .tile__note { display: none; }
@@ -145,22 +179,30 @@ body { overscroll-behavior-y: none; }
 
 /* ---------------------------------------------------------------- desktop: the dial gets the stage */
 @media (min-width: 960px) {
+  /* two columns that both carry weight: the session on the left, the week and history on the right */
   .home {
-    max-width: 1080px; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr);
-    grid-template-rows: auto auto 1fr auto; column-gap: var(--sp-7); row-gap: var(--sp-4);
-    padding-top: var(--sp-9); padding-bottom: calc(var(--tab-h) + var(--sp-8));
+    max-width: 1240px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "head head" "note note" "card week" "card glance" "card recent" "disc disc";
+    grid-template-rows: auto auto auto auto 1fr auto;
+    column-gap: var(--sp-7); row-gap: var(--sp-4); align-items: start;
+    padding-top: var(--sp-8); padding-bottom: calc(var(--tab-h) + var(--sp-8));
     min-height: auto;
   }
-  .hm-head { grid-column: 1 / -1; }
-  .home > .notice { grid-column: 1 / -1; }
-  .dial-card { grid-column: 1; grid-row: 2 / span 3; padding: var(--sp-7) var(--sp-8) var(--sp-6); min-height: 560px; }
+  .hm-head { grid-area: head; }
+  .hm-notes { grid-area: note; }
+  .dial-card { grid-area: card; position: sticky; top: var(--sp-6); padding: var(--sp-7) var(--sp-8) var(--sp-6); min-height: 620px; }
   .dial { width: min(100%, 460px); }
-  .dial-card__foot { width: min(100%, 420px); margin-inline: auto; }
-  .hm-glance { grid-column: 2; grid-row: 2; grid-template-columns: 1fr; align-content: start; }
+  .dial-card__foot { width: min(100%, 440px); margin-inline: auto; }
+  .hm-week { grid-area: week; }
+  .hm-week .hm-sec__head { margin-top: 0; }
+  .hm-glance { grid-area: glance; }
+  .hm-recent { grid-area: recent; }
   .tile { padding: var(--sp-5); }
   .tile__num { font-size: var(--fs-num); }
-  .disclaimer { grid-column: 2; grid-row: 4; align-self: end; }
+  .disclaimer { grid-area: disc; }
+  .slot { min-height: 124px; padding: var(--sp-4); }
 }
+@media (min-width: 1280px) { .slots:not(.slots--4) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
 /* ================================================================= intro: first open of the day
    Order: the frame rises in, the dial's segments light one by one, the marker sweeps to
@@ -174,6 +216,7 @@ body { overscroll-behavior-y: none; }
 .is-intro .tile:nth-child(1), .is-intro .hm-banner { animation-delay: 60ms; }
 .is-intro .tile:nth-child(2) { animation-delay: 120ms; }
 .is-intro .tile:nth-child(3) { animation-delay: 180ms; }
+.is-intro .hm-week, .is-intro .hm-recent { animation: hm-rise var(--dur-hero) var(--ease-emphasized) both; animation-delay: 240ms; }
 .is-intro .dial__label { animation-delay: 200ms; }
 .is-intro .dial__meta { animation-delay: 520ms; }
 .is-intro .dial-card__note, .is-intro .float, .is-intro .hm-other { animation-delay: 380ms; }

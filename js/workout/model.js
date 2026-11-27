@@ -231,13 +231,92 @@ export function undoLast(w) {
   return l;
 }
 
-/** Do another exercise now (station taken). */
+/**
+ * Put any exercise in focus: another one now (station taken), or back to an earlier one.
+ * A finished exercise can be opened too: the set screen then shows what was logged,
+ * with Remove on each set and "Add a set".
+ */
 export function jumpTo(w, key) {
   const it = item(w, key);
-  if (!it || !isOpen(w, it)) return false;
+  if (!it) return false;
   w.cur = key;
   w.draft = null;
   return true;
+}
+
+/** The exercise before / after the one in focus, in list order (null at either end). */
+export function neighbour(w, dir) {
+  const i = w.items.findIndex((x) => x.key === w.cur);
+  return w.items[i + dir] || null;
+}
+
+// ------------------------------------------------------------------ skipping and removing
+// Skips only shrink what's planned for today: nothing is logged, the rotation still moves
+// on as usual, and every change can be undone with restore(w, snapshot).
+
+/** Everything a skip, a removal or an extra set can change, for Undo. */
+export function snapshot(w) {
+  return structuredClone({ items: w.items, log: w.log, cur: w.cur, rest: w.rest, draft: w.draft, lastSetAt: w.lastSetAt });
+}
+export function restore(w, snap) {
+  Object.assign(w, structuredClone(snap));
+}
+
+/** Where to go once the exercise in focus has nothing left: the next open set, or null (all done). */
+function moveOn(w) {
+  const it = item(w, w.cur);
+  if (it && isOpen(w, it)) return w.cur;
+  w.draft = null;
+  const nx = nextStep(w, null);
+  if (nx) w.cur = nx.key;
+  return nx ? nx.key : null;
+}
+
+/** Skip the next set of an exercise (one fewer set today). Returns { finished }. */
+export function skipSet(w, key = w.cur) {
+  const it = item(w, key);
+  if (!it || !isOpen(w, it)) return { finished: isFinished(w) };
+  it.sets -= 1;
+  it.skipped = (it.skipped || 0) + 1;
+  if (w.draft?.key === key) w.draft = null;
+  return { finished: !moveOn(w) };
+}
+
+/** Skip the rest of an exercise: its open sets are dropped for today. Returns { finished, sets }. */
+export function skipExercise(w, key = w.cur) {
+  const it = item(w, key);
+  if (!it) return { finished: isFinished(w), sets: 0 };
+  const left = Math.max(0, it.sets - doneCount(w, key));
+  it.sets -= left;
+  it.skipped = (it.skipped || 0) + left;
+  if (w.draft?.key === key) w.draft = null;
+  return { finished: !moveOn(w), sets: left };
+}
+
+/** One more set of an exercise (also undoes a skipped set). The exercise comes into focus. */
+export function addSet(w, key = w.cur) {
+  const it = item(w, key);
+  if (!it) return false;
+  it.sets = Math.max(it.sets, doneCount(w, key)) + 1;
+  if (it.skipped) it.skipped -= 1;
+  w.cur = key;
+  w.draft = null;
+  return true;
+}
+
+/**
+ * Remove a logged set (index into w.log). The exercise's other sets are renumbered and
+ * the set comes back as open, so it can be logged again. Returns the removed entry.
+ */
+export function removeLogged(w, index) {
+  const [l] = w.log.splice(index, 1);
+  if (!l) return null;
+  let n = 0;
+  for (const x of w.log) if (x.key === l.key) x.n = ++n;
+  w.lastSetAt = w.log.length ? Math.max(...w.log.map((x) => x.t ?? 0)) || null : null;
+  if (w.draft?.key === l.key) w.draft = null;
+  if (w.work?.key === l.key) w.work = null;
+  return l;
 }
 
 /** Swap the exercise in focus. Logged sets keep their own exercise id. Returns what to restore on undo. */
@@ -262,7 +341,10 @@ export function setShort(w, short, settings = {}, plan = PLAN) {
   const merged = fresh.map((f) => {
     const o = old.get(f.key);
     const done = doneCount(w, f.key);
-    return o ? { ...f, ex: o.ex, swapped: o.swapped, carryKg: o.carryKg, sets: Math.max(f.sets, done) } : f;
+    if (!o) return f;
+    // a skipped exercise stays as the user left it
+    const sets = o.skipped ? Math.min(o.sets, Math.max(f.sets, done)) : Math.max(f.sets, done);
+    return { ...f, ex: o.ex, swapped: o.swapped, carryKg: o.carryKg, sets, skipped: o.skipped };
   });
   for (const o of w.items) {
     if (!merged.some((m) => m.key === o.key) && doneCount(w, o.key) > 0) merged.push({ ...o, sets: doneCount(w, o.key) });
@@ -405,6 +487,7 @@ export function toSession(w, { partial = false, end } = {}) {
     checkIn: w.checkIn, short: !!w.short || undefined, noGym: !!w.noGym || undefined,
     deload: !!w.adjust.deload || undefined, reduced: (w.adjust.loadFactor ?? 1) < 1 || undefined,
     partial: partial || undefined, planned: totalSets(w), items,
+    skipped: w.items.reduce((n, it) => n + (it.skipped || 0), 0) || undefined,
   };
 }
 

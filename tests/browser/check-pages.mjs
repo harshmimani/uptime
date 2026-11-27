@@ -103,7 +103,16 @@ for (const [label, viewport] of [["360", { width: 360, height: 780 }], ["390", {
   // ---------------- Plan
   const p = await open("plan.html", viewport);
   const pp = p.pg;
-  check(await pp.isVisible("text=Busy mode"), `${label}: Plan opens on Modes`);
+  check(await pp.locator(".plan-session").count() >= 6 && (await pp.textContent(".subnav [aria-current=page]")).trim() === "Week", `${label}: Plan opens on the week plan`);
+  check(await noHScroll(pp) && await smallTargets(pp) === 0, `${label}: week plan: no horizontal scroll, tap targets ≥ 44 px`);
+  await pp.click(".plan-session >> nth=1 >> .exrow button >> nth=1");
+  await pp.waitForSelector(".sheet .howto");
+  check(await pp.isVisible(".sheet a[href*='youtube.com/results']"), `${label}: an exercise in Week opens its how-to with the YouTube link`);
+  await shot(pp, `${label}-plan-week-howto`);
+  await pp.click(".sheet [data-act=close-info]");
+  check(await pp.locator(".sheet").count() === 0, `${label}: the how-to closes`);
+  await pp.click("[data-act=section][data-s=modes]");
+  check(await pp.isVisible("text=Busy mode"), `${label}: Modes comes after the week`);
   await pp.click("[data-act=busy]");
   check((await db(pp)).settings.modeLog.at(-1).busy === true, `${label}: Busy mode switch saves`);
   await pp.click(".toast button");
@@ -122,15 +131,8 @@ for (const [label, viewport] of [["360", { width: 360, height: 780 }], ["390", {
       check(await pp.locator("details.explain:not(.card)").count() === 6, `${label}: six explainers`);
       await pp.click("#learn-double-progression summary");
       check(await pp.isVisible("text=Add reps first"), `${label}: explainer opens`);
-      check(await pp.locator("details.explain.card").count() === 4, `${label}: every session's exercises in Learn`);
       check(await pp.locator("table.cov tbody tr").count() === 12, `${label}: coverage matrix, 12 muscle groups`);
-      await pp.click("details.explain.card >> nth=1 >> summary");
-      await pp.click("details.explain.card >> nth=1 >> .exrow button >> nth=1");
-      await pp.waitForSelector(".sheet .howto");
-      check(await pp.isVisible(".sheet a[href*='youtube.com/results']"), `${label}: Learn how-to has the YouTube link`);
-      await shot(pp, `${label}-plan-learn-howto`);
-      await pp.click(".sheet [data-act=close-info]");
-      check(await pp.locator(".sheet").count() === 0 && await pp.locator("details.explain.card[open]").count() === 1, `${label}: closing keeps the list open`);
+      check(await pp.isVisible("[data-act=section][data-s=week] >> nth=1"), `${label}: Learn points to Week for every exercise`);
     }
   }
   // settings: the earlier app's data, matched and not

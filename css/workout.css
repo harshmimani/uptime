@@ -15,7 +15,12 @@ body { overscroll-behavior-y: none; }
 .scr__head {
   position: sticky; top: 0; z-index: 3; display: grid; gap: var(--sp-2);
   padding: calc(var(--sp-3) + env(safe-area-inset-top)) 0 var(--sp-3);
-  background: linear-gradient(var(--c-bg) 82%, transparent);
+  /* opaque: text scrolling under the header must never show through it (the check-in overlap) */
+  background: var(--c-bg);
+}
+.scr__head::after { /* soft edge below the header, outside its box, so nothing fades into its own text */
+  content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 16px; pointer-events: none;
+  background: linear-gradient(var(--c-bg), transparent);
 }
 .scr__body { flex: 1; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-2) 0 var(--sp-5); }
 .scr__foot {
@@ -141,7 +146,7 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 .seg-ctl button:active { transform: scale(calc(1 - .03 * var(--motion-distance))); }
 .seg-ctl b { font-size: var(--fs-body); color: inherit; }
 .seg-ctl span { font-size: var(--fs-small); }
-.seg-ctl button[aria-pressed="true"] { background: var(--c-text); border-color: var(--c-text); color: var(--c-bg); }
+.seg-ctl button[aria-pressed="true"] { background: var(--c-action); border-color: var(--c-action); color: var(--c-on-action); }
 .seg-ctl--small button { min-height: var(--hit-min); justify-items: center; text-align: center; }
 .exlist { list-style: none; margin: 0; padding: 0; counter-reset: ex; display: grid; }
 .exlist li { counter-increment: ex; display: grid; grid-template-columns: 28px 1fr auto; gap: var(--sp-2); align-items: baseline; padding: var(--sp-2) 0; border-bottom: 1px solid var(--c-line); font-size: var(--fs-small); color: var(--c-text-2); }
@@ -152,18 +157,6 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 .btn--tall { min-height: var(--hit-primary); font-size: var(--fs-lead); width: 100%; border-radius: var(--r-lg); }
 
 /* ---------------------------------------------------------------- sheets (swap, all exercises) */
-.scrim { position: fixed; inset: 0; z-index: 10; background: var(--c-scrim); animation: fade var(--dur-base) var(--ease-out) both; }
-@keyframes fade { from { opacity: 0; } }
-.sheet {
-  position: fixed; z-index: 11; left: 50%; bottom: 0; width: min(480px, 100%); max-height: 88dvh; overflow: auto;
-  transform: translateX(-50%); display: grid; gap: var(--sp-3);
-  padding: var(--sp-5) var(--sp-4) calc(var(--sp-4) + env(safe-area-inset-bottom));
-  border-radius: var(--r-xl) var(--r-xl) 0 0; background: var(--c-surface-2); box-shadow: var(--elev-4);
-  animation: sheet-in var(--dur-slow) var(--ease-emphasized) both;
-}
-@keyframes sheet-in { from { transform: translate(-50%, calc(40px * var(--motion-distance))); opacity: 0; } }
-.sheet:focus { outline: none; }
-.sheet__title { margin: 0; font-size: var(--fs-lead); font-weight: var(--fw-bold); }
 .opt {
   display: grid; gap: 2px; text-align: left; width: 100%; min-height: 64px; padding: var(--sp-3) var(--sp-4);
   border: 1.5px solid var(--c-line-strong); border-radius: var(--r-md); background: transparent; color: var(--c-text-2);
@@ -172,7 +165,7 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 .opt:active { transform: scale(calc(1 - .02 * var(--motion-distance))); }
 .opt b { color: var(--c-text); font-size: var(--fs-body); font-weight: var(--fw-semibold); }
 .opt .label { color: var(--c-text-3); }
-.opt[aria-current="true"] { border-color: var(--c-text); }
+.opt[aria-current="true"] { border-color: var(--c-action); box-shadow: inset 0 0 0 1px var(--c-action); }
 .opt.done b::after { content: " · done"; color: var(--c-green); font-weight: var(--fw-semibold); }
 .opt--row { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
 .opt--row > span:last-child { flex: none; font-variant-numeric: tabular-nums; }
@@ -228,48 +221,6 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
   .scr__head { padding-top: var(--sp-4); }
 }
 
-/* ---------------------------------------------------------------- muscles and how-to (js/muscles.js) */
-.mmap { display: block; height: auto; }
-.mmap--l { width: min(100%, 220px); }
-.mmap--s { width: 44px; flex: none; }
-.mm-body { fill: var(--c-map-body); }
-.mm-idle { fill: var(--c-map-idle); }
-.mm-also { fill: var(--c-map-also); }
-.mm-main { fill: var(--c-map-main); }
-.mm-lab { font-size: 9px; font-weight: 700; letter-spacing: .08em; fill: var(--c-text-3); }
-.mm-key { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
-.mm-key--main { background: var(--c-map-main); }
-.mm-key--also { background: var(--c-map-also); }
-
-.howto { display: grid; gap: var(--sp-3); }
-.howto .meta { margin: 0; }
-.howto__map { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-3); align-items: center; }
-.howto__muscles { margin: 0; display: grid; gap: var(--sp-3); }
-.howto__muscles dt { font-size: var(--fs-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-text-3); font-weight: var(--fw-semibold); }
-.howto__muscles dd { margin: 2px 0 0; color: var(--c-text); font-weight: var(--fw-semibold); }
-.steps { margin: 0; padding: 0; list-style: none; counter-reset: st; display: grid; gap: var(--sp-2); }
-.steps li { counter-increment: st; display: grid; grid-template-columns: 24px 1fr; gap: var(--sp-2); color: var(--c-text-2); }
-.steps li::before { content: counter(st); color: var(--c-text); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
-.notice--avoid { box-shadow: inset 3px 0 0 var(--c-text-2); }
-
-/* tappable exercise rows: the session overview (check-in) and Learn */
-.exrows { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; counter-reset: ex; }
-.exrow { counter-increment: ex; border-bottom: 1px solid var(--c-line); }
-.exrow.out { opacity: .5; }
-.exrow button {
-  display: grid; grid-template-columns: 20px 44px minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; width: 100%;
-  min-height: 64px; padding: var(--sp-2) 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
-  transition: transform var(--dur-instant) var(--ease-out);
-}
-.exrow button::before { content: counter(ex); color: var(--c-text-3); font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
-.exrow button:active { transform: scale(calc(1 - .015 * var(--motion-distance))); }
-.exrow button:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; border-radius: var(--r-sm); }
-.exrow__text { display: grid; gap: 2px; min-width: 0; }
-.exrow__text b { color: var(--c-text); font-weight: var(--fw-semibold); }
-.exrow__text span { font-size: var(--fs-small); color: var(--c-text-2); }
-.exrow__dose { font-size: var(--fs-small); color: var(--c-text); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.exrow__more { font-size: var(--fs-label); color: var(--c-text-3); }
-
 /* the info link next to an exercise name on the set screen */
 .ex-title { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
 .howto-btn { flex: none; min-height: var(--hit-min); }
@@ -297,3 +248,22 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 .oldmap li { display: grid; gap: 2px; padding: var(--sp-2) 0; border-bottom: 1px solid var(--c-line); font-size: var(--fs-small); color: var(--c-text-2); }
 .oldmap li:last-child { border-bottom: 0; }
 .oldmap b { color: var(--c-text); font-weight: var(--fw-semibold); }
+
+/* ---------------------------------------------------------------- way out, moving between exercises, skip and remove */
+.head-row { min-height: var(--hit-min); gap: var(--sp-1); }
+.head-row .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.exnav { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin: calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) 0; }
+.exnav .btn--text { min-height: var(--hit-min); text-decoration: none; color: var(--c-text); font-weight: var(--fw-semibold); }
+.exnav .btn--text:disabled { color: var(--c-text-3); }
+.tools .btn { padding-inline: var(--sp-2); }
+.logged li { gap: var(--sp-2); }
+.logged li > span { flex: 1; }
+.logged__rm { min-height: var(--hit-min); color: var(--c-text-2); font-size: var(--fs-small); margin-right: calc(-1 * var(--sp-2)); }
+.opt--danger b { color: var(--c-warn); }
+/* short phones (≤ 700 px tall): the header with its 48 px Exit button takes a little more room,
+   so the rest ring gives some back and the rest controls stay clear of the toast above Log */
+@media (max-height: 700px) {
+  .scr__head { padding-top: calc(var(--sp-1) + env(safe-area-inset-top)); padding-bottom: var(--sp-2); }
+  .timerbox { padding: var(--sp-3); gap: var(--sp-2); }
+  .timerbox .ring { --size: clamp(92px, calc(100dvh - 548px), 232px); }
+}

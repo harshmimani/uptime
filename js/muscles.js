@@ -110,13 +110,13 @@ export function howToHTML(ex, { name, cue, headingId = "howto-h", headingTag = "
   return `<div class="howto">
     <${headingTag} class="sheet__title" id="${esc(headingId)}">${esc(title)}</${headingTag}>
     ${cue ? `<p class="meta">${esc(cue)}</p>` : ""}
-    <div class="howto__map">
+    <figure class="howto__map" style="margin:0">
       ${mapSVG(g.m, g.s, { size: "l" })}
       <dl class="howto__muscles">
         <div><dt><i class="mm-key mm-key--main" aria-hidden="true"></i>Main</dt><dd>${esc(muscleList(g.m)) || "–"}</dd></div>
         ${g.s.length ? `<div><dt><i class="mm-key mm-key--also" aria-hidden="true"></i>Also</dt><dd>${esc(muscleList(g.s))}</dd></div>` : ""}
       </dl>
-    </div>
+    </figure>
     ${g.steps.length ? `<span class="label">How to</span><ol class="steps">${g.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>` : ""}
     ${g.mistake ? `<div class="notice notice--avoid"><div><b>Main mistake</b> ${esc(g.mistake)}</div></div>` : ""}
     <a class="btn btn--secondary btn--wide" href="${esc(youtubeURL(ex, plan))}" target="_blank" rel="noopener noreferrer">Watch on YouTube<span class="sr-only"> (opens a search for ${esc(title)})</span></a>

@@ -134,7 +134,7 @@ async function liftFlow(label, viewport) {
   check(/Up next · set 2 of 3/.test(up) && up.includes("Dumbbell bench press") && /Then /.test(up), `${label}: rest shows Up next and the exercise after it`);
   await shot(pg, `${label}-07-rest`);
   await pg.click("[data-act=rest-add][data-d='15']");
-  check(/^2:1\d$/.test(await pg.textContent("#ring-time")), `${label}: +15 s`);
+  { const rt = await pg.textContent("#ring-time"); check(/^2:1\d$/.test(rt), `${label}: +15 s (${rt})`); }
   await pg.click("[data-act=rest-add][data-d='-15']");
   await pg.click("[data-act=rest-add][data-d='-15']");
   check(/^1:[45]\d$/.test(await pg.textContent("#ring-time")), `${label}: −15 s`);
