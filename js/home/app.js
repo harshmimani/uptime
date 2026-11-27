@@ -2,7 +2,8 @@
 //
 // The rotation (UA → LA → UB → LB, or Busy mode's full-body sessions) is drawn as an
 // arc; today's session is lit and its name sets itself in big kinetic type inside it.
-// A thin outer ring is the rolling 7 days. Under it: one Start button in the thumb zone.
+// (The rolling 7 days is "This week" right below, so the dial has one ring only.)
+// Under it: one Start button.
 //
 // Speed rules (CLAUDE.md): the page is painted in one go from local data, and the Start
 // button is a plain link that works from the first frame. Animation is decoration on top:
@@ -11,6 +12,7 @@
 // Tapping Start navigates to workout.html; the cross-document view transition in
 // css/home.css + css/workout.css morphs the card into the Workout screen.
 
+import { sheetChrome, installSheetSwipe } from "../sheet.js";
 import PLAN from "../plan.js";
 import * as E from "../engine.js";
 import { createStore, isoDate } from "../store.js";
@@ -49,7 +51,7 @@ function persist() {
 // ------------------------------------------------------------------ dial geometry
 // viewBox 320 × 240, centre (160, 160). The arc runs 240°, open at the bottom
 // (150° → 390°, clockwise, 0° = 3 o'clock), so the name sits inside it.
-const CX = 160, CY = 160, R_ROT = 126, R_WEEK = 147, R_LABEL = 104;
+const CX = 160, CY = 160, R_ROT = 126, R_LABEL = 104;
 const A0 = 150, SPAN = 240;
 const pt = (r, a) => [CX + r * Math.cos((a * Math.PI) / 180), CY + r * Math.sin((a * Math.PI) / 180)];
 function arc(r, a0, a1) {
@@ -69,14 +71,8 @@ function dialSVG(m, { fromIndex }) {
     return `<path class="dial__seg dial__seg--${x.state}" style="--i:${i}" d="${arc(R_ROT, a + gap / 2, a + each - gap / 2)}"/>
       <text class="dial__code dial__code--${x.state}" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}">${esc(x.short)}</text>`;
   }).join("");
-  const wEach = SPAN / 6, wGap = 3;
-  const week = [...Array(6).keys()].map((i) => {
-    const a = A0 + wEach * i;
-    return `<path class="dial__wk${i < m.week.filled ? " dial__wk--on" : ""}" style="--i:${i}" d="${arc(R_WEEK, a + wGap / 2, a + wEach - wGap / 2)}"/>`;
-  }).join("");
   // the marker is drawn at 0° and turned into place by CSS, so the intro can sweep it (transform only)
-  return `<svg class="dial__svg" viewBox="0 0 320 240" aria-hidden="true" focusable="false">
-    <g class="dial__week">${week}</g>
+  return `<svg class="dial__svg" viewBox="22 22 276 218" aria-hidden="true" focusable="false">
     <g class="dial__rot">${segs}</g>
     <g class="dial__marker" style="--a:${curA}deg;--from:${fromA}deg">
       <circle class="dial__halo" cx="${CX + R_ROT}" cy="${CY}" r="15"/>
@@ -220,6 +216,7 @@ function sheetHTML() {
   } else body = slotSheet(sh.id);
   return `<div class="scrim" data-act="close-sheet"></div>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
+      ${sheetChrome("close-sheet")}
       ${body}
       <button class="btn btn--text" style="justify-self:center" data-act="close-sheet">Close</button>
     </div>`;
@@ -483,6 +480,7 @@ function boot() {
 
 boot();
 installPressGlow(document);
+installSheetSwipe();
 
 // Back from the Workout section through the browser's back button: the page may come from
 // the back/forward cache, so read the data again (a session may have been logged meanwhile).

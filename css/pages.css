@@ -9,8 +9,8 @@ html:has(.tabs) { scroll-padding: 120px 0 112px; }
   position: sticky; bottom: 0; z-index: 4; display: grid; grid-template-columns: repeat(3, 1fr);
   margin: 0 calc(-1 * max(var(--sp-4), env(safe-area-inset-left)));
   padding: var(--sp-1) max(var(--sp-2), env(safe-area-inset-right)) calc(var(--sp-1) + env(safe-area-inset-bottom)) max(var(--sp-2), env(safe-area-inset-left));
-  border-top: 1px solid var(--c-line); background: var(--c-toast);
-  backdrop-filter: blur(var(--blur-glass)); -webkit-backdrop-filter: blur(var(--blur-glass));
+  /* solid, no blur: card text never shows through it, and it's one compositing layer fewer */
+  border-top: 1px solid var(--c-line); background: var(--c-surface-3);
   view-transition-name: tabbar; /* stays put while the page changes between tabs (Home's bar has the same name) */
 }
 .tabs__tab {
@@ -203,3 +203,43 @@ html:active-view-transition-type(backward)::view-transition-new(root) { animatio
 @media (hover: hover) { .subnav .chip:hover { color: var(--c-text); } }
 /* the strip scrolls on narrow phones: fade its right edge so the rest reads as "more this way" */
 @media (max-width: 520px) { .subnav { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); } }
+
+/* ================================================================= design review (27 Nov 2026)
+   Laptop (1024 px and up): the nav is a top bar, not a bottom bar stretched over the content.
+   Brand on the left, the three tabs on the right, inside the same width as the page. */
+@media (min-width: 1024px) {
+  :root { --topbar-h: 64px; }
+  html:has(.tabs) { scroll-padding: calc(var(--topbar-h) + 120px) 0 var(--sp-6); }
+  .tabs, .scr[data-screen] .tabs, body .tabbar .tabs {
+    position: fixed; z-index: 9; top: 0; bottom: auto; left: 0; right: 0; margin: 0; max-width: none;
+    display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-1);
+    height: var(--topbar-h); padding: 0 max(var(--sp-6), calc((100vw - 1240px) / 2 + var(--sp-6)));
+    border-top: 0; border-bottom: 1px solid var(--c-line);
+  }
+  .tabs::before {
+    content: "Uptime"; content: "Uptime" / ""; margin-right: auto; padding-left: 24px;
+    font-weight: var(--fw-black); font-stretch: var(--fstretch-display); font-size: var(--fs-lead); letter-spacing: var(--tracking-tight); color: var(--c-text);
+    background: radial-gradient(circle at 7px 50%, transparent 3.5px, var(--c-action) 4px, var(--c-action) 7px, transparent 7.5px) no-repeat;
+  }
+  .tabs__tab { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--hit-min); padding: 0 var(--sp-4); font-size: var(--fs-small); }
+  .tabs__tab svg { width: 20px; height: 20px; }
+  .tabs__tab[aria-current="page"]::before { top: auto; bottom: -8px; left: var(--sp-4); right: var(--sp-4); width: auto; margin: 0; border-radius: 3px 3px 0 0; }
+  @media (hover: hover) { .tabs__tab:hover { color: var(--c-text); background: var(--c-surface-2); } .tabs__tab[aria-current="page"]:hover { color: var(--c-green); } }
+  /* the pages start under the bar, and their sticky headers stop under it */
+  .scr[data-screen="plan"], .scr[data-screen="progress"] { padding-top: calc(var(--topbar-h) + var(--sp-5)); }
+  .scr[data-screen="plan"] .scr__head, .scr[data-screen="progress"] .scr__head { top: var(--topbar-h); }
+  .scr__foot--tabs { min-height: 0; padding: 0; }
+
+  /* Progress › Last 7 days: words and numbers on the left, the map on the right */
+  .l7 { grid-template-columns: minmax(0, 1fr) 260px; grid-template-rows: auto auto 1fr; column-gap: var(--sp-6); align-items: start; }
+  .l7 > :not(.l7__map) { grid-column: 1; }
+  .l7__map { display: contents; }
+  .l7 .l7__map .mmap--l { grid-column: 2; grid-row: 1 / span 3; max-width: 260px; width: 100%; }
+  .l7 .l7__map .howto__muscles { grid-column: 1; align-self: start; }
+}
+/* Plan's section strip: 8 px a side so all six fit on a 390 px phone (on 360 px the selected one scrolls into view) */
+.subnav .chip { padding: 0 var(--sp-2); }
+@media (min-width: 380px) { .subnav { -webkit-mask-image: none; mask-image: none; } }
+.subnav .chip[aria-current="page"]::after { left: var(--sp-2); right: var(--sp-2); }
+.subnav .chip:first-child { padding-left: 0; }
+.subnav .chip:first-child[aria-current="page"]::after { left: 0; }

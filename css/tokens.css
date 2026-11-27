@@ -64,6 +64,8 @@
 
   /* Toast: translucent so the screen shows through its blur */
   --c-toast: rgba(35, 40, 38, .97); /* near-opaque: text behind a toast must not read through it */
+  --c-toast-text: #F2F5F3;  /* text on a toast; light theme inverts the toast (dark fill, light text) */
+  --c-key-line: #232826;    /* stepper key edge: invisible in dark, a real edge in light */
 
   /* Worst cases the moving light can lighten a background to. Not used for painting:
      tests/contrast.test.js checks text against them and checks they really are the worst case.
@@ -188,7 +190,9 @@
   --c-warn: #8A5300;
   --c-warn-surface: #FDF1DC;
   --c-focus: #0E1311;
-  --c-toast: rgba(255, 255, 255, .97);
+  --c-toast: rgba(27, 33, 30, .97);
+  --c-toast-text: #F2F5F3;
+  --c-key-line: #737D78;
   --c-bg-glow-max: #D3E9DE;
   --c-card-glow-max: #DDF5E9;
   --c-map-body: #E6EAE8;
@@ -225,7 +229,9 @@
     --c-warn: #8A5300;
     --c-warn-surface: #FDF1DC;
     --c-focus: #0E1311;
-    --c-toast: rgba(255, 255, 255, .97);
+    --c-toast: rgba(27, 33, 30, .97);
+  --c-toast-text: #F2F5F3;
+  --c-key-line: #737D78;
     --c-bg-glow-max: #D3E9DE;
     --c-card-glow-max: #DDF5E9;
     --c-map-body: #E6EAE8;

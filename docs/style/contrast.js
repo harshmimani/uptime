@@ -22,7 +22,7 @@ export const PAIRS = [
   { fg: "--c-on-action", bg: "--c-action", kind: "text", use: "Primary button label" },
   { fg: "--c-on-green", bg: "--c-green", kind: "text", use: "Text on a bright-green fill" },
   { fg: "--c-on-green-deep", bg: "--c-green-deep", kind: "text", use: "Log button after a set is logged" },
-  { fg: "--c-green", bg: "--c-toast", on: "--c-bg", kind: "text", use: "Active tab label on the tab bar" },
+  { fg: "--c-green", bg: "--c-surface-3", kind: "text", use: "Active tab label on the tab bar" },
   ...["--c-bg", "--c-surface-1", "--c-surface-2"].map(bg => ({ fg: "--c-action", bg, kind: "ui", use: "Green buttons, selected chips and switches against the page" })),
   { fg: "--c-bg", bg: "--c-text", kind: "text", use: "Selected reps chip, rotation 'next' step" },
   { fg: "--c-text-3", bg: "--c-surface-3", kind: "text", use: "Disabled primary button (exempt, kept readable)" },
@@ -34,13 +34,14 @@ export const PAIRS = [
   { fg: "--c-warn", bg: "--c-warn-surface", kind: "text", use: "Warning title" },
   { fg: "--c-text", bg: "--c-warn-surface", kind: "text", use: "Warning body" },
   { fg: "--c-warn", bg: "--c-bg", kind: "text", use: "Warning text on the page" },
-  { fg: "--c-text", bg: "--c-toast", on: "--c-action", kind: "text", use: "Toast text, worst case: over a primary button" },
+  { fg: "--c-toast-text", bg: "--c-toast", on: "--c-action", kind: "text", use: "Toast text, worst case: over a primary button" },
+  { fg: "--c-toast-text", bg: "--c-toast", on: "--c-surface-2", kind: "text", use: "Toast text over the rest card" },
   // Non-text UI
   ...["--c-bg", "--c-surface-1", "--c-surface-2"].map(bg =>
     ({ fg: "--c-line-strong", bg, kind: "ui", use: "Secondary button, chip and switch borders" })),
   ...["--c-bg", "--c-surface-1", "--c-surface-2", "--c-surface-3"].map(bg =>
     ({ fg: "--c-focus", bg, kind: "ui", use: "Focus ring" })),
-  { fg: "--c-text-2", bg: "--c-surface-3", kind: "ui", use: "Rest ring arc against its track" },
+  { fg: "--c-text-2", bg: "--c-surface-3", kind: "ui", use: "Work timer arc against its track" },
   { fg: "--c-green", bg: "--c-surface-3", kind: "ui", use: "Finished ring and week segments against the track" },
   { fg: "--c-green", bg: "--c-surface-2", kind: "ui", use: "Done segment on the card" },
   { fg: "--c-text", bg: "--c-surface-1", kind: "ui", use: "Rotation highlight against unvisited steps" },

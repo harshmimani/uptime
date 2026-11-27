@@ -53,7 +53,7 @@ body { overscroll-behavior-y: none; }
    because each page only applies its own styles to the transition into it. */
 @view-transition { navigation: auto; }
 .vt-card { view-transition-name: card; }
-[data-screen="checkin"] .foot-actions, [data-screen="run"] .scr__foot > .btn--primary { view-transition-name: cta; }
+[data-screen="checkin"] .feel, [data-screen="run"] .scr__foot > .btn--primary { view-transition-name: cta; }
 ::view-transition-group(card) { animation-duration: var(--dur-hero); animation-timing-function: var(--ease-emphasized); }
 ::view-transition-image-pair(card) { border-radius: var(--r-xl); overflow: hidden; animation: vt-corner var(--dur-hero) var(--ease-emphasized) both; }
 @keyframes vt-corner { to { border-radius: 0; } }
@@ -69,7 +69,7 @@ body { overscroll-behavior-y: none; }
 @keyframes vt-drop { to { transform: translateY(100%); opacity: 0; } }
 @keyframes vt-rise { from { transform: translateY(100%); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .vt-card, [data-screen="checkin"] .foot-actions, [data-screen="run"] .scr__foot > .btn--primary { view-transition-name: none !important; }
+  .vt-card, [data-screen="checkin"] .feel, [data-screen="run"] .scr__foot > .btn--primary { view-transition-name: none !important; }
   ::view-transition-old(root) { animation: vt-out 200ms linear both; }
   ::view-transition-new(root) { animation: vt-in 200ms linear both; }
 }
@@ -123,10 +123,6 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 
 /* rest and timed-set card: the ring shrinks on short screens so Log never leaves the thumb zone */
 .timerbox { display: grid; gap: var(--sp-3); padding: var(--sp-4); border-radius: var(--r-lg); background: var(--c-surface-2); box-shadow: var(--elev-2); }
-/* everything else on the set screen is ~610 px tall (with the set line above the steppers and room for a toast), so the ring takes what is left: 96 px on a short phone, 232 px on a big one */
-.timerbox .ring { --size: clamp(96px, calc(100vh - 610px), 232px); }
-@supports (height: 100dvh) { .timerbox .ring { --size: clamp(96px, calc(100dvh - 610px), 232px); } }
-.timerbox .ring__time { font-size: calc(var(--size) * .3); }
 .ring__ago { font-size: var(--fs-small); color: var(--c-text-2); min-height: 1.2em; }
 .timerbox .row .btn { flex: 1; }
 .timerbox.enter { animation: rise var(--dur-slow) var(--ease-emphasized) both; }
@@ -185,10 +181,12 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 .stat__num { font-size: var(--fs-h1); font-weight: var(--fw-black); font-stretch: var(--fstretch-display); line-height: 1; overflow-wrap: anywhere; }
 .stat__num.green { color: var(--c-green); }
 .nextlist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); }
-.nextlist li { display: grid; gap: 2px; padding-left: var(--sp-3); box-shadow: inset 2px 0 0 var(--c-line-strong); font-size: var(--fs-small); color: var(--c-text-2); }
+/* each item hangs off a straight bar: grey, or 3 px green for "go up next time" */
+.nextlist li { position: relative; display: grid; gap: 2px; padding-left: var(--sp-3); font-size: var(--fs-small); color: var(--c-text-2); }
+.nextlist li::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--c-line-strong); }
 .nextlist li b { color: var(--c-text); font-size: var(--fs-body); font-weight: var(--fw-semibold); }
-.nextlist li.up { box-shadow: inset 2px 0 0 var(--c-green); }
-.nextlist li.up b { color: var(--c-green); }
+.nextlist li.is-up::before { width: 3px; background: var(--c-green); }
+.nextlist li.is-up b { color: var(--c-green); }
 .week__level { margin: 0; font-size: var(--fs-lead); font-weight: var(--fw-bold); }
 .streak-line { display: flex; justify-content: space-between; gap: var(--sp-3); border-top: 1px solid var(--c-line); padding-top: var(--sp-3); font-size: var(--fs-small); color: var(--c-text-2); }
 .streak-line b { color: var(--c-green); }
@@ -226,7 +224,7 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 .howto-btn { flex: none; min-height: var(--hit-min); }
 
 /* rest: what comes next, always */
-.upnext { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: var(--sp-3); align-items: center; padding-top: var(--sp-3); border-top: 1px solid var(--c-line); }
+.upnext { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: var(--sp-3); align-items: center; padding-top: var(--sp-3); border-top: 1px solid var(--c-line); }
 .upnext__text { display: grid; gap: 2px; min-width: 0; }
 .upnext__text b { font-size: var(--fs-lead); font-weight: var(--fw-bold); color: var(--c-text); line-height: var(--lh-snug); }
 .upnext__text span { font-size: var(--fs-small); color: var(--c-text-2); }
@@ -265,21 +263,20 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 @media (max-height: 700px) {
   .scr__head { padding-top: calc(var(--sp-1) + env(safe-area-inset-top)); padding-bottom: var(--sp-2); }
   .timerbox { padding: var(--sp-3); gap: var(--sp-2); }
-  .timerbox .ring { --size: clamp(92px, calc(100dvh - 630px), 232px); }
 }
 
 /* ---------------------------------------------------------------- warm-up: a card, then one line */
 .warm__head { gap: var(--sp-2); }
 .warm__time { font-size: var(--fs-small); font-weight: var(--fw-semibold); color: var(--c-text-2); }
 .warm__time.over { color: var(--c-green); }
-.warm__btn { min-height: 40px; padding-inline: var(--sp-3); }
+.warm__btn { min-height: var(--hit-min); padding-inline: var(--sp-3); }
 .warm-line {
   display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: var(--hit-min); padding: var(--sp-2) var(--sp-3);
   border: 0; border-radius: var(--r-md); background: var(--c-surface-1); color: var(--c-text-2); font: inherit; font-size: var(--fs-small);
   text-align: left; cursor: pointer; animation: warm-fold var(--dur-slow) var(--ease-emphasized) both;
 }
 .warm-line b { color: var(--c-text); font-weight: var(--fw-semibold); }
-.warm-line > span:nth-child(2) { flex: 1; min-width: 0; }
+.warm-line > .warm-line__text { flex: 1; min-width: 0; }
 .warm-line__tick { display: grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--c-action); color: var(--c-on-action); }
 .warm-line__tick svg { width: 14px; height: 14px; }
 .warm-line__more { color: var(--c-text-3); font-weight: var(--fw-semibold); }
@@ -293,3 +290,79 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 /* "How to" sits on the exercise name's line, not below it */
 .ex-title { align-items: baseline; }
 .howto-btn { align-self: center; }
+
+/* ================================================================= design review (27 Nov 2026)
+   Between sets the screen is the timer: big digits, a green arc, what's next always in view.
+   The dock folds to one line and Log while the rest runs; the toast moves to the top. */
+
+/* ---- the rest timer: 56–80 px digits; a green arc while it runs; a green "Go" disc at zero */
+.timerbox .ring { --size: min(232px, 64vw); --arc: var(--c-green); }
+.timerbox .ring__time { font-size: clamp(56px, 18vw, 80px); position: relative; }
+.ring__center { z-index: 1; }
+.ring__go {
+  position: absolute; inset: 0; border-radius: 50%; background: var(--c-green); pointer-events: none;
+  opacity: 0; transform: scale(.4);
+}
+.ring.over .ring__go { opacity: 1; transform: none; transition: transform 400ms var(--ease-emphasized), opacity 160ms var(--ease-out); }
+.ring.over .ring__time, .ring.over .ring__ago { color: var(--c-on-green); }
+.ring.over .ring__pulse { border-color: var(--c-green); }
+.ring__bar { display: none; }
+@media (prefers-reduced-motion: reduce) { .ring.over .ring__go { transform: none; transition: opacity 200ms linear; } }
+
+/* shorter than 760 px: no ring; the digits sit over a 6 px full-width bar */
+@media (max-height: 759px) {
+  .timerbox .ring { width: 100%; aspect-ratio: auto; display: grid; gap: var(--sp-2); padding: var(--sp-1) 0 var(--sp-2); border-radius: var(--r-md); }
+  .timerbox .ring__track, .timerbox .ring__half, .timerbox .ring__pulse { display: none; }
+  .timerbox .ring__center { position: relative; inset: auto; flex-direction: row; align-items: baseline; gap: var(--sp-3); }
+  .timerbox .ring__time { line-height: 1; }
+  .timerbox .ring__ago:empty { display: none; }
+  .timerbox .ring__go { border-radius: var(--r-md); transform-origin: 50% 50%; transform: scaleX(.2); }
+  .timerbox .ring.over .ring__go { transform: none; }
+  .timerbox .ring__bar { display: block; position: relative; height: 6px; margin: 0 var(--sp-1); border-radius: 3px; background: var(--c-surface-3); overflow: hidden; }
+  .timerbox .ring__bar i { position: absolute; inset: 0; border-radius: inherit; background: var(--c-green); transform-origin: left center; transform: scaleX(0); }
+  .timerbox .ring.run .ring__bar i { animation: rest-bar var(--dur) linear var(--delay) both; }
+  .timerbox .ring.over .ring__bar { visibility: hidden; }
+}
+@keyframes rest-bar { to { transform: scaleX(1); } }
+
+/* ---- the exercise name in the header while resting (in place of the session label) */
+.head-ex { font-size: var(--fs-body); font-weight: var(--fw-bold); letter-spacing: var(--tracking-tight); text-transform: none; color: var(--c-text); }
+
+/* ---- the docked dock: one line and Log while the rest runs (about 120 px) */
+.dockline { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: var(--hit-min); padding-left: var(--sp-1); font-size: var(--fs-body); color: var(--c-text-2); }
+.dockline > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dockline b { color: var(--c-text); font-weight: var(--fw-bold); }
+.dockline__edit { flex: none; min-height: var(--hit-min); color: var(--c-text); font-weight: var(--fw-bold); }
+.scr__foot--docked { gap: var(--sp-1); }
+
+/* ---- toasts on the Workout: at the top, under the header, never over the dock or Up next */
+.wo :is([data-screen="set"], [data-screen="review"]) .toast-slot {
+  position: fixed; z-index: 8; top: calc(84px + env(safe-area-inset-top)); bottom: auto; left: 50%; transform: translateX(-50%);
+  width: min(480px, 100%); padding: 0 var(--sp-4);
+}
+.wo :is([data-screen="set"], [data-screen="review"]) .toast.enter { animation-name: toast-drop; }
+.wo :is([data-screen="set"], [data-screen="review"]) .toast-slot .toast.leave { transform: translateY(calc(-10px * var(--motion-distance))); }
+@keyframes toast-drop { from { opacity: 0; transform: translateY(calc(-14px * var(--motion-distance))); } }
+
+/* ---- warm-up: one 56 px line until opened */
+.warm-line { min-height: 56px; padding: var(--sp-2) var(--sp-4); background: var(--c-surface-2); box-shadow: var(--elev-1); }
+.warm-line__text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.warm-line__ramp { font-size: var(--fs-label); color: var(--c-text-2); }
+.warm-line .warm__time { font-size: inherit; }
+.warm-line__more { color: var(--c-text); }
+.warm__top { align-items: center; }
+.warm__top .label { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+.warm__top .warm__time { font-size: inherit; letter-spacing: 0; }
+.warm__head { gap: var(--sp-1); }
+
+/* ---- check-in: Good / Okay / Rough in one row of three equal 64 px buttons; Good is the one primary */
+.feel { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
+.feel .btn { min-height: 64px; padding-inline: var(--sp-2); font-size: var(--fs-lead); border-radius: var(--r-lg); }
+
+/* ---- light theme: stepper keys get an edge so they read against the page */
+.stepper__key { box-shadow: inset 0 0 0 1px var(--c-key-line); }
+.warm-line > .warm-line__text { flex: 1; }
+.warm-line > .warm-line__more { flex: none; }
+.warm-line .warm__time { white-space: nowrap; }
+.timerbox .row .btn { white-space: nowrap; padding-inline: var(--sp-2); }
+@media (min-width: 1024px) { .wo :is([data-screen="set"], [data-screen="review"]) .toast-slot { top: 128px; } } /* under the taller desktop header */

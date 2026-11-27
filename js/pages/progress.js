@@ -2,6 +2,7 @@
 // weekly bodyweight. Read-mostly; the only input is today's bodyweight.
 // No run stats beyond the 5K-equivalent of times the user types in: Strava has the rest.
 
+import { sheetChrome, installSheetSwipe } from "../sheet.js";
 import PLAN from "../plan.js";
 import { createStore, isoDate } from "../store.js";
 import * as P from "../progress-data.js";
@@ -178,6 +179,7 @@ function sheetHTML() {
   if (!e) return "";
   return `<div class="scrim" data-act="close-sheet"></div>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
+      ${sheetChrome("close-sheet")}
       <h2 class="sheet__title" id="sheet-h">${esc(e.name)}</h2>${pastDetail(e)}
       <button class="btn btn--text" style="justify-self:center" data-act="close-sheet">Close</button>
     </div>`;
@@ -267,4 +269,5 @@ render();
 if (location.hash === "#history") document.getElementById("history")?.scrollIntoView({ block: "start" });
 
 installPressGlow(document);
+installSheetSwipe();
 startServiceWorker();

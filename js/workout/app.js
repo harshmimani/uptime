@@ -7,6 +7,7 @@
 // timestamps on each tick, so they're right after a lock, a call or an app switch.
 // The workout is saved after every change (db.active) and restored on reopen.
 
+import { sheetChrome, installSheetSwipe } from "../sheet.js";
 import PLAN from "../plan.js";
 import * as E from "../engine.js";
 import { createStore, engineLog, exerciseHistory, isoDate, newId, oldLastKg } from "../store.js";
@@ -260,10 +261,10 @@ function viewCheckin() {
     </div>
     <div class="scr__foot">
       <div class="toast-slot" id="toast-slot" aria-live="polite"></div>
-      <div class="foot-actions" role="group" aria-label="How do you feel?">
+      <div class="feel" role="group" aria-label="How do you feel?">
         <button class="btn btn--primary" data-act="checkin" data-v="Good"><span class="btn__label">Good</span></button>
-        <button class="btn btn--primary" data-act="checkin" data-v="Okay"><span class="btn__label">Okay</span></button>
-        <button class="btn btn--secondary btn--tall" data-act="checkin" data-v="Rough"><span class="btn__label">Rough</span></button>
+        <button class="btn btn--secondary" data-act="checkin" data-v="Okay">Okay</button>
+        <button class="btn btn--secondary" data-act="checkin" data-v="Rough">Rough</button>
       </div>
     </div>
   </main>`;
@@ -285,13 +286,16 @@ function checkIn(v) {
 // ---------------------------------------------------------------- set screen
 
 function headerFor(w, it) {
+  // between sets the exercise name sits up here, where the dock and the timer can't cover it
+  const resting = !!(w.rest || w.work) && it;
+  const label = resting ? `<span class="label head-ex" id="head-ex">${esc(M.exName(it.ex))}</span>` : `<span class="label">${esc(w.name)}${w.short ? " · Short" : ""}</span>`;
   const segs = w.items.map((x) => {
     const d = M.doneCount(w, x.key);
     const cls = d >= x.sets ? "done" : x.key === it.key ? "cur" : "";
     return `<i class="${cls}" style="--fill:${(d / x.sets).toFixed(2)}"></i>`;
   }).join("");
   return `<header class="scr__head vt-card">
-    <div class="row between head-row"><div class="row" style="min-width:0">${backBtn("exit", `Exit ${w.name}`, "Exit")}<span class="label">${esc(w.name)}${w.short ? " · Short" : ""}</span></div><span class="meta num" id="elapsed" aria-label="Time in session"></span></div>
+    <div class="row between head-row"><div class="row" style="min-width:0">${backBtn("exit", `Exit ${w.name}`, "Exit")}${label}</div><span class="meta num" id="elapsed" aria-label="Time in session"></span></div>
     <div class="segs" aria-hidden="true">${segs}</div>
   </header>`;
 }
@@ -349,7 +353,7 @@ function logLabel(w, p, v, it) {
   const what = last ? "Log last set" : `Log set ${p.n}`;
   if (v.sec != null) return w.work ? `Stop · log ${Math.max(1, Math.round((now() - w.work.startAt) / 1000))} s` : `Start ${v.sec * (it.perSide ? 2 : 1)} s${it.perSide ? ` · ${v.sec} per side` : ""}`;
   const reps = `${v.reps}${it.perSide ? " per side" : ""}`;
-  return v.kg != null && v.kg > 0 ? `${what} · ${reps} × ${fmtKg(v.kg)} ${unitLabel()}` : `${what} · ${reps} reps`;
+  return v.kg != null && v.kg > 0 ? `${what} · ${fmtKg(v.kg)} ${unitLabel()} × ${reps}` : `${what} · ${reps} reps`;
 }
 
 /** The sets logged for one exercise, each with Remove (Undo brings it back). */
@@ -357,7 +361,7 @@ function loggedList(w, it) {
   const mine = w.log.map((l, i) => ({ l, i })).filter((x) => x.l.key === it.key);
   if (!mine.length) return "";
   return `<ul class="logged" aria-label="Logged sets">${mine.map(({ l, i }, j) => {
-    const val = `${l.sec != null ? `${l.sec} s` : `${l.reps}`}${l.kg ? ` × ${fmtKg(l.kg)} ${unitLabel()}` : l.sec != null ? "" : " reps"}`;
+    const val = `${l.kg ? `${fmtKg(l.kg)} ${unitLabel()} × ` : ""}${l.sec != null ? `${l.sec} s` : `${l.reps}`}${l.kg || l.sec != null ? "" : " reps"}`;
     return `<li class="${j === mine.length - 1 && ui.justLogged ? "enter" : ""}"><span>Set ${l.n}${l.ex !== it.ex ? ` · ${esc(M.exName(l.ex))}` : ""}</span><b class="num">${val}</b>
       <button class="btn btn--text logged__rm" data-act="remove-set" data-i="${i}" aria-label="${esc(`Remove set ${l.n}, ${val}`)}">Remove</button></li>`;
   }).join("")}</ul>`;
@@ -411,7 +415,8 @@ function viewSet() {
   const firstKey = w.items[0]?.key;
   const showWarm = (it.key === firstKey || w.log.length === 0) && !w.rest && !w.work;
   const wu = showWarm ? M.warmup(w, hist, PLAN, db().settings) : null;
-  const warmFolded = wu && (w.warm === "done" || w.log.length > 0) && !ui.warmOpen;
+  const warmDone = wu && (w.warm === "done" || w.log.length > 0);
+  const warmFolded = wu && !ui.warmOpen; // one line until opened, so the exercise is on the first screen
   // The ramp-up belongs to the first loaded main lift. When that lift isn't first (Upper A opens
   // with pull-ups), the card is gone by the time it comes up, so the ramp-up shows again there.
   const rampHere = !wu && mine.length === 0 && !w.rest && !w.adjust.deload ? M.warmup(w, hist, PLAN, db().settings).ramp : null;
@@ -421,6 +426,8 @@ function viewSet() {
   if (p.weighted) steppers.push(stepper({ id: "kg", value: v.kg, unit: p.unit, label: "Weight", step: weightStep(), input: true }));
   if (v.sec != null) steppers.push(stepper({ id: "sec", value: v.sec, unit: it.perSide ? "seconds per side" : "seconds", label: "Seconds", step: M.SEC_STEP, min: 5 }));
   else steppers.push(stepper({ id: "reps", value: v.reps, unit: it.perSide ? "reps per side" : "reps", label: "Reps", step: 1, min: 1 }));
+  // while the rest runs the dock is one line and Log; Edit (or the rest ending) opens it again
+  const docked = !!(w.rest && !w.work && w.rest.endAt > now() && !ui.dockOpen);
   const timerBox = w.work
     ? timerBoxHTML({ kind: "work", label: it.perSide ? "Work · switch sides halfway" : "Work", next: M.exName(it.ex) })
     : w.rest
@@ -431,19 +438,7 @@ function viewSet() {
     <div class="scr__body">
       ${saveErrorBox()}
       ${timerBox}
-      ${wu && warmFolded ? `<button type="button" class="warm-line" data-act="warm-open" aria-expanded="false" aria-label="Warm-up done. Show the warm-up again">
-        <span class="warm-line__tick" aria-hidden="true">${CHECK}</span><span><b>Warm-up done</b>${wu.ramp && wu.ramp.ex === it.ex && mine.length === 0 ? ` · Ramp-up: ${esc(rampText(wu.ramp))}` : ""}</span><span class="warm-line__more" aria-hidden="true">Show</span></button>`
-      : wu ? `<section class="card warm${ui.warmOpen ? " warm--open" : ""}" aria-labelledby="wu-h">
-        <div class="row between"><h2 class="label" id="wu-h">Warm-up · ${wu.minutes} min</h2>${w.log.length || w.warm === "done"
-          ? `<button type="button" class="btn btn--text warm__btn" data-act="warm-open">Hide</button>`
-          : `<span class="row warm__head"><span class="warm__time num" id="warm-left" data-end="${warmEnd}"></span><button type="button" class="btn btn--secondary warm__btn" data-act="warm-done" aria-label="Warm-up done: fold this card">Done</button></span>`}</div>
-        <ul class="checklist">${wu.general.map((g) => `<li>${esc(g)}</li>`).join("")}
-          ${!wu.ramp ? `<li><b>Ramp-up:</b> ${esc(PLAN.warmup.ramp)}</li>`
-            : wu.ramp.ex === it.ex ? `<li><b>Ramp-up on ${esc(wu.ramp.name)}:</b> ${rampText(wu.ramp)}</li>`
-            : `<li><b>Ramp-up sets for ${esc(wu.ramp.name)}</b> show up when you get there.</li>`}
-        </ul>
-        <p class="quiet">Tap Done when you're warm. Logging set 1 folds it too.</p>
-      </section>` : ""}
+      ${wu ? warmHTML(w, wu, it, { folded: warmFolded, done: warmDone, ramp: wu.ramp && wu.ramp.ex === it.ex && mine.length === 0 ? rampText(wu.ramp) : "", end: warmEnd }) : ""}
       ${rampHere && rampHere.ex === it.ex ? `<div class="notice"><div><b>Ramp-up first:</b> ${rampText(rampHere)}. No rest needed between them.</div></div>` : ""}
       ${exNav(w, it)}
       ${tags.length ? `<div class="tags">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
@@ -459,11 +454,13 @@ function viewSet() {
       ${p.prog.action === "reset" ? `<div class="notice"><div>${esc(PLAN.rules.stallAdvice)}</div></div>` : p.prog.slow ? `<div class="notice"><div>${esc(p.prog.advice)}</div></div>` : ""}
       ${loggedList(w, it)}
     </div>
-    <div class="scr__foot">
+    <div class="scr__foot${docked ? " scr__foot--docked" : ""}">
       <div class="toast-slot" id="toast-slot" aria-live="polite"></div>
-      <div class="setline" id="setline"><b>Set ${p.n} of ${it.sets}</b><span class="meta">${esc(M.rangeText({ ...it, reps: p.range || it.reps }))}${it.tempo ? ` · ${esc(it.tempo)}` : p.prog.slow ? " · 3-s lower" : ""}</span></div>
+      ${docked ? `<div class="dockline" id="setline"><span><b>Set ${p.n} of ${it.sets}</b> · <span class="num" id="dock-dose">${esc(doseText(v, it))}</span></span>
+        <button class="btn btn--text dockline__edit" type="button" data-act="dock-edit" aria-label="${esc(`Edit set ${p.n}: weight, reps, swap or skip`)}">Edit</button></div>`
+      : `<div class="setline" id="setline"><b>Set ${p.n} of ${it.sets}</b><span class="meta">${esc(M.rangeText({ ...it, reps: p.range || it.reps }))}${it.tempo ? ` · ${esc(it.tempo)}` : p.prog.slow ? " · 3-s lower" : ""}</span></div>
       <div class="steppers">${steppers.join("")}</div>
-      <div class="row tools"><button class="btn btn--secondary grow" data-act="open-swap" ${w.work ? "disabled" : ""}>Swap</button><button class="btn btn--secondary grow" data-act="open-skip" ${w.work ? "disabled" : ""}>Skip</button><button class="btn btn--secondary grow" data-act="open-all">All</button></div>
+      <div class="row tools"><button class="btn btn--secondary grow" data-act="open-swap" ${w.work ? "disabled" : ""}>Swap</button><button class="btn btn--secondary grow" data-act="open-skip" ${w.work ? "disabled" : ""}>Skip set</button><button class="btn btn--secondary grow" data-act="open-all">All</button></div>`}
       <button class="btn btn--primary" id="log-btn" data-act="log">
         <span class="btn__label" id="log-label">${esc(logLabel(w, p, v, it))}</span>
         <span class="btn__done" aria-hidden="true">${CHECK.replace("<svg", '<svg class="check"')}<span id="done-label">Logged</span></span>
@@ -472,11 +469,43 @@ function viewSet() {
   </main>`;
 }
 
+/** "15 kg × 8", "8 reps", "30 s": weight first, everywhere. */
+function doseText(v, it) {
+  if (v.sec != null) return `${v.kg ? `${fmtKg(v.kg)} ${unitLabel()} × ` : ""}${v.sec} s${it.perSide ? " per side" : ""}`;
+  return v.kg ? `${fmtKg(v.kg)} ${unitLabel()} × ${v.reps}${it.perSide ? " per side" : ""}` : `${v.reps}${it.perSide ? " per side" : " reps"}`;
+}
+
+/**
+ * The warm-up leads the first exercise as one line ("Warm-up · 5 min · 4:59 left · Show"),
+ * so the exercise itself is on the first screen. Show opens the checklist with a Done button;
+ * Done, or logging set 1, folds it to "Warm-up done". It goes once the first exercise is finished.
+ */
+function warmHTML(w, wu, it, { folded, done, ramp, end }) {
+  const rampLine = ramp ? `<span class="warm-line__ramp">Ramp-up: ${esc(ramp)}</span>` : "";
+  if (folded) {
+    return `<button type="button" class="warm-line${done ? " warm-line--done" : ""}" data-act="warm-open" aria-expanded="false"
+      aria-label="${esc(done ? "Warm-up done. Show the warm-up" : `Warm-up, ${wu.minutes} minutes. Show the checklist`)}">
+      ${done ? `<span class="warm-line__tick" aria-hidden="true">${CHECK}</span>` : ""}
+      <span class="warm-line__text"><span><b>${done ? "Warm-up done" : `Warm-up · ${wu.minutes} min`}</b>${done ? "" : ` · <span class="num warm__time" id="warm-left" data-end="${end}"></span>`}</span>${rampLine}</span>
+      <span class="warm-line__more" aria-hidden="true">Show</span></button>`;
+  }
+  return `<section class="card warm warm--open" aria-labelledby="wu-h">
+    <div class="row between warm__top"><h2 class="label" id="wu-h">Warm-up · ${wu.minutes} min${done ? "" : ` · <span class="num warm__time" id="warm-left" data-end="${end}"></span>`}</h2>
+      <span class="row warm__head">${done ? "" : `<button type="button" class="btn btn--secondary warm__btn" data-act="warm-done" aria-label="Warm-up done: fold this card">Done</button>`}
+      <button type="button" class="btn btn--text warm__btn" data-act="warm-open" aria-expanded="true">Hide</button></span></div>
+    <ul class="checklist">${wu.general.map((g) => `<li>${esc(g)}</li>`).join("")}
+      ${!wu.ramp ? `<li><b>Ramp-up:</b> ${esc(PLAN.warmup.ramp)}</li>`
+        : ramp ? `<li><b>Ramp-up on ${esc(wu.ramp.name)}:</b> ${esc(ramp)}</li>`
+        : `<li><b>Ramp-up sets for ${esc(wu.ramp.name)}</b> show up when you get there.</li>`}
+    </ul>
+  </section>`;
+}
+
 /** During rest: the next set, and the exercise after it if that set is more of the same. Tap for how-to. */
 function upNextHTML(w, p, v, it) {
   const u = M.upNext(w);
   if (!u) return "";
-  const dose = v.sec != null ? `${v.sec} s` : `${v.reps}${it.perSide ? " per side" : " reps"}${v.kg ? ` × ${fmtKg(v.kg)} ${unitLabel()}` : ""}`;
+  const dose = doseText(v, it);
   const then = u.then && u.then.key !== it.key ? `Then ${M.exName(u.then.ex)}` : "";
   return `<button type="button" class="upnext opt" data-act="info" data-ex="${esc(it.ex)}" aria-label="${esc(`Up next: ${M.exName(it.ex)}, set ${p.n} of ${it.sets}, ${dose}.${then ? ` ${then}.` : ""} How to do it`)}">
     ${miniMap(it.ex)}<span class="upnext__text"><span class="label">Up next · set ${p.n} of ${it.sets}</span><b>${esc(M.exName(it.ex))}</b>
@@ -491,12 +520,14 @@ function timerBoxHTML({ kind, label, next, upNext = "" }) {
       <div class="ring__half ring__half--r"><div class="ring__fill"></div></div>
       <div class="ring__half ring__half--l"><div class="ring__fill"></div></div>
       <div class="ring__pulse"></div>
+      <div class="ring__go" aria-hidden="true"></div>
       <div class="ring__center"><span class="ring__time display num" id="ring-time"></span><span class="ring__ago" id="ring-sub"></span></div>
+      <div class="ring__bar" aria-hidden="true"><i></i></div>
     </div>
     ${kind === "rest" ? `<div class="row" role="group" aria-label="Adjust rest">
       <button class="btn btn--secondary" data-act="rest-add" data-d="-15" aria-label="15 seconds less rest">−15 s</button>
       <button class="btn btn--secondary" data-act="rest-add" data-d="15" aria-label="15 seconds more rest">+15 s</button>
-      <button class="btn btn--secondary" data-act="rest-skip">Skip</button>
+      <button class="btn btn--secondary" data-act="rest-skip">Skip rest</button>
     </div>` : ""}
     ${upNext}
   </section>`;
@@ -570,6 +601,7 @@ function tick() {
       const ago = -left;
       if (sub) sub.textContent = ago > 5000 ? `Rest over · ${clock(ago)} ago` : "Rest over";
       if (ring && !ring.classList.contains("over")) { ring.classList.remove("run"); ring.classList.add("over"); }
+      if (document.querySelector(".scr__foot--docked") && !ui.sheet) { render(); return; }
       if (!ui.alerted[a.rest.endAt]) {
         ui.alerted[a.rest.endAt] = 1;
         // only make noise if it ended just now, not while the phone was in a pocket
@@ -732,6 +764,8 @@ async function commitSet(values, t, btn, ev) {
     await wait(reducedMotion() ? 250 : 560);
   }
   ui.lock = false;
+  ui.warmOpen = false;
+  ui.dockOpen = false;
   if (res.finished) return finishWorkout(false);
   ui.justLogged = true;
   ui.timerEnter = true;
@@ -769,6 +803,7 @@ function restAdd(d) {
 function restSkip() {
   const w = db().active;
   w.rest = null;
+  ui.dockOpen = false;
   persist();
   render();
   document.getElementById("log-btn")?.focus({ preventScroll: true });
@@ -782,9 +817,10 @@ function viewSheet() {
     const n = w.log.length, total = M.totalSets(w);
     return `<div class="scrim" data-act="close-sheet"></div>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
+      ${sheetChrome("close-sheet")}
       <h2 class="sheet__title" id="sheet-h">Leave ${esc(w.name)}?</h2>
-      ${n ? `<button class="opt" data-act="exit-save"><b>Save and finish</b><span>Keeps your ${n} of ${total} sets as a partial session. It counts toward your week.</span></button>`
-        : `<p class="meta" style="margin:0">Nothing is logged yet, so there's nothing to save.</p>`}
+      <button class="opt" data-act="exit-pause"><b>Pause, keep it open</b><span>Back to Home. Resume from there${n ? `, with your ${n} ${n === 1 ? "set" : "sets"} kept` : ""}.</span></button>
+      ${n ? `<button class="opt" data-act="exit-save"><b>Save and finish</b><span>${esc(partialNote(n, total, w.name))}</span></button>` : ""}
       <button class="opt opt--danger" data-act="exit-discard"><b>${n ? "Discard workout" : "Leave without saving"}</b><span>${n ? `The ${n} logged ${n === 1 ? "set is" : "sets are"} dropped. You can undo on the next screen.` : "You can come back to it from Home."}</span></button>
       <button class="btn btn--secondary btn--wide" data-act="close-sheet">Keep going</button>
     </div>`;
@@ -794,6 +830,7 @@ function viewSheet() {
     const left = it.sets - M.doneCount(w, it.key);
     return `<div class="scrim" data-act="close-sheet"></div>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
+      ${sheetChrome("close-sheet")}
       <h2 class="sheet__title" id="sheet-h">Skip on ${esc(M.exName(it.ex))}</h2>
       <button class="opt" data-act="skip-set"><b>Skip this set</b><span>${left > 1 ? `${left - 1} ${left - 1 === 1 ? "set" : "sets"} left after it.` : "That was the last one, so the next exercise comes up."}</span></button>
       ${left > 1 ? `<button class="opt" data-act="skip-ex"><b>Skip the rest of ${esc(M.exName(it.ex))}</b><span>Drops the ${left} sets left today. Logged sets stay.</span></button>` : ""}
@@ -804,6 +841,7 @@ function viewSheet() {
   if (ui.sheet === "info") {
     return `<div class="scrim" data-act="close-sheet"></div>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
+      ${sheetChrome("close-sheet")}
       ${howToHTML(ui.infoEx, { name: M.exName(ui.infoEx), cue: M.exCue(ui.infoEx), headingId: "sheet-h" })}
       <button class="btn btn--text" style="justify-self:center" data-act="close-sheet">${w ? "Back to the workout" : "Back"}</button>
     </div>`;
@@ -817,6 +855,7 @@ function viewSheet() {
         <span class="label">${k}</span><b>${esc(M.exName(ex))}</b><span>${esc(M.exCue(ex))}</span></button>`).join("");
     return `<div class="scrim" data-act="close-sheet"></div>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
+      ${sheetChrome("close-sheet")}
       <h2 class="sheet__title" id="sheet-h">Swap ${esc(M.exName(it.ex))}</h2>
       ${list || `<p class="meta">This one has no swaps.</p>`}
       ${it.ex !== it.planEx ? `<button class="opt" data-act="swap-to" data-ex="${esc(it.planEx)}"><span class="label">Back to the plan</span><b>${esc(M.exName(it.planEx))}</b><span>${esc(M.exCue(it.planEx))}</span></button>` : ""}
@@ -834,6 +873,7 @@ function viewSheet() {
     }).join("");
     return `<div class="scrim" data-act="close-sheet"></div>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
+      ${sheetChrome("close-sheet")}
       <h2 class="sheet__title" id="sheet-h">All exercises</h2>
       <p class="quiet">Station taken? Tap any exercise to do it now, or a finished one to look back at it.</p>
       <div class="seg-ctl seg-ctl--small" role="group" aria-label="Session length">
@@ -907,6 +947,7 @@ function undoSnap() {
 function moveTo(key) {
   const w = db().active;
   if (!key || !M.jumpTo(w, key)) return;
+  ui.dockOpen = false;
   persist();
   dropSheet();
   render({ focus: true });
@@ -976,6 +1017,16 @@ function finishWorkout(early) {
   if (early) toast(`Saved as partial · ${w.log.length} of ${M.totalSets(w)} sets`, "Resume", "resume", 10000);
 }
 
+/**
+ * What a partial save means. Under half the planned sets it doesn't count as the session:
+ * the sets are kept in history, but the rotation stays on it and it doesn't fill the week.
+ */
+function partialNote(n, total, name) {
+  return M.isStubCount(n, total)
+    ? `Keeps your ${n} of ${total} sets in your history. Under half the session, so ${name} stays next up.`
+    : `Keeps your ${n} of ${total} sets as a partial session. It counts toward your week and the rotation moves on.`;
+}
+
 /** Exit › Discard: the workout is dropped, with Undo on Home ("Back to it" restores it as it was). */
 function discard() {
   const w = db().active;
@@ -1034,14 +1085,14 @@ function viewSummary() {
     <div class="scr__body">
       <svg class="done-mark ${s.partial ? "done-mark--partial" : ""}" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27"/><path d="M20 33l8 8 16-17"/></svg>
       <h1 class="h1" data-kt>${esc(t)}</h1>
-      ${s.partial ? `<p class="meta" style="margin:0">Partial session · ${s.sets} of ${s.planned} sets. It counts toward your week, and the rotation moves on.</p>` : ""}
+      ${s.partial ? `<p class="meta" style="margin:0">Partial session · ${s.sets} of ${s.planned} sets. ${M.isStubCount(s.sets, s.planned) ? `Under half the session, so ${esc(s.name)} stays next up. Your sets are kept.` : "It counts toward your week, and the rotation moves on."}</p>` : ""}
       <div class="stats">
         <div class="stat rise" style="--d:1"><span class="label">Sets</span><span class="stat__num num" data-count="${s.sets}">0</span></div>
         <div class="stat rise" style="--d:2"><span class="label">kg lifted</span><span class="stat__num num" data-count="${s.volume}">0</span></div>
-        <div class="stat rise" style="--d:3"><span class="label">Beat last time</span><span class="stat__num num ${s.beat ? "green" : ""}" data-count="${s.beat}">0</span></div>
+        <div class="stat rise" style="--d:3"><span class="label">Beaten</span><span class="stat__num num ${s.beat ? "green" : ""}" data-count="${s.beat}">0</span></div>
       </div>
       ${s.next.length ? `<section aria-labelledby="nt-h" class="rise" style="--d:4"><h2 class="label" id="nt-h" style="margin:0 0 var(--sp-3)">Next time</h2>
-        <ul class="nextlist">${s.next.map((n) => `<li class="${n.up ? "up" : ""}"><b>${esc(n.title)}</b>${n.detail ? `<span>${esc(n.detail)}</span>` : ""}</li>`).join("")}</ul></section>` : ""}
+        <ul class="nextlist">${s.next.map((n) => `<li class="${n.up ? "is-up" : ""}"><b>${esc(n.title)}</b>${n.detail ? `<span>${esc(n.detail)}</span>` : ""}</li>`).join("")}</ul></section>` : ""}
       <div class="rise" style="--d:5">${weekBlock()}</div>
       <p class="disclaimer">${esc(PLAN.disclaimer)}</p>
     </div>
@@ -1068,7 +1119,7 @@ function viewResume() {
     <div class="scr__body">
       <section class="card"><b>${n} of ${total} sets logged</b>
         <p class="meta" style="margin:0">${n ? `Last: ${esc(last)}, ` : "Opened "}${h ? `${h} h ` : ""}${m} min ago</p></section>
-      <p class="meta" style="margin:0">${n ? "Pick up and the session continues as planned. Finish and it's saved as a partial session that counts toward your week."
+      <p class="meta" style="margin:0">${n ? `Pick up and the session continues as planned. Finish: ${esc(partialNote(n, total, name)).replace(/^K/, "k")}`
         : "Nothing is logged yet. Pick up to start where it was, or leave it: nothing is saved and it stays next up."}</p>
     </div>
     <div class="scr__foot"><div class="toast-slot" id="toast-slot" aria-live="polite"></div><div class="foot-actions">
@@ -1302,6 +1353,8 @@ app.addEventListener("click", (ev) => {
     case "pick-up": if (w) { w.touchedAt = now(); M.clockRun(w, now()); persist(); } awake.on(); go("set"); break;
     case "warm-done": if (w) { w.warm = "done"; ui.warmOpen = false; persist(); render(); say("Warm-up done"); } break;
     case "warm-open": ui.warmOpen = !ui.warmOpen; render(); break;
+    case "dock-edit": ui.dockOpen = true; render(); document.querySelector("#v-reps, #v-sec")?.closest(".stepper")?.querySelector("[data-d]:not(:disabled)")?.focus({ preventScroll: true }); break;
+    case "exit-pause": dropSheet(); goHome({ text: `${w?.name || "Workout"} paused. Resume it here any time today.` }); break;
     case "retry-save": if (persist()) { const b = document.getElementById("save-error"); if (b) b.hidden = true; } break;
     case "run-done": runDone(); break;
     case "race-open": ui.run.raceOpen = !ui.run.raceOpen; render(); break;
@@ -1427,6 +1480,7 @@ function boot() {
 
 boot();
 installPressGlow(app);
+installSheetSwipe();
 
 // offline + updates; the update prompt waits until no workout is running
 startServiceWorker({ quiet: () => !!db().active });

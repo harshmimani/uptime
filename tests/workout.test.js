@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import PLAN from "../js/plan.js";
 import * as M from "../js/workout/model.js";
 import * as R from "../js/workout/run.js";
-import { createStore, migrate, exerciseHistory, engineLog, KEY, LEGACY_KEY, SCHEMA } from "../js/store.js";
+import { createStore, migrate, exerciseHistory, engineLog, isStub, KEY, LEGACY_KEY, SCHEMA } from "../js/store.js";
 
 const T0 = Date.UTC(2026, 10, 26, 7, 0);
 const noHistory = () => [];
@@ -245,11 +245,30 @@ test("store: a failed write is reported, not swallowed; unreadable data is never
 test("store: sessions and activities feed the engine log", () => {
   const db = migrate(null);
   const w = mk({ short: true });
-  M.logSet(w, { reps: 3 }, T0 + 1000);
+  const half = Math.ceil(M.totalSets(w) / 2);
+  for (let i = 0; i < half; i++) M.logSet(w, { reps: 3 }, T0 + 1000 * (i + 1));
   db.sessions.push(M.toSession(w, { partial: true }));
   db.activities.push({ id: "a", date: "2026-11-26", t: T0, kind: "sport", ex: "basketball", min: 60 });
   const log = engineLog(db);
   assert.deepEqual(log.map((e) => e.session || e.kind), ["UA", "sport"]);
+});
+
+test("a partial save under half the sets keeps its sets but doesn't count as the session", () => {
+  const db = migrate(null);
+  const w = mk({});
+  M.logSet(w, { reps: 3 }, T0 + 1000);
+  const rec = M.toSession(w, { partial: true });
+  assert.ok(M.isStubCount(1, rec.planned));
+  assert.ok(isStub(rec));
+  db.sessions.push(rec);
+  assert.deepEqual(engineLog(db), []); // the rotation stays on it and the week doesn't count it
+  assert.equal(exerciseHistory(db, rec.items[0].ex).length, 1); // the set is still history
+  // half or more: a normal partial session
+  const w2 = mk({});
+  for (let i = 0; i < Math.ceil(M.totalSets(w2) / 2); i++) M.logSet(w2, { reps: 3 }, T0 + 1000 * (i + 1));
+  assert.equal(isStub(M.toSession(w2, { partial: true })), false);
+  // a finished session is never a stub; old records without a planned count aren't either
+  assert.equal(isStub({ partial: true, items: [] }), false);
 });
 
 test("run: the time line reads common formats and nothing else", () => {
