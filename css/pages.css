@@ -244,3 +244,8 @@ html:active-view-transition-type(backward)::view-transition-new(root) { animatio
 .subnav .chip:first-child { padding-left: 0; }
 .subnav .chip:first-child[aria-current="page"]::after { left: 0; }
 .week-ups { max-width: 760px; }
+
+/* ================================================================= follow-up review (27 Nov 2026) */
+/* N8: two sub-lines by design; N10: Start at the foot of the first card (48 px) */
+.up__meta--2 { color: var(--c-text-3); }
+.up__start { min-height: var(--hit-min); margin-top: var(--sp-1); }

@@ -33,7 +33,7 @@ export function exerciseList(items, { video = false, label = "Exercises", plan =
       <button type="button" data-act="info" data-ex="${esc(it.ex)}" aria-label="${esc(`${n}, ${dose}${it.out ? ", not in the Short version" : ""}. How to do it`)}">
         ${miniMap(it.ex, plan)}<span class="exrow__text"><b>${esc(n)}</b><span class="exrow__dose num">${esc(dose)}</span><span>${esc(muscleLine(it.ex, plan))}</span></span>
       </button>
-      ${video ? `<a class="exrow__video" href="${esc(youtubeURL(it.ex, plan))}" target="_blank" rel="noopener noreferrer" aria-label="${esc(`Watch ${n} on YouTube`)}">${PLAY}<span>Video</span></a>` : ""}
+      ${video ? `<a class="exrow__video" href="${esc(youtubeURL(it.ex, plan))}" target="_blank" rel="noopener noreferrer" aria-label="${esc(`Video: ${n}`)}" title="Watch on YouTube">${PLAY}</a>` : ""}
     </li>`;
   }).join("");
   return `<ol class="exrows" aria-label="${esc(label)}">${rows}</ol>`;

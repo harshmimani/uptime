@@ -168,8 +168,13 @@ export function wipeFrom(el) {
   const w = document.createElement("div");
   w.className = "finish-wipe";
   w.setAttribute("aria-hidden", "true");
-  w.style.setProperty("--x", `${Math.round(r.left + r.width / 2)}px`);
-  w.style.setProperty("--y", `${Math.round(r.top + r.height / 2)}px`);
+  // a round element just big enough to reach the farthest corner, scaled up from 0 with
+  // transform (compositor only; only the tiles on screen are ever drawn)
+  const x = r.left + r.width / 2, y = r.top + r.height / 2;
+  const reach = Math.ceil(Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y))) + 2;
+  w.style.setProperty("--x", `${Math.round(x)}px`);
+  w.style.setProperty("--y", `${Math.round(y)}px`);
+  w.style.setProperty("--r", `${reach}px`);
   document.body.append(w);
   const reveal = () => { w.classList.add("out"); setTimeout(() => w.remove(), 600); };
   return wait(440).then(() => reveal);

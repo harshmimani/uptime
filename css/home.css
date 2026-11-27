@@ -401,3 +401,22 @@ body { overscroll-behavior-y: none; }
 
 /* week cards: the short description gets two lines instead of being cut ("Horizontal pre…") */
 .slot__sub { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+
+/* ================================================================= follow-up review (27 Nov 2026) */
+/* N4: on phones 700 px tall or less the dial is 200 px wide, so its labels are drawn at 18 units
+   to render at about 13 px (18 × 200 / 276) */
+@media (max-height: 700px) { .dial__code, .dial__code--current { font-size: 18px; } }
+/* N7: under 760 px tall a 240 px dial, and "Log something else" moves below This week, so the
+   first row of This week clears the tab bar */
+.hm-other--below { display: none; }
+@media (max-width: 959px) and (max-height: 759px) {
+  .dial { width: min(100%, 240px); }
+  .dial-card .hm-other { display: none; }
+  .hm-other--below { display: flex; justify-content: center; margin: calc(-1 * var(--sp-2)) auto 0; }
+}
+@media (max-width: 959px) and (max-height: 700px) { .dial { width: min(100%, 200px); } }
+/* the one-time "your data moved" note: in the flow above Next up, with a 48 px close button */
+.hm-mig { align-items: center; padding-right: var(--sp-1); }
+.hm-mig > span { flex: 1; min-width: 0; }
+.hm-mig__x { flex: none; width: var(--hit-min); min-height: var(--hit-min); padding: 0; justify-content: center; color: var(--c-text); }
+.hm-mig__x .ico { width: 20px; height: 20px; }

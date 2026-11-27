@@ -209,3 +209,16 @@ test("old training days count in the Rolling weeks chart, never in the rotation"
 });
 import { engineLog } from "../js/store.js";
 const engineLogLen = (db) => engineLog(db).length;
+
+test("the 'your data moved' note shows once, even if a later load migrates again", () => {
+  const v3 = { ...emptyDB(), v: 3 };
+  const st = memStorage({ [KEY]: JSON.stringify(v3) });
+  const store = createStore(st);
+  assert.match(store.takeMigrationNotice(), /new format/);
+  assert.equal(store.takeMigrationNotice(), null, "not twice on the same page");
+  // a save that never landed would migrate again on the next open: still no second note
+  st.map.set(KEY, JSON.stringify(v3));
+  const again = createStore(st);
+  assert.equal(again.migrated.from, 3);
+  assert.equal(again.takeMigrationNotice(), null);
+});

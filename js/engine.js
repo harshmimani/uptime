@@ -117,11 +117,56 @@ export function classify(entry, plan = PLAN) {
 
 /** Valid entries, oldest first, each with its classification attached as `c`. */
 export function normalizeLog(log = [], plan = PLAN) {
-  return log
-    .map((e, i) => ({ e, i, c: classify(e, plan) }))
-    .filter((x) => x.c.slot)
-    .sort((a, b) => a.e.date.localeCompare(b.e.date) || (a.e.t ?? 0) - (b.e.t ?? 0) || a.i - b.i)
-    .map((x) => ({ ...x.e, c: x.c }));
+  return capGames(
+    log
+      .map((e, i) => ({ e, i, c: classify(e, plan) }))
+      .filter((x) => x.c.slot)
+      .sort((a, b) => a.e.date.localeCompare(b.e.date) || (a.e.t ?? 0) - (b.e.t ?? 0) || a.i - b.i)
+      .map((x) => ({ ...x.e, c: x.c })),
+    plan,
+  );
+}
+
+/**
+ * A game stands in for the quality run at most `run.gameStandInMax` rotations in a row. A game
+ * "stands in" when it fills an empty Run slot (nothing in that slot in the 6 days before it).
+ * Past the limit a game is still a hard day (sport, cardio) but fills no slot (slot "extra"),
+ * so the quality run stays due until one is run. Any run in the Run slot resets the count.
+ */
+function capGames(L, plan) {
+  const max = plan.run.gameStandInMax;
+  if (!max) return L;
+  let inRow = 0;
+  let lastFill = null;
+  for (const e of L) {
+    if (e.c.slot !== "run") continue;
+    const fresh = !lastFill || daysBetween(lastFill, e.date) >= 7;
+    if (!e.c.sport) {
+      inRow = 0;
+      lastFill = e.date;
+    } else if (fresh) {
+      if (inRow >= max) e.c = { ...e.c, slot: "extra", overGameLimit: true };
+      else {
+        inRow++;
+        lastFill = e.date;
+      }
+    }
+  }
+  return L;
+}
+
+/** Games in a row that stood in for the quality run (since the last run in that slot). */
+export function gamesInRow(log, today, plan = PLAN) {
+  const L = norm(log, plan).filter((e) => e.date <= today && e.c.slot === "run");
+  let n = 0;
+  let lastFill = null;
+  for (const e of L) {
+    if (!e.c.sport) n = 0;
+    else if (!lastFill || daysBetween(lastFill, e.date) >= 7) n++;
+    else continue;
+    lastFill = e.date;
+  }
+  return n;
 }
 
 function norm(log, plan) {
@@ -169,32 +214,45 @@ export function setBusy(settings = {}, on, date) {
 export function nextSession(log, { busy = false, threeLifts = false } = {}, plan = PLAN) {
   const L = norm(log, plan);
   const rot = busy ? plan.busy.rotation : plan.rules.rotation;
+  const build = plan.run.race.buildLowers || [];
   for (let i = L.length - 1; i >= 0; i--) {
-    const k = rot.indexOf(L[i].session);
-    if (k === -1) continue;
+    const id = L[i].session;
     if (!busy && threeLifts) {
-      // Upper A → one Lower (A and B take turns) → Upper B → Upper A
-      const kind = sessionDef(L[i].session, plan).kind;
-      if (kind === "lower") return "UB";
-      if (L[i].session === "UB") return "UA";
-      return otherLower(L, plan);
+      // Upper A → the build Lower (squat and deadlift take turns) → Upper B → Upper A
+      if (!rot.includes(id) && !build.includes(id)) continue;
+      if (sessionDef(id, plan).kind === "lower") return "UB";
+      if (id === "UB") return "UA";
+      return buildLower(L, plan);
     }
+    const k = rot.indexOf(id);
+    if (k === -1) continue;
     return rot[(k + 1) % rot.length];
   }
-  return rot[0];
+  return !busy && threeLifts ? "UA" : rot[0];
 }
 
-/** The Lower due next in a three-lift build: the one not done last time (Lower A first). */
-function otherLower(L, plan) {
+/**
+ * The Lower due next in a three-lift build: the build Lower whose main lift wasn't done last
+ * time (squat first). Every build Lower has Nordics and heavy slow calf raises.
+ */
+function buildLower(L, plan) {
+  const [squat, hinge] = plan.run.race.buildLowers || ["LA", "LB"];
   const last = [...L].reverse().find((e) => e.c.slot === "lift" && e.c.liftKind === "lower" && !e.c.busy);
-  return last?.session === "LA" ? "LB" : "LA";
+  const squatted = last && sessionDef(last.session, plan)?.items.some((it) => it.ex === "smith-machine-back-squat");
+  return squatted ? hinge : squat;
 }
 
-/** Is today in a build that trades one lift for a third run (21K, last 12 weeks)? Never in Busy mode. */
+/**
+ * Is today in a build that trades one lift for a third run (21K, last 12 weeks)? The long-run
+ * build starts earlier (buildDays); this part only covers `threeLiftDays`. Never in Busy mode.
+ */
 export function threeLiftBuild(settings = {}, today, plan = PLAN) {
   if (isBusy(settings, today)) return false;
   const ph = racePhase(settings, today, plan);
-  return ["build", "taper", "race-week", "race"].includes(ph.kind) && (plan.run.race.threeLifts || []).includes(ph.distance);
+  const R = plan.run.race;
+  if (!["build", "taper", "race-week", "race"].includes(ph.kind) || !(R.threeLifts || []).includes(ph.distance)) return false;
+  const days = R.threeLiftDays?.[ph.distance];
+  return days == null || ph.daysToGo <= days;
 }
 
 /**
@@ -206,7 +264,8 @@ export function liftCycle(log, settings = {}, today, plan = PLAN) {
   if (!threeLiftBuild(settings, today, plan)) return [...plan.rules.rotation];
   const L = norm(log, plan).filter((e) => e.date <= today);
   const last = [...L].reverse().find((e) => e.c.slot === "lift" && !e.c.busy);
-  const lower = last && sessionDef(last.session, plan).kind === "lower" ? last.session : otherLower(L, plan);
+  const built = plan.run.race.buildLowers || [];
+  const lower = last && built.includes(last.session) ? last.session : buildLower(L, plan);
   return ["UA", lower, "UB"];
 }
 
@@ -244,6 +303,8 @@ export function nextRunType(log, today, settings = {}, plan = PLAN) {
   if (ph.kind === "race-week") return "shakeout";
   const cyc = plan.run.cycle;
   const L = norm(log, plan).filter((e) => e.date <= today);
+  // Games stood in for the last two quality runs: this one is the tempo run.
+  if (plan.run.gameStandInMax && gamesInRow(L, today, plan) >= plan.run.gameStandInMax) return plan.run.gameLimitRun;
   const last = [...L].reverse().find((e) => e.kind === "run" && (QUALITY.includes(e.run) || e.run === "time-trial"));
   if (!last) return cyc[0];
   if (last.run === "time-trial") return "interval"; // an old hard 5K effort: next is the other kind
@@ -252,19 +313,31 @@ export function nextRunType(log, today, settings = {}, plan = PLAN) {
 
 /**
  * Reps for the next interval session (base and 5K builds): starts at the low end and adds
- * one every `addEvery` sessions up to the top. A gap of more than `resetDays` starts over.
+ * one every `addEvery` sessions up to the top. 31–60 days (`stepBackDays`–`resetDays`) since
+ * the last interval session: one rep fewer than last time, never below the start. More than
+ * `resetDays`: back to the start. A session that logged its `reps` counts at that number.
  */
 export function intervalReps(log, today, plan = PLAN) {
   const cfg = plan.run.interval.base;
-  const done = norm(log, plan).filter((e) => e.date <= today && e.kind === "run" && e.run === "interval").map((e) => e.date);
-  let n = 0;
-  let after = today;
-  for (let i = done.length - 1; i >= 0; i--) {
-    if (daysBetween(done[i], after) > cfg.resetDays) break;
-    n++;
-    after = done[i];
+  const [lo, hi] = cfg.reps;
+  const stepBack = cfg.stepBackDays ?? cfg.resetDays;
+  const done = norm(log, plan).filter((e) => e.date <= today && e.kind === "run" && e.run === "interval");
+  // prescription for a session on `date`, given the state after the sessions before it
+  let reps = lo, atReps = 0, prev = null;
+  const due = (date) => {
+    if (!prev) return { reps: lo, atReps: 0 };
+    const gap = daysBetween(prev.date, date);
+    if (gap > cfg.resetDays) return { reps: lo, atReps: 0 };
+    if (gap > stepBack) return { reps: Math.max(lo, prev.reps - 1), atReps: 0 };
+    return atReps >= cfg.addEvery ? { reps: Math.min(hi, reps + 1), atReps: 0 } : { reps, atReps };
+  };
+  for (const e of done) {
+    const d = due(e.date);
+    reps = e.reps > 0 ? Math.min(hi, Math.max(lo, e.reps)) : d.reps;
+    atReps = (e.reps > 0 && e.reps !== d.reps ? 0 : d.atReps) + 1;
+    prev = { date: e.date, reps };
   }
-  return Math.min(cfg.reps[1], cfg.reps[0] + Math.floor(n / cfg.addEvery));
+  return due(today).reps;
 }
 
 /** 5K-equivalent seconds from settings alone: the latest time line, else onboarding, else the baseline. */
@@ -308,13 +381,24 @@ export function longRunKm(log, today, settings = {}, plan = PLAN) {
     const km = Math.round(cap * R.taperLongFactor);
     return { km, cap: km, hold: false };
   }
-  const L = norm(log, plan).filter((e) => e.date <= today && e.run === "long" && e.km > 0);
+  const all = norm(log, plan).filter((e) => e.date <= today);
+  const L = all.filter((e) => e.run === "long" && e.km > 0);
   const last = L[L.length - 1];
+  // A full running break: no run of any kind for more than `lookbackDays`. Today in one: an
+  // easy run first (restart). One since the last long run: the long run starts again at startKm.
+  const runDates = all.filter((e) => e.kind === "run" && (!last || e.date > last.date)).map((e) => e.date);
+  const marks = [...(last ? [last.date] : []), ...runDates, today];
+  const brokeOff = marks.slice(1).some((d, i) => daysBetween(marks[i], d) > lr.lookbackDays);
+  const everRan = all.some((e) => e.kind === "run");
+  if (everRan && daysBetween(marks[marks.length - 2] ?? today, today) > lr.lookbackDays) {
+    return { km: null, cap, hold: false, restart: true };
+  }
   let km;
   if (!last) km = lr.startKm;
   else {
     const since = daysBetween(last.date, today);
-    if (since > lr.lookbackDays) km = Math.max(lr.startKm, last.km - lr.backOffKm);
+    if (since > lr.lookbackDays && brokeOff) km = lr.startKm;
+    else if (since > lr.lookbackDays) km = Math.max(lr.startKm, last.km - lr.backOffKm);
     else if (since > lr.repeatAfterDays) km = last.km;
     else {
       const longest = Math.max(...L.filter((e) => daysBetween(e.date, today) <= lr.lookbackDays).map((e) => e.km));
@@ -331,6 +415,8 @@ export function runPick(log, today, settings = {}, plan = PLAN) {
   const run = nextRunType(log, today, settings, plan);
   const ph = racePhase(settings, today, plan);
   const pick = { run, phase: ph.kind, distance: ph.distance };
+  if (!isBusy(settings, today) && !["race", "race-week"].includes(ph.kind) && plan.run.gameStandInMax
+    && gamesInRow(log, today, plan) >= plan.run.gameStandInMax) pick.gameLimit = true;
   if (run === "interval" && (!["build", "taper"].includes(ph.kind) || ph.distance === "5k")) pick.reps = intervalReps(log, today, plan);
   return pick;
 }
@@ -356,7 +442,7 @@ export function upcoming(log, settings = {}, today, plan = PLAN) {
   if (three) {
     // this cycle's lifts from the next one: the Lower due is whichever comes next in line
     const L = norm(log, plan).filter((e) => e.date <= today);
-    const lower = next === "LA" || next === "LB" ? next : otherLower(L, plan);
+    const lower = (plan.run.race.buildLowers || []).includes(next) ? next : buildLower(L, plan);
     rot = ["UA", lower, "UB"];
   }
   const start = Math.max(0, rot.indexOf(next));
@@ -381,7 +467,7 @@ export function windowStats(log, end, plan = PLAN, days = 7) {
   const L = norm(log, plan);
   const start = addDays(end, -(days - 1));
   const es = L.filter((e) => e.date >= start && e.date <= end);
-  const s = { start, end, lifts: 0, upper: 0, lower: 0, full: 0, run: 0, cond: 0, long: 0, sessions: es.length };
+  const s = { start, end, lifts: 0, upper: 0, lower: 0, full: 0, run: 0, cond: 0, long: 0, extra: 0, sessions: es.length };
   for (const e of es) {
     if (e.c.slot === "lift") {
       s.lifts++;
@@ -390,7 +476,7 @@ export function windowStats(log, end, plan = PLAN, days = 7) {
     else if (e.c.slot === "cond") {
       s.cond++;
       if (e.c.long) s.long++;
-    }
+    } else if (e.c.slot === "extra") s.extra++;
   }
   return s;
 }
@@ -404,7 +490,7 @@ export const FULL_THREE_LIFTS = { lifts: 3, cond: 2 };
 
 /** "Full" | "Good" | "Minimum" | null for a set of counts. */
 export function weekLevel(s, full = FULL) {
-  const cardio = s.run + s.cond;
+  const cardio = s.run + s.cond + (s.extra || 0); // a game past the stand-in limit is still cardio
   if (s.lifts >= full.lifts && s.run >= 1 && s.cond >= full.cond) return "Full";
   if (s.lifts >= 3 && cardio >= 1) return "Good";
   if (s.lifts >= 2) return "Minimum";
@@ -413,7 +499,7 @@ export function weekLevel(s, full = FULL) {
 
 /** What's still missing for each level, given counts. */
 function missingFor(s, full = FULL) {
-  const cardio = s.run + s.cond;
+  const cardio = s.run + s.cond + (s.extra || 0);
   return {
     Minimum: { lifts: Math.max(0, 2 - s.lifts), run: 0, cond: 0 },
     Good: { lifts: Math.max(0, 3 - s.lifts), run: 0, cond: cardio >= 1 ? 0 : 1 },
@@ -733,7 +819,11 @@ export function planToday(log, settings = {}, today, { checkIn } = {}, plan = PL
   const busyDay = (settings.busyWeekdays || []).includes(weekday(today));
   const race = racePhase(settings, today, plan);
   const raceTomorrow = racePhase(settings, addDays(today, 1), plan).kind === "race";
-  const afterLowerB = y.sessions.includes("LB");
+  // Nordics and deadlifts (Lower B, a half build's Lower) leave the hamstrings sore for 24–48 h.
+  const afterLowerB = y.sessions.some((id) => sessionDef(id, plan)?.soreHamstrings);
+  // A game played past the stand-in limit since the last hamstring-heavy Lower: that Lower is Short.
+  const lastSore = [...L].reverse().find((e) => e.c.slot === "lift" && sessionDef(e.session, plan)?.soreHamstrings);
+  const extraGame = !!nextDef.soreHamstrings && L.some((e) => e.c.overGameLimit && (!lastSore || e.date >= lastSore.date));
 
   // ---- what's due in the rolling week
   // Run slot: the quality run (a game fills it too). Sport/conditioning slot: the long run,
@@ -766,7 +856,8 @@ export function planToday(log, settings = {}, today, { checkIn } = {}, plan = PL
       name: nextDef.name,
       kind: nextDef.kind,
       double: t.cardio || undefined,
-      short: !!(checkInAdvice(checkIn).suggestShort || busyDay || (plan.run.race.liftShortInTaper && ["taper", "race-week"].includes(race.kind))) || undefined,
+      short: !!(checkInAdvice(checkIn).suggestShort || busyDay || extraGame || (plan.run.race.liftShortInTaper && ["taper", "race-week"].includes(race.kind))) || undefined,
+      shortWhy: extraGame ? "extra-game" : undefined,
       adjust: {
         loadFactor: ret.loadFactor,
         setsDelta: ret.setsDelta,
@@ -792,13 +883,16 @@ export function planToday(log, settings = {}, today, { checkIn } = {}, plan = PL
   if (longDue && cardioAllowed) {
     const double = t.lift || undefined;
     // Race week stays easy, and a long run would make a third hard day: an easy run instead.
+    const long = longPick(L, today, settings, plan);
     if (race.kind === "race-week" || threeHard) cond = { type: "conditioning", ex: "easy-run", double, cautions: [] };
+    // No running at all for a month: an easy run first, then the long run starts again.
+    else if (long.restart) cond = { type: "conditioning", ex: "easy-run", restart: true, double, cautions: [] };
     else {
       const cautions = [];
       if (lowerNext) cautions.push("better-after-lower");
       // No Lower the day before a long run: so a long run isn't suggested the day after Lower.
       if (y.liftKinds.some((k) => k === "lower" || k === "full")) cautions.push("long-run-after-lower");
-      cond = { type: "conditioning", ex: "long-run", ...longPick(L, today, settings, plan), double, cautions };
+      cond = { type: "conditioning", ex: "long-run", ...long, double, cautions };
     }
   }
   const easy = easyDue && cardioAllowed && cond?.ex !== "easy-run" ? { type: "conditioning", ex: "easy-run", double: t.lift || undefined, cautions: [] } : null;
@@ -824,6 +918,7 @@ export function planToday(log, settings = {}, today, { checkIn } = {}, plan = PL
   const hints = [];
   if (busyDay) hints.push("busy-weekday");
   if (afterLowerB) hints.push("no-sprint-after-lower-b");
+  if (run?.gameLimit) hints.push("quality-run-after-games");
   return {
     date: today,
     mode: busy ? "busy" : "normal",

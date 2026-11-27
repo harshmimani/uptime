@@ -158,7 +158,7 @@ async function liftFlow(label, viewport) {
       arc: getComputedStyle(ring).getPropertyValue("--arc").trim().toLowerCase(), green,
       docked: !!document.querySelector(".scr__foot--docked"), footH: foot.height,
       upVisible: up && up.top >= 0 && up.bottom <= foot.top + 1 && (!toast || up.top >= toast.bottom - 1),
-      toastTop: toast ? toast.top : -1, headBottom: head.bottom,
+      toastTop: toast ? toast.top : -1, headBottom: innerHeight < 760 ? r(".scr__head .back, .scr__head [data-act=exit]")?.bottom ?? head.bottom : head.bottom,
       headEx: document.getElementById("head-ex")?.textContent || "",
       skipRest: document.querySelector("[data-act=rest-skip]")?.textContent.trim(),
     };
@@ -167,11 +167,18 @@ async function liftFlow(label, viewport) {
   check(rest.arc === rest.green || rest.arc.includes("c-green"), `${label}: the rest arc is green while it runs (${rest.arc})`);
   check(rest.docked && rest.footH <= 140, `${label}: the dock folds to one line and Log during rest (${Math.round(rest.footH)} px)`);
   check(rest.upVisible, `${label}: Up next is fully in view, clear of the dock and the toast`);
-  check(rest.toastTop >= rest.headBottom - 1 && rest.toastTop < 160, `${label}: the toast sits at the top, under the header (${Math.round(rest.toastTop)} px)`);
+  check(rest.toastTop >= rest.headBottom - 1 && rest.toastTop < 160, `${label}: the toast sits at the top, under the header (on short phones under its Exit row) (${Math.round(rest.toastTop)} px)`);
+  check(await pg.evaluate(() => { const t = document.querySelector(".toast-slot .toast")?.getBoundingClientRect(), d = document.getElementById("ring-time").getBoundingClientRect(); return !t || t.bottom <= d.top + 1 || innerHeight >= 760; }),
+    `${label}: the toast never clips the rest digits`);
   check(rest.headEx.includes("Dumbbell bench press"), `${label}: the exercise name is in the header during rest`);
   check(rest.skipRest === "Skip rest", `${label}: the rest's skip says "Skip rest"`);
   await pg.click("[data-act=dock-edit]");
   check(await pg.isVisible("[data-act=open-skip]") && (await pg.textContent("[data-act=open-skip]")).trim() === "Skip set", `${label}: Edit opens the dock; its skip says "Skip set"`);
+  // follow-up review N11: while the rest runs, Edit becomes Done, which folds the dock back
+  check(await pg.isVisible("[data-act=dock-done]"), `${label}: an opened dock offers Done while the rest runs`);
+  await pg.click("[data-act=dock-done]");
+  check(await pg.locator(".scr__foot--docked").count() === 1, `${label}: Done folds the dock back to one line`);
+  await pg.click("[data-act=dock-edit]");
   check(await logBtnInThumbZone(pg), `${label}: Log set 2 stays live during rest, same place`);
   const up = await pg.textContent(".timerbox .upnext");
   check(/Up next · set 2 of 3/.test(up) && up.includes("Dumbbell bench press") && /Then /.test(up), `${label}: rest shows Up next and the exercise after it`);
@@ -202,11 +209,27 @@ async function liftFlow(label, viewport) {
   check((await pg.textContent("#ring-time")) === "Go", `${label}: rest over shows Go`);
   check(await pg.evaluate(() => {
     const box = document.querySelector(".timerbox");
+    const wipe = box.querySelector(".timerbox__wipe");
     const green = getComputedStyle(document.documentElement).getPropertyValue("--c-green").trim();
     const probe = document.createElement("i"); probe.style.color = green; document.body.append(probe);
     const want = getComputedStyle(probe).color; probe.remove();
-    return box.classList.contains("is-over") && getComputedStyle(box, "::before").backgroundColor === want && getComputedStyle(box, "::before").opacity === "1";
+    const w = wipe.getBoundingClientRect(), b = box.getBoundingClientRect();
+    return box.classList.contains("is-over") && getComputedStyle(wipe).backgroundColor === want && getComputedStyle(wipe).opacity === "1"
+      && w.left <= b.left && w.right >= b.right && w.top <= b.top && w.bottom >= b.bottom;
   }), `${label}: at zero the whole rest card turns green`);
+  // follow-up review N1: at zero the card is one ~120 px block: Go, how long ago, +15 s; nothing cut
+  const zero = await pg.evaluate(() => {
+    const box = document.querySelector(".timerbox").getBoundingClientRect();
+    const foot = document.querySelector(".scr__foot").getBoundingClientRect();
+    const vis = (sel) => [...document.querySelectorAll(sel)].filter((e) => e.getClientRects().length).length;
+    return { h: box.height, clear: box.bottom <= foot.top + 1, go: parseFloat(getComputedStyle(document.getElementById("ring-time")).fontSize),
+      label: document.getElementById("timer-label").textContent, sub: document.getElementById("ring-sub").textContent,
+      plus: vis(".timerbox [data-act=rest-add][data-d='15']"), minus: vis(".timerbox [data-act=rest-add][data-d='-15']"),
+      skip: vis(".timerbox [data-act=rest-skip]"), upnext: vis(".timerbox .upnext") };
+  });
+  check(zero.h <= 132 && zero.clear, `${label}: at zero the card is one block (${Math.round(zero.h)} px), clear of the dock`);
+  check(zero.go === 56 && zero.label === "Rest over" && /^Rest over · /.test(zero.sub), `${label}: "Go" at 56 px, labelled Rest over, "${zero.sub}" beside it`);
+  check(zero.plus === 1 && zero.minus === 0 && zero.skip === 0 && zero.upnext === 0, `${label}: at zero only +15 s stays; Up next, −15 s and Skip rest go`);
   await shot(pg, `${label}-08b-rest-go`);
   check(await pg.isVisible("#v-reps"), `${label}: rest over: the dock opens again (a different rep count is two taps)`);
   await shot(pg, `${label}-08-rest-over`);
@@ -367,7 +390,7 @@ async function runAndOther(label, viewport) {
   check(await noHScroll(pg), `${label}: race mode has no horizontal scroll`);
   await pg.click("[data-act=home]");
 
-  await pg.click(".hm-other");
+  await pg.click(".hm-other:visible");
   await pg.waitForSelector("[data-screen=other]");
   await shot(pg, `${label}-19-other`);
   check(await noHScroll(pg), `${label}: log-something-else has no horizontal scroll`);

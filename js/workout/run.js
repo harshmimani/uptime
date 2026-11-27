@@ -78,15 +78,23 @@ export function runTarget(pick, fiveK = PLAN.baseline.fiveKSec, plan = PLAN) {
   const out = { type, name: runName(type, plan), target: "", note: "" };
   // Riegel's half-marathon pace assumes big mileage: shown as a ceiling, never a target.
   const ceiling = (at) => (at === "21k" ? " Half pace is a ceiling, not a target: slower is fine." : "");
+  // Half-build sessions: from Riegel's half pace to `halfSlack` s/km slower (a rule of thumb).
+  const at = (k) => (k === "21k" ? `${mmss(pc[k])}–${pace(pc[k] + (R.paces.halfSlack || 0))}` : pace(pc[k]));
   if (type === "interval") {
     const v = taper ? { ...R.interval.taper, at: pick.distance } : R.interval[focus] || R.interval.base;
     const text = v.text || `${pick.reps || v.reps[0]} × ${v.dist}`;
-    out.target = `${text} at ${pace(pc[v.at])}, ${v.jog}`;
+    out.target = `${text} at ${at(v.at)}, ${v.jog}`;
     out.note = R.warmup + (v.reps && !taper ? ` Adds a rep every second time, up to ${v.reps[1]}.` : "") + ceiling(v.at);
   } else if (type === "tempo") {
     const v = taper ? { ...R.tempo.taper, at: pick.distance } : R.tempo[focus] || R.tempo.base;
-    out.target = `${v.text} at ${pace(pc[v.at])}${v.jog ? `, ${v.jog}` : ""}`;
-    out.note = R.warmup + ceiling(v.at);
+    out.target = `${v.text} at ${at(v.at)}${v.jog ? `, ${v.jog}` : ""}`;
+    out.note = R.warmup + ceiling(v.at)
+      + (pick.gameLimit ? ` Games stood in for the last ${R.gameStandInMax} quality runs: this one's a run. Playing too? Do Lower B as the Short version.` : "");
+  } else if (type === "long" && pick.restart) {
+    // No running at all for a month: an easy run first, then the long run starts again.
+    out.name = runName("easy", plan);
+    out.target = `${R.easyMinutes[0]}–${R.easyMinutes[1]} min easy at ${mmss(pc.easy[0])}–${pace(pc.easy[1])}`;
+    out.note = `No run in the last ${R.long.lookbackDays} days: an easy run first. The long run starts again at ${R.long.startKm} km next time.`;
   } else if (type === "long") {
     out.target = `${pick.km} km easy at ${mmss(pc.easy[0])}–${pace(pc.easy[1])}`;
     const racing = pick.phase === "build" || taper;

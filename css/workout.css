@@ -391,16 +391,17 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 .ring.final .ring__time { color: var(--c-green); }
 
 /* ---- rest over: the whole card wipes green from the timer outward (400 ms expanding circle).
+   The circle is a round element scaled with transform (compositor only), clipped by the card.
    Inside, every colour turns to the ink that sits on green, so contrast holds in both themes. */
-.timerbox { position: relative; isolation: isolate; }
-.timerbox::before {
-  content: ""; position: absolute; inset: 0; z-index: 0; border-radius: inherit; background: var(--c-green); pointer-events: none;
-  opacity: 0; clip-path: circle(0 at 50% var(--oy, 40%));
+.timerbox { position: relative; isolation: isolate; overflow: hidden; }
+.timerbox__wipe {
+  position: absolute; z-index: 0; left: var(--ox, 50%); top: var(--oy, 40%); width: 300%; aspect-ratio: 1; border-radius: 50%;
+  background: var(--c-green); pointer-events: none; opacity: 0; transform: translate(-50%, -50%) scale(0);
 }
-.timerbox > * { position: relative; z-index: 1; }
-.timerbox.is-over::before { opacity: 1; clip-path: circle(150% at 50% var(--oy, 40%)); }
-.timerbox.is-over.wipe::before { animation: card-wipe 400ms var(--ease-emphasized) both; }
-@keyframes card-wipe { from { opacity: 1; clip-path: circle(0 at 50% var(--oy, 40%)); } }
+.timerbox > :not(.timerbox__wipe) { position: relative; z-index: 1; }
+.timerbox.is-over .timerbox__wipe { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.timerbox.is-over.wipe .timerbox__wipe { animation: card-wipe 400ms var(--ease-emphasized) both; }
+@keyframes card-wipe { from { opacity: 1; transform: translate(-50%, -50%) scale(0); } }
 .timerbox.is-over {
   --c-text: var(--c-on-green); --c-text-2: var(--c-on-green); --c-text-3: var(--c-on-green);
   --c-line: color-mix(in srgb, var(--c-on-green) 35%, transparent); --c-line-strong: var(--c-on-green);
@@ -411,6 +412,36 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 .timerbox.is-over .upnext .mmap { border-radius: var(--r-sm); background: var(--c-surface-2); }
 .timerbox.is-over .ring__time { color: var(--c-on-green); }
 @media (prefers-reduced-motion: reduce) {
-  .timerbox.is-over.wipe::before { animation: card-fade 200ms linear both; }
-  @keyframes card-fade { from { opacity: 0; clip-path: circle(150% at 50% 50%); } }
+  .timerbox.is-over.wipe .timerbox__wipe { animation: card-fade 200ms linear both; }
+  @keyframes card-fade { from { opacity: 0; transform: translate(-50%, -50%) scale(1); } }
 }
+
+/* ================================================================= follow-up review (27 Nov 2026) */
+
+/* ---- N1. Rest at zero: the card shrinks to one block of about 120 px. "Go" at 56 px with
+   "Rest over · 0:18 ago" beside it and a single +15 s button; Up next, −15 s and Skip rest go
+   (the header and the dock already show the exercise, set and load). Labelled "Rest over". */
+.timerbox.is-over { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-3); row-gap: var(--sp-1); padding-block: var(--sp-3); }
+.timerbox.is-over > .row.between { grid-column: 1 / -1; }
+.timerbox.is-over > .upnext { display: none; }
+.timerbox.is-over > [role="group"] .btn:not([data-d="15"]) { display: none; }
+.timerbox.is-over > [role="group"] .btn { min-width: 96px; }
+.timerbox.is-over .ring { --size: auto; width: auto; aspect-ratio: auto; margin: 0; border-radius: 0; display: block; padding: 0; }
+.timerbox.is-over .ring__track, .timerbox.is-over .ring__half, .timerbox.is-over .ring__pulse, .timerbox.is-over .ring__bar { display: none; }
+.timerbox.is-over .ring__center { position: relative; inset: auto; flex-direction: row; align-items: center; justify-content: flex-start; gap: var(--sp-3); }
+.timerbox.is-over .ring__time { font-size: 56px; line-height: 1; }
+.timerbox.is-over .ring__ago { min-height: 0; font-size: var(--fs-small); font-weight: var(--fw-semibold); line-height: var(--lh-snug); }
+
+/* ---- N2. Short phones: the Undo toast sits right under the Exit row (over the thin progress
+   strip for its 5 s), clear of the digits. 56 px where the header is trimmed (≤ 700 px tall). */
+@media (max-height: 759px) {
+  .wo :is([data-screen="set"], [data-screen="review"]) .toast-slot { top: calc(64px + env(safe-area-inset-top)); }
+}
+@media (max-height: 700px) {
+  .wo :is([data-screen="set"], [data-screen="review"]) .toast-slot { top: calc(56px + env(safe-area-inset-top)); }
+}
+
+/* ---- N11. Edit opened mid-rest: Done folds the controls back to one line */
+.scr__foot .setline:has(.dockline__edit) { align-items: center; }
+.scr__foot .setline > .meta { margin-left: auto; }
+.scr__foot .setline > .dockline__edit { margin-right: calc(-1 * var(--sp-2)); }

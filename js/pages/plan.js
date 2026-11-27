@@ -23,8 +23,10 @@ const store = createStore();
 const db = () => store.db;
 const app = document.getElementById("app");
 const today = () => isoDate(new Date());
-const SECTIONS = [["week", "Week"], ["next", "Coming up"], ["modes", "Modes"], ["fuel", "Fuel"], ["learn", "Learn"], ["settings", "Settings"]];
-const ui = { open: new Set(), section: "week", diet: "both", focus: null, info: null, infoTrigger: null };
+// Coming up is the default (it replaced Week, which showed the same six sessions; old #week links land here)
+const SECTIONS = [["next", "Coming up"], ["modes", "Modes"], ["fuel", "Fuel"], ["learn", "Learn"], ["settings", "Settings"]];
+const migNote = store.takeMigrationNotice(); // once, inline (never over content)
+const ui = { open: new Set(), section: "next", diet: "both", focus: null, info: null, infoTrigger: null };
 
 function applyPrefs() {
   setUnits(db().settings.units);
@@ -40,42 +42,6 @@ function persist() {
 
 const sw = (id, on, label) => `<button class="switch" type="button" data-act="${id}" role="switch" aria-checked="${!!on}" aria-labelledby="${id}-l"><span class="switch__track"><span class="switch__knob"></span></span><span aria-hidden="true">${on ? "On" : "Off"}</span></button>`;
 
-// ------------------------------------------------------------------ Week: the whole plan, first
-
-function viewWeek() {
-  const busy = E.isBusy(db().settings, today());
-  const three = E.threeLiftBuild(db().settings, today());
-  const log = engineLog(db());
-  const next = E.nextSession(log, { busy, threeLifts: three });
-  const ids = busy ? PLAN.busy.rotation : PLAN.rules.rotation;
-  const fiveK = R.fiveKSec(db().activities, db().settings);
-  const run = R.runTarget(E.runPick(log, today(), db().settings), fiveK);
-  const long = R.runTarget(E.longPick(log, today(), db().settings), fiveK);
-  // each session is one line until tapped (like Coming up), so the whole week fits a screen or two
-  const sessions = ids.map((id, i) => {
-    const def = E.sessionDef(id);
-    const items = buildItems(id, { settings: db().settings });
-    return upCard({ k: `w${id}`, n: i + 1, when: id === next ? "Next up" : busy ? "Full body" : def.kind === "lower" ? "Lower body" : "Upper body",
-      name: def.name, meta: `${def.focus || "Full body"} · ${items.length} exercises · about ${estimateMin(items)} min`,
-      body: liftBody(def, items), kind: "lift", next: id === next });
-  }).join("");
-  const sport = db().settings.sportName || "Basketball";
-  const cond = PLAN.conditioning.options.filter((c) => c.fills !== "run").map((c) => `<li><b>${esc(exName(c.ex))}</b>${c.minutes[0]}–${c.minutes[1]} min${c.note ? ` · ${esc(c.note)}` : ""}</li>`).join("");
-  const runCard = upCard({ k: "wrun", n: ids.length + 1, when: "Quality run", name: run.name, kind: "run",
-    meta: `Tempo and intervals take turns · a game of ${sport.toLowerCase()} counts instead`,
-    body: `<p class="run-line">${esc(run.target)}</p><p class="meta">Strava records it.</p>` });
-  const longCard = busy ? "" : upCard({ k: "wlong", n: ids.length + 2, when: three ? "Long run" : "Long run · or easy cardio", name: long.name, kind: "long",
-    meta: long.note || "Easy pace",
-    body: `<p class="run-line">${esc(long.target)}</p>
-      ${three ? `<p class="quiet">Plus an easy run of ${PLAN.run.easyMinutes[0]}–${PLAN.run.easyMinutes[1]} minutes.</p>` : `<p class="quiet">No time for it? Any of these fills the slot instead; a game never does.</p><ul class="cues">${cond}</ul>`}` });
-  return `<section class="section" aria-labelledby="week-h">
-    <h2 id="week-h" class="sr-only">Week plan</h2>
-    <p class="meta">${busy ? "Busy mode is on: full-body sessions of about 40 minutes, plus one run. The main rotation waits." : three ? "Half-marathon build: three lifts (Upper A, one Lower, Upper B) and three runs a rotation, plus at least one rest day." : "Four lifts in a fixed order, a quality run and a long run, plus at least one rest day. Missed days never skip a session: the next one in line waits."} Tap a session for its exercises, muscles and videos.</p>
-    <ol class="ups week-ups">${sessions}${runCard}${longCard}</ol>
-    <p class="quiet">Rest: at least one full day per rotation, and never three hard days in a row. No ${esc(sport.toLowerCase())} or intervals the day after Lower B. ${esc(PLAN.run.timeNote)}</p>
-  </section>`;
-}
-
 // ------------------------------------------------------------------ Coming up: the next sessions, to show someone
 // One cycle from the next session, in the order it's likely to happen: lifts in rotation order,
 // the quality run and the long run where the spacing rules like them (E.upcoming). Each card opens
@@ -83,11 +49,15 @@ function viewWeek() {
 
 const WHEN = ["Next", "Then", "After that"];
 
-/** One session as a card that opens in place (Week and Coming up share it). */
-function upCard({ k, n, when, name, meta, body, kind, next = false }) {
+/**
+ * One session as a card that opens in place. Two sub-lines by design (what it focuses on, then
+ * "7 exercises · about 50 min") so a wrap never strands a dot. Positions 4 on carry no label:
+ * the number already gives the order.
+ */
+function upCard({ k, n, when, name, meta, meta2 = "", body, kind, next = false }) {
   return `<li><details class="up up--${kind}${next ? " up--next" : ""}" data-k="${esc(k)}"${ui.open.has(k) ? " open" : ""}>
       <summary><span class="up__n num" aria-hidden="true">${n}</span>
-        <span class="up__text"><span class="up__when">${esc(when)}</span><b class="up__name">${esc(name)}</b><span class="up__meta">${esc(meta)}</span></span>
+        <span class="up__text">${when ? `<span class="up__when">${esc(when)}</span>` : ""}<b class="up__name">${esc(name)}</b><span class="up__meta">${esc(meta)}</span>${meta2 ? `<span class="up__meta up__meta--2">${esc(meta2)}</span>` : ""}</span>
         <span class="up__chev" aria-hidden="true"></span></summary>
       <div class="up__body">${body}</div>
     </details></li>`;
@@ -109,46 +79,63 @@ function sessionMuscles(items) {
 
 function viewNext() {
   const log = engineLog(db());
-  const list = E.upcoming(log, db().settings, today());
-  const fiveK = R.fiveKSec(db().activities, db().settings);
-  const sport = db().settings.sportName || "Basketball";
+  const settings = db().settings;
+  const list = E.upcoming(log, settings, today());
+  const busy = E.isBusy(settings, today());
+  const three = E.threeLiftBuild(settings, today());
+  const fiveK = R.fiveKSec(db().activities, settings);
+  const sport = settings.sportName || "Basketball";
+  const cond = PLAN.conditioning.options.filter((c) => c.fills !== "run").map((c) => `<li><b>${esc(exName(c.ex))}</b>${c.minutes[0]}–${c.minutes[1]} min${c.note ? ` · ${esc(c.note)}` : ""}</li>`).join("");
   const cards = list.map((x, i) => {
-    const when = WHEN[i] || "Later";
-    let name, meta, body, kind;
+    const when = WHEN[i] || "";
+    let name, meta, meta2 = "", body, kind, start = null;
     if (x.type === "lift") {
       const def = E.sessionDef(x.id);
-      const items = buildItems(x.id, { settings: db().settings });
+      const items = buildItems(x.id, { settings });
       kind = "lift";
       name = def.name;
-      meta = `${def.focus || "Full body"} · ${items.length} exercises · about ${estimateMin(items)} min`;
+      meta = def.focus || "Full body";
+      meta2 = `${items.length} exercises · about ${estimateMin(items)} min`;
       body = liftBody(def, items);
+      start = { href: "workout.html?start=lift", label: `Start ${def.name}` };
     } else if (x.type === "run") {
       const t = R.runTarget(x.pick, fiveK);
       kind = "run";
       name = t.name;
-      meta = `Quality run · a game of ${sport.toLowerCase()} counts instead`;
+      meta = "Quality run";
+      meta2 = x.pick.gameLimit ? "Two games stood in already: this one's a run" : `A game of ${sport.toLowerCase()} counts instead`;
       body = `<p class="run-line">${esc(t.target)}</p>${t.note ? `<p class="meta">${esc(t.note)}</p>` : ""}
-        <p class="quiet">Tempo and intervals take turns; the long run keeps the 10K and 21K going.</p>`;
+        <p class="quiet">Tempo and intervals take turns; the long run keeps the 10K and 21K going. Strava records it.</p>`;
+      start = { href: "workout.html?start=run", label: `Start ${t.name}` };
     } else if (x.type === "long") {
       const t = R.runTarget(x.pick, fiveK);
       kind = "long";
       name = t.name;
-      meta = `${x.pick.km} km · or other easy cardio`;
-      body = `<p class="run-line">${esc(t.target)}</p><p class="meta">${esc(t.note)}</p>`;
+      meta = x.pick.restart ? "Easy run first" : `${x.pick.km} km`;
+      meta2 = x.pick.restart ? "After a month off running" : three ? "Long easy run" : "Or other easy cardio";
+      body = `<p class="run-line">${esc(t.target)}</p><p class="meta">${esc(t.note)}</p>
+        ${three ? "" : `<p class="quiet">No time for it? Any of these fills the slot instead; a game never does.</p><ul class="cues">${cond}</ul>`}`;
+      start = { href: "workout.html?start=long", label: `Start ${t.name}` };
     } else {
       const t = R.runTarget({ run: "easy" }, fiveK);
       kind = "easy";
       name = t.name;
-      meta = "Half-marathon build: the third run";
+      meta = "Easy run";
+      meta2 = "Half-marathon build: the third run";
       body = `<p class="run-line">${esc(t.target)}</p>`;
     }
-    return upCard({ k: `n${i}`, n: i + 1, when, name, meta, body, kind, next: i === 0 });
+    // the first card can start straight from here (no trip back to Home)
+    if (i === 0 && start) body += `<a class="btn btn--primary up__start" href="${start.href}" data-act="go"><span class="btn__label">${esc(start.label)}</span></a>`;
+    return upCard({ k: `n${i}`, n: i + 1, when, name, meta, meta2, body, kind, next: i === 0 });
   }).join("");
+  const explain = busy ? "Busy mode is on: full-body sessions of about 40 minutes, plus one run. The main rotation waits."
+    : three ? "Half-marathon build: three lifts (Upper A, the build Lower, Upper B) and three runs a rotation, plus at least one rest day."
+    : "Four lifts in a fixed order, a quality run and a long run, plus at least one rest day.";
   return `<section class="section coming" aria-labelledby="next-h">
     <h2 id="next-h" class="sr-only">Coming up</h2>
-    <p class="meta">The next ${list.length} sessions, in order. Missed days never skip one: each waits its turn. Tap any to see what's in it.</p>
+    <p class="meta">${explain} Missed days never skip a session: each waits its turn. Tap any for its exercises, muscles and videos.</p>
     <ol class="ups">${cards}</ol>
-    <p class="quiet">Plus at least one rest day. Runs fit any day.</p>
+    <p class="quiet">Rest: at least one full day per rotation, and never three hard days in a row. No ${esc(sport.toLowerCase())} or intervals the day after Lower B. Runs fit any day. ${esc(PLAN.run.timeNote)}</p>
   </section>`;
 }
 
@@ -250,7 +237,7 @@ function viewLearn() {
   const sessions = rotationSessions();
   return `<section class="section" aria-labelledby="learn-h">
     <h2 id="learn-h" class="sr-only">Learn</h2>
-    <p class="meta">Every exercise, with its muscles, steps and a video, is under <a href="#week" data-act="section" data-s="week">Week</a>.</p>
+    <p class="meta">Every exercise, with its muscles, steps and a video, is under <a href="#next" data-act="section" data-s="next">Coming up</a>.</p>
     <h2>Where the work lands</h2>
     ${coverageTable(sessions)}
     <h2>Why it works</h2>
@@ -437,15 +424,15 @@ function resetAll() {
 
 function render() {
   const sec = ui.section;
-  const view = { week: viewWeek, next: viewNext, modes: viewModes, fuel: viewFuel, learn: viewLearn, settings: viewSettings }[sec]();
+  const view = { next: viewNext, modes: viewModes, fuel: viewFuel, learn: viewLearn, settings: viewSettings }[sec]();
   app.innerHTML = `<main class="scr" data-screen="plan">
     <header class="scr__head">
-      <h1 class="h1 page-title" tabindex="-1">${sec === "week" ? "Your plan" : esc(SECTIONS.find((s) => s[0] === sec)[1])}</h1>
+      <h1 class="h1 page-title" tabindex="-1">${esc(SECTIONS.find((s) => s[0] === sec)[1])}</h1>
       <nav class="subnav" aria-label="Plan sections">${SECTIONS.map(([id, label]) => `<a class="chip" href="#${id}" data-act="section" data-s="${id}"${id === sec ? ' aria-current="page"' : ""}>${label}</a>`).join("")}</nav>
     </header>
     <div class="scr__body">
       ${store.readOnly ? `<div class="notice notice--warn"><div><b>Saved data couldn't be read.</b> Nothing is changed or deleted.</div></div>` : ""}
-      ${store.migrated ? `<div class="notice notice--done"><div><b>${store.migrated.from === 1 ? "Found your log from the earlier app." : "Your data moved to the new format."}</b> Everything is kept, and a backup copy of the old data is saved.</div></div>` : ""}
+      ${migNote ? `<div class="notice notice--done"><div>${esc(migNote)}</div></div>` : ""}
       ${view}
     </div>
     <div class="scr__foot scr__foot--tabs"><div class="toast-slot" id="toast-slot" aria-live="polite"></div>${tabBar("plan")}</div>
@@ -458,7 +445,7 @@ function render() {
 
 function fromHash() {
   const h = location.hash.slice(1);
-  ui.section = SECTIONS.some((s) => s[0] === h) ? h : "week";
+  ui.section = SECTIONS.some((s) => s[0] === h) ? h : "next"; // #week (the old default) lands on Coming up
 }
 
 app.addEventListener("click", (ev) => {

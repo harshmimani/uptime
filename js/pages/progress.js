@@ -159,6 +159,7 @@ function weightSection() {
 
 // ------------------------------------------------------------------ history: past sessions, with a detail sheet
 
+const migNote = store.takeMigrationNotice(); // once, inline (never over content)
 const ui = { shown: 12, sheet: null, sheetEntry: false, trigger: null };
 
 function historySection() {
@@ -216,13 +217,13 @@ document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && ui.she
 
 function render() {
   const first = !db().sessions.length && !db().activities.length && !db().legacy;
-  const mig = store.migrated;
+  const mig = migNote;
   app.innerHTML = `<main class="scr" data-screen="progress">
     <header class="scr__head"><span class="label">${esc(new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }))}</span>
       <h1 class="h1 page-title" tabindex="-1">Progress</h1></header>
     <div class="scr__body">
       ${store.readOnly ? `<div class="notice notice--warn"><div><b>Saved data couldn't be read.</b> Nothing is changed or deleted. Export a backup from Plan › Settings.</div></div>` : ""}
-      ${mig ? `<div class="notice notice--done"><div><b>${mig.from === 1 ? "Found your log from the earlier app." : "Your data moved to the new format."}</b> Everything is kept, and a backup copy of the old data is saved.</div></div>` : ""}
+      ${mig ? `<div class="notice notice--done"><div>${esc(mig)}</div></div>` : ""}
       ${first ? `<div class="notice"><div>Your first numbers show up after one session. Until then, this is where the streak, lift trends and bodyweight will live.</div></div>` : ""}
       ${lastWeekHTML(lastWeekSummary(db(), today()))}
       ${historySection()}

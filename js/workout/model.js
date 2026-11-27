@@ -117,7 +117,7 @@ function resolveSlot(it, sessionId, settings, plan) {
   }
   if (it.slot === "jump") {
     const blk = plan.jumpBlocks.find((b) => b.block === settings.jumpBlock) || plan.jumpBlocks[0];
-    const j = blk[sessionId];
+    const j = blk[sessionDef(sessionId, plan)?.jump || sessionId];
     if (!j) return [];
     const { then, alt, ...first } = j;
     return [first, then].filter(Boolean).map((x) => ({ ...x, role: "jump" }));
@@ -154,7 +154,7 @@ export function buildItems(sessionId, { short = false, noGym = false, adjust = {
       sets: adjustSets(c.sets ?? 3, { short, setsFactor: adjust.setsFactor, setsDelta: adjust.setsDelta }, plan),
       reps: c.reps, sec: c.sec, perSide: c.perSide, rest: c.rest ?? 60,
       pair: base.pair, tempo: c.tempo, note: c.note, start: c.start, ladder: c.ladder,
-      byLoad: c.byLoad, slowFirst: c.slowFirst, optional: c.optional,
+      byLoad: c.byLoad, slowFirst: c.slowFirst, newWeight: c.newWeight, optional: c.optional,
     });
   };
   for (const { it, idx } of raw) {
@@ -517,8 +517,8 @@ export const fmtKg = (kg) => fmtW(kg);
  * `settings` names today's pull-up ladder move in Lower B's pull-up practice.
  */
 export function warmup(w, history, plan = PLAN, settings = {}) {
-  const general = [...plan.warmup.general];
-  if (w.sessionKind !== "upper") general.push(...plan.warmup.lowerExtra);
+  // Lower and full-body days swap the arm circles for balance work, inside the same 5 minutes.
+  const general = [...(w.sessionKind !== "upper" && plan.warmup.lower ? plan.warmup.lower : plan.warmup.general)];
   const extra = w.short ? null : plan.warmup.extra?.[w.session]; // Short keeps the warm-up short
   if (extra) {
     const lvl = plan.ladder.find((l) => l.level === (settings.ladderLevel ?? plan.baseline.ladderLevel)) || plan.ladder[0];
@@ -599,23 +599,24 @@ export function summarize(w, history, historyAfter, plan = PLAN) {
     const p = progression(historyAfter(l.ex), { ...it, ex: l.ex }, plan);
     const vals = done.map((x) => (x.sec != null ? `${x.sec} s` : x.reps)).join(", ");
     const kgs = [...new Set(done.map((x) => x.kg).filter((k) => k > 0))];
-    const at = kgs.length === 1 ? ` at ${fmtKg(kgs[0])} ${wu()}` : "";
+    // weight first everywhere: "15 kg × 8, 8, 7"
+    const wv = kgs.length === 1 ? `${fmtKg(kgs[0])} ${wu()} × ${vals}` : vals;
     let line;
     if (it.ladder) {
       const lvl = plan.ladder.find((x) => x.level === it.ladder);
       line = { up: false, title: `${exName(l.ex, plan)}: ladder level ${it.ladder}`, detail: lvl?.pass ? `Pass test: ${lvl.pass}` : `${vals}.` };
     } else if (w.short || w.adjust.deload || (w.adjust.loadFactor ?? 1) < 1) {
-      line = { up: false, title: `${exName(l.ex, plan)}: ${vals}${at}`, detail: "Lighter day, so it doesn't count against progress." };
+      line = { up: false, title: `${exName(l.ex, plan)}: ${wv}`, detail: "Lighter day, so it doesn't count against progress." };
     } else if (p.action === "increase" && p.kg > (kgs[0] ?? 0)) {
-      line = { up: true, title: `${exName(l.ex, plan)} → ${fmtKg(p.kg)} ${wu()}`, detail: `${vals}${at}. Every set hit the top of the range.` };
+      line = { up: true, title: `${exName(l.ex, plan)} → ${fmtKg(p.kg)} ${wu()}`, detail: `${wv}. Every set hit the top of the range.${it.newWeight ? ` ${it.newWeight}` : ""}` };
     } else if (p.action === "increase" && it.sec) {
-      line = { up: true, title: `${exName(l.ex, plan)} → ${Math.min(60, (it.sec[1] ?? 40) + 10)} s`, detail: `${vals}${at}. Add time, then weight.` };
+      line = { up: true, title: `${exName(l.ex, plan)} → ${Math.min(60, (it.sec[1] ?? 40) + 10)} s`, detail: `${wv}. Add time, then weight.` };
     } else if (p.action === "increase") {
       line = { up: true, title: `${exName(l.ex, plan)}: harder version next`, detail: `${vals}. Top of the range on every set.` };
     } else if (p.action === "reset") {
       line = { up: false, title: `${exName(l.ex, plan)}: time for a small reset`, detail: plan.rules.stallAdvice };
     } else {
-      line = { up: false, title: `${exName(l.ex, plan)}: beat ${vals}${at}`, detail: it.reps ? `Top of the range is ${it.reps[1]}. Hit it on every set and the weight goes up.` : "" };
+      line = { up: false, title: `${exName(l.ex, plan)}: beat ${wv}`, detail: it.reps ? `Top of the range is ${it.reps[1]}. Hit it on every set and the weight goes up.` : "" };
     }
     next.push(line);
   }
