@@ -165,8 +165,8 @@ html:has(.tabs) { scroll-padding: 120px 0 112px; }
   .up__body > :not(.up__map) { grid-column: 2; }
   .up__body > .up__map { grid-row: 1 / span 9; grid-template-columns: 1fr; border-bottom: 0; position: sticky; top: var(--sp-4); }
   .up__map .mmap { width: 100%; }
-  .up--run .up__body, .up--sport .up__body { grid-template-columns: minmax(0, 1fr); }
-  .up--run .up__body > *, .up--sport .up__body > * { grid-column: 1; }
+  .up--run .up__body, .up--long .up__body, .up--easy .up__body { grid-template-columns: minmax(0, 1fr); }
+  .up--run .up__body > *, .up--long .up__body > *, .up--easy .up__body > * { grid-column: 1; }
 }
 
 /* ---------------------------------------------------------------- tab-to-tab motion (js/nav.js sets the type)

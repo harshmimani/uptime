@@ -25,13 +25,15 @@ const REASON = {
   "race-day": "it's race day",
   "long-run-after-lower": "Lower yesterday",
   "day-after-sport": "sport yesterday",
+  "interval-after-lower-b": "Lower B yesterday",
 };
 
 const RACE = { "5k": "5K", "10k": "10K", "21k": "half marathon" };
 
-/** Filled slots of the 6 a Full week holds: 4 lifts, 1 run, 1 sport/conditioning. */
+/** Filled slots of the 6 a Full week holds: 4 lifts, the quality run, the long run (21K build: 3 lifts and 3 runs). */
 export function weekFilled(pr) {
-  return Math.min(4, pr.lifts) + Math.min(1, pr.run) + Math.min(1, pr.cond + Math.max(0, pr.run - 1));
+  const full = pr.full || E.FULL;
+  return Math.min(full.lifts, pr.lifts) + Math.min(1, pr.run) + Math.min(full.cond, pr.cond);
 }
 
 /** One line on what the next week level needs. */
@@ -41,8 +43,12 @@ export function weekLine(pr) {
   const bits = [];
   const WORD = ["", "One", "Two", "Three", "Four"];
   if (m.lifts) bits.push(m.lifts === 1 ? "one more lift" : `${(WORD[m.lifts] || m.lifts).toLowerCase()} more lifts`);
-  if (m.run) bits.push("a run");
-  if (m.cond) bits.push("sport or conditioning");
+  if (pr.nextLevel === "Good") {
+    if (m.cond) bits.push("a run or some cardio");
+  } else {
+    if (m.run) bits.push("a quality run or a game");
+    if (m.cond) bits.push(m.cond > 1 ? "a long run and an easy run" : pr.full?.cond > 1 ? "one more run" : "the long run");
+  }
   const text = `${bits.join(" + ")} for ${pr.nextLevel === "Minimum" ? "a Minimum" : `a ${pr.nextLevel}`} week.`;
   return text[0].toUpperCase() + text.slice(1);
 }
@@ -106,8 +112,8 @@ export function busyNudge(log, settings, today, plan = PLAN) {
 }
 
 /** The rotation as dial nodes: done (this cycle), current, upcoming. */
-export function rotationNodes(next, busy, liftedTodayId, plan = PLAN) {
-  const rot = busy ? plan.busy.rotation : plan.rules.rotation;
+export function rotationNodes(next, busy, liftedTodayId, plan = PLAN, cycle = null) {
+  const rot = cycle || (busy ? plan.busy.rotation : plan.rules.rotation);
   const k = Math.max(0, rot.indexOf(next));
   return rot.map((id, i) => {
     const def = E.sessionDef(id, plan);
@@ -148,30 +154,34 @@ export function homeModel(db, today, plan = PLAN) {
   else if (p.deload.active) notes.push("Deload week: same exercises, about half the sets.");
   if (!liftedToday && lift && p.primary !== lift) {
     const why = REASON[lift.cautions[0]];
-    const instead = p.primary.type === "rest" ? "Rest fits better today" : p.primary.type === "run" ? `A run fits better today` : p.primary.type === "conditioning" ? "Something easy fits better today" : null;
+    const instead = p.primary.type === "rest" ? "Rest fits better today" : p.primary.type === "run" ? `A run fits better today` : p.primary.ex === "long-run" ? "The long run fits better today" : p.primary.type === "conditioning" ? "Something easy fits better today" : null;
     if (instead) notes.push(`${instead}${why ? `: ${why}` : ""}. ${def.name} is here if you feel fresh.`);
   } else if (!liftedToday && lift?.short) {
     notes.push("A Short version suits today. You pick on the next screen.");
   }
 
-  // ---- the quiet run/sport line under Next up (floats: done any day they fit)
-  const runOpt = [p.primary, ...p.options].find((o) => o.type === "run");
-  const condOpt = [p.primary, ...p.options].find((o) => o.type === "conditioning");
+  // ---- the quiet run line under Next up (floats: done any day they fit). The headline if it's
+  // a run, else the first run with no spacing flag, else the first one on offer.
+  const floats = [p.primary, ...p.options].filter((o) => o.type === "run" || o.type === "conditioning");
+  const fl = floats.find((o) => o === p.primary) || floats.find((o) => !o.cautions?.length) || floats[0];
   let float = null;
-  if (runOpt) {
-    const t = R.runTarget(runOpt, R.fiveKSec(db.activities, settings, plan), plan);
-    const first = p.primary === runOpt ? "Good day for" : liftedToday || lift?.double ? "Still fits today" : "Also fits today";
-    float = { act: "run", href: "workout.html?start=run", lead: first, name: t.name, detail: t.target };
+  const lead = (o) => (p.primary === o ? "Good day for" : liftedToday || lift?.double ? "Still fits today" : "Also fits today");
+  const fiveK = R.fiveKSec(db.activities, settings, plan);
+  if (fl?.type === "run" || fl?.run === "long") {
+    const t = R.runTarget(fl, fiveK, plan);
+    float = { act: "run", href: `workout.html?start=${fl.run === "long" ? "long" : "run"}`, lead: lead(fl), name: t.name, detail: t.target };
     if (p.race.kind === "race") float.lead = `Race day · ${RACE[p.race.distance] || "race"}`;
-  } else if (condOpt) {
-    const c = plan.conditioning.options.find((o) => o.ex === condOpt.ex) || plan.conditioning.options[0];
-    float = { act: "other", href: "workout.html?start=other", lead: p.primary === condOpt ? "Good day for" : "Also fits today", name: M.exName(c.ex, plan), detail: `${c.minutes[0]} min, or a game if there is one` };
+  } else if (fl) {
+    const c = plan.conditioning.options.find((o) => o.ex === fl.ex) || plan.conditioning.options[0];
+    const t = c.ex === "easy-run" ? R.runTarget({ run: "easy" }, fiveK, plan) : null;
+    float = { act: "other", href: "workout.html?start=other", lead: lead(fl), name: M.exName(c.ex, plan), detail: t ? t.target : `${c.minutes[0]} min` };
   }
 
   const pr = p.progress;
   const st = p.streak;
-  // the run slot's next run, for "This week" (what it is and its one-line target)
-  const run = R.runTarget(E.runPick(log, today, settings, plan), R.fiveKSec(db.activities, settings, plan), plan);
+  // the two run slots' next runs, for "This week" (what each is and its one-line target)
+  const run = R.runTarget(E.runPick(log, today, settings, plan), fiveK, plan);
+  const long = R.runTarget(E.longPick(log, today, settings, plan), fiveK, plan);
   return {
     today,
     busy,
@@ -183,7 +193,7 @@ export function homeModel(db, today, plan = PLAN) {
     canStart: !!lift,
     label,
     note: notes[0] || "",
-    nodes: rotationNodes(p.next, busy, liftedToday, plan),
+    nodes: rotationNodes(p.next, busy, liftedToday, plan, E.liftCycle(log, settings, today, plan)),
     float,
     week: {
       filled: weekFilled(pr),
@@ -193,8 +203,10 @@ export function homeModel(db, today, plan = PLAN) {
     },
     streak: { weeks: st.weeks, currentMet: st.currentMet },
     stat: standoutStat(db, today),
-    slots: weekSlots(db, today, { next: p.next, busy, runName: run.name }, plan),
+    slots: weekSlots(db, today, { next: p.next, busy, runName: run.name, cycle: E.liftCycle(log, settings, today, plan), threeLifts: p.threeLifts }, plan),
     run,
+    long,
+    threeLifts: p.threeLifts,
     recent: pastSessions(db, { limit: 4 }, plan),
     lastWeek: lastWeekSummary(db, today, plan),
     nudge: busyNudge(log, settings, today, plan),

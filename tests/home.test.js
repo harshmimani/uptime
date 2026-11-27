@@ -67,9 +67,13 @@ test("standout stat: pull-up max beats volume once there's a strict rep; never a
 
 test("week line names what the next level needs", () => {
   assert.equal(weekLine({ nextLevel: "Minimum", missing: { Minimum: { lifts: 2, run: 0, cond: 0 } } }), "Two more lifts for a Minimum week.");
-  assert.equal(weekLine({ nextLevel: "Full", missing: { Full: { lifts: 0, run: 1, cond: 0 } } }), "A run for a Full week.");
+  assert.equal(weekLine({ nextLevel: "Full", missing: { Full: { lifts: 0, run: 1, cond: 0 } } }), "A quality run or a game for a Full week.");
+  assert.equal(weekLine({ nextLevel: "Full", missing: { Full: { lifts: 1, run: 0, cond: 1 } } }), "One more lift + the long run for a Full week.");
+  assert.equal(weekLine({ nextLevel: "Good", missing: { Good: { lifts: 0, run: 0, cond: 1 } } }), "A run or some cardio for a Good week.");
   assert.equal(weekLine({ nextLevel: null }), "Full week. Everything else is a bonus.");
-  assert.equal(weekFilled({ lifts: 5, run: 2, cond: 0 }), 6);
+  assert.equal(weekFilled({ lifts: 5, run: 2, cond: 0 }), 5); // a second hard run doesn't fill the long-run slot
+  assert.equal(weekFilled({ lifts: 4, run: 1, cond: 1 }), 6);
+  assert.equal(weekFilled({ lifts: 3, run: 1, cond: 2, full: { lifts: 3, cond: 2 } }), 6);
 });
 
 test("rotation nodes use short codes", () => {

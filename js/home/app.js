@@ -182,8 +182,8 @@ function weekSection(m) {
     const state = x.state === "done" ? `<span class="slot__state slot__state--done">${TICK}${esc(x.day)}</span>`
       : x.state === "next" ? `<span class="slot__state slot__state--next">Next</span>`
       : `<span class="slot__state">Not yet</span>`;
-    const name = x.kind === "run" ? (x.what || m.run.name) : x.kind === "sport" ? (x.what || "Sport or conditioning") : x.name;
-    const sub = x.kind === "lift" ? x.focus : x.kind === "run" ? "Run slot" : "Any game or cardio";
+    const name = x.kind === "run" ? (x.what || m.run.name) : x.kind === "long" ? (x.what || m.long.name) : x.kind === "easy" ? (x.what || "Easy run") : x.name;
+    const sub = x.kind === "lift" ? x.focus : x.kind === "run" ? "Quality run, or a game" : x.kind === "long" ? (m.threeLifts ? "Long run slot" : "Or other easy cardio") : "30–40 min easy";
     const said = `${name}: ${x.state === "done" ? `done ${x.day}` : x.state === "next" ? "next up" : "not yet"}. ${sub}. Show details`;
     return `<li><button type="button" class="slot slot--${x.state}" data-act="slot" data-id="${esc(x.id)}" aria-label="${esc(said)}">
       <span class="slot__code">${esc(x.short)}</span><span class="slot__name">${esc(name)}</span><span class="slot__sub">${esc(sub)}</span>${state}</button></li>`;
@@ -234,22 +234,27 @@ function slotSheet(id) {
   const x = m.slots.find((s) => s.id === id);
   if (!x) return "";
   const status = x.state === "done" ? `<span class="pill">Done ${esc(x.day)}</span>` : x.state === "next" ? `<span class="pill">Next up</span>` : "";
+  const sport = db().settings.sportName || "Basketball";
   if (x.kind === "run") {
     return `<div class="sheet__head"><h2 class="sheet__title" id="sheet-h">${esc(m.run.name)}</h2>${status}</div>
       <p class="run-line">${esc(m.run.target)}</p>
       ${m.run.note ? `<p class="meta" style="margin:0">${esc(m.run.note)}</p>` : ""}
-      <p class="quiet">One run a week, cycling intervals → tempo → long easy run. Strava records it; here it's one tap.</p>
+      <p class="quiet">The quality run: tempo and intervals take turns. A game of ${esc(sport.toLowerCase())} counts instead. Strava records the run; here it's one tap.</p>
       <a class="btn btn--primary" href="workout.html?start=run" data-act="go"><span class="btn__label">Open today's run</span></a>`;
   }
-  if (x.kind === "sport") {
-    const opts = PLAN.conditioning.options.map((c) => {
-      const n = c.ex === "basketball" && db().settings.sportName ? db().settings.sportName : PLAN.exercises[c.ex]?.name || c.ex;
-      return `<li><b>${esc(n)}</b><span>${c.minutes[0]}–${c.minutes[1]} min${c.note ? ` · ${esc(c.note)}` : ""}</span></li>`;
-    }).join("");
-    return `<div class="sheet__head"><h2 class="sheet__title" id="sheet-h">Sport or conditioning</h2>${status}</div>
-      <p class="meta" style="margin:0">A game when there is one; otherwise any of these. An easy run is the best pick for the 5K goal.</p>
-      <ul class="cues">${opts}</ul>
-      <a class="btn btn--secondary btn--wide" href="workout.html?start=other" data-act="go">Log something</a>`;
+  if (x.kind === "long") {
+    const opts = PLAN.conditioning.options.filter((c) => c.fills !== "run").map((c) => `<li><b>${esc(PLAN.exercises[c.ex]?.name || c.ex)}</b><span>${c.minutes[0]}–${c.minutes[1]} min${c.note ? ` · ${esc(c.note)}` : ""}</span></li>`).join("");
+    return `<div class="sheet__head"><h2 class="sheet__title" id="sheet-h">${esc(m.long.name)}</h2>${status}</div>
+      <p class="run-line">${esc(m.long.target)}</p>
+      <p class="meta" style="margin:0">${esc(m.long.note)}</p>
+      ${m.threeLifts ? "" : `<p class="quiet">No time for it? Any of these fills the slot. A game never does: it counts as the quality run.</p><ul class="cues">${opts}</ul>`}
+      <a class="btn btn--primary" href="workout.html?start=long" data-act="go"><span class="btn__label">Open the long run</span></a>
+      ${m.threeLifts ? "" : `<a class="btn btn--secondary btn--wide" href="workout.html?start=other" data-act="go">Log something else</a>`}`;
+  }
+  if (x.kind === "easy") {
+    return `<div class="sheet__head"><h2 class="sheet__title" id="sheet-h">Easy run</h2>${status}</div>
+      <p class="meta" style="margin:0">The third run of a half-marathon build: 30–40 minutes, conversational the whole way.</p>
+      <a class="btn btn--secondary btn--wide" href="workout.html?start=other" data-act="go">Log it</a>`;
   }
   const def = E.sessionDef(id);
   const items = M.buildItems(id, { settings: db().settings });

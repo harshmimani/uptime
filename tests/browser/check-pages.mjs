@@ -128,7 +128,7 @@ for (const [label, viewport] of [["360", { width: 360, height: 780 }], ["390", {
       check(await pp.locator(".food-table", { hasText: "Chicken" }).count() === 0 && await pp.locator(".food-table", { hasText: "Paneer" }).count() === 1, `${label}: Veg filter`);
     }
     if (s === "learn") {
-      check(await pp.locator("details.explain:not(.card)").count() === 6, `${label}: six explainers`);
+      check(await pp.locator("details.explain:not(.card)").count() === 8, `${label}: eight explainers`);
       await pp.click("#learn-double-progression summary");
       check(await pp.isVisible("text=Add reps first"), `${label}: explainer opens`);
       check(await pp.locator("table.cov tbody tr").count() === 12, `${label}: coverage matrix, 12 muscle groups`);

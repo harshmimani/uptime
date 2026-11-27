@@ -43,10 +43,13 @@ const sw = (id, on, label) => `<button class="switch" type="button" data-act="${
 
 function viewWeek() {
   const busy = E.isBusy(db().settings, today());
+  const three = E.threeLiftBuild(db().settings, today());
   const log = engineLog(db());
-  const next = E.nextSession(log, { busy });
+  const next = E.nextSession(log, { busy, threeLifts: three });
   const ids = busy ? PLAN.busy.rotation : PLAN.rules.rotation;
-  const run = R.runTarget(E.runPick(log, today(), db().settings), R.fiveKSec(db().activities, db().settings));
+  const fiveK = R.fiveKSec(db().activities, db().settings);
+  const run = R.runTarget(E.runPick(log, today(), db().settings), fiveK);
+  const long = R.runTarget(E.longPick(log, today(), db().settings), fiveK);
   const sessions = ids.map((id, i) => {
     const def = E.sessionDef(id);
     const items = buildItems(id, { settings: db().settings });
@@ -57,28 +60,30 @@ function viewWeek() {
       ${exerciseList(items, { video: true, label: `${def.name} exercises` })}
     </article>`;
   }).join("");
-  const cond = PLAN.conditioning.options.map((c) => `<li><b>${esc(c.ex === "basketball" && db().settings.sportName ? db().settings.sportName : exName(c.ex))}</b>${c.minutes[0]}–${c.minutes[1]} min${c.note ? ` · ${esc(c.note)}` : ""}</li>`).join("");
+  const sport = db().settings.sportName || "Basketball";
+  const cond = PLAN.conditioning.options.filter((c) => c.fills !== "run").map((c) => `<li><b>${esc(exName(c.ex))}</b>${c.minutes[0]}–${c.minutes[1]} min${c.note ? ` · ${esc(c.note)}` : ""}</li>`).join("");
   return `<section class="section" aria-labelledby="week-h">
     <h2 id="week-h" class="sr-only">Week plan</h2>
-    <p class="meta">${busy ? "Busy mode is on: full-body sessions of about 40 minutes, plus one run. The main rotation waits." : "Four lifts in a fixed order, one run and one sport or conditioning session, plus at least one rest day. Missed days never skip a session: the next one in line waits."} Tap any exercise for its muscles, steps and a video.</p>
+    <p class="meta">${busy ? "Busy mode is on: full-body sessions of about 40 minutes, plus one run. The main rotation waits." : three ? "Half-marathon build: three lifts (Upper A, one Lower, Upper B) and three runs a rotation, plus at least one rest day." : "Four lifts in a fixed order, a quality run and a long run, plus at least one rest day. Missed days never skip a session: the next one in line waits."} Tap any exercise for its muscles, steps and a video.</p>
     ${sessions}
     <article class="card plan-session" aria-labelledby="ps-run">
       <div class="plan-session__head"><span class="plan-session__n num">${ids.length + 1}</span>
-        <div><h3 id="ps-run">Run · ${esc(run.name)}</h3><p class="meta">Cycles intervals → tempo → long easy run. Strava records it.</p></div></div>
+        <div><h3 id="ps-run">Run · ${esc(run.name)}</h3><p class="meta">Tempo and intervals take turns. A game of ${esc(sport.toLowerCase())} counts instead. Strava records it.</p></div></div>
       <p class="run-line">${esc(run.target)}</p>
     </article>
-    ${busy ? "" : `<article class="card plan-session" aria-labelledby="ps-sport">
+    ${busy ? "" : `<article class="card plan-session" aria-labelledby="ps-long">
       <div class="plan-session__head"><span class="plan-session__n num">${ids.length + 2}</span>
-        <div><h3 id="ps-sport">Sport or conditioning</h3><p class="meta">A game when there is one; otherwise any of these.</p></div></div>
-      <ul class="cues">${cond}</ul>
+        <div><h3 id="ps-long">${esc(long.name)}</h3><p class="meta">${esc(long.note)}</p></div></div>
+      <p class="run-line">${esc(long.target)}</p>
+      ${three ? `<p class="quiet">Plus an easy run of ${PLAN.run.easyMinutes[0]}–${PLAN.run.easyMinutes[1]} minutes.</p>` : `<p class="quiet">No time for it? Any of these fills the slot instead; a game never does.</p><ul class="cues">${cond}</ul>`}
     </article>`}
-    <p class="quiet">Rest: at least one full day per rotation, and never three hard days in a row.</p>
+    <p class="quiet">Rest: at least one full day per rotation, and never three hard days in a row. No ${esc(sport.toLowerCase())} or intervals the day after Lower B. ${esc(PLAN.run.timeNote)}</p>
   </section>`;
 }
 
 // ------------------------------------------------------------------ Coming up: the next sessions, to show someone
 // One cycle from the next session, in the order it's likely to happen: lifts in rotation order,
-// the run and the sport slot where the spacing rules like them (E.upcoming). Each card opens
+// the quality run and the long run where the spacing rules like them (E.upcoming). Each card opens
 // in place to its exercises, sets × reps and muscles. Plain and calm, phone or laptop.
 
 const WHEN = ["Next", "Then", "After that"];
@@ -93,7 +98,7 @@ function viewNext() {
   const log = engineLog(db());
   const list = E.upcoming(log, db().settings, today());
   const fiveK = R.fiveKSec(db().activities, db().settings);
-  const sport = db().settings.sportName || "Sport";
+  const sport = db().settings.sportName || "Basketball";
   if (!ui.upOpen) ui.upOpen = new Set(); // all closed: the order reads at a glance
   const cards = list.map((x, i) => {
     const when = WHEN[i] || "Later";
@@ -112,14 +117,21 @@ function viewNext() {
       const t = R.runTarget(x.pick, fiveK);
       kind = "run";
       name = t.name;
-      meta = "Run · Strava records it";
+      meta = `Quality run · a game of ${sport.toLowerCase()} counts instead`;
       body = `<p class="run-line">${esc(t.target)}</p>${t.note ? `<p class="meta">${esc(t.note)}</p>` : ""}
-        <p class="quiet">The run slot cycles intervals → tempo → long easy run, so 5K, 10K and 21K all stay sharp.</p>`;
+        <p class="quiet">Tempo and intervals take turns; the long run keeps the 10K and 21K going.</p>`;
+    } else if (x.type === "long") {
+      const t = R.runTarget(x.pick, fiveK);
+      kind = "long";
+      name = t.name;
+      meta = `${x.pick.km} km · or other easy cardio`;
+      body = `<p class="run-line">${esc(t.target)}</p><p class="meta">${esc(t.note)}</p>`;
     } else {
-      kind = "sport";
-      name = `${sport} or conditioning`;
-      meta = "A game if there is one, otherwise any cardio";
-      body = `<ul class="cues">${PLAN.conditioning.options.map((c) => `<li><b>${esc(c.ex === "basketball" && db().settings.sportName ? db().settings.sportName : exName(c.ex))}</b>${c.minutes[0]}–${c.minutes[1]} min${c.note ? ` · ${esc(c.note)}` : ""}</li>`).join("")}</ul>`;
+      const t = R.runTarget({ run: "easy" }, fiveK);
+      kind = "easy";
+      name = t.name;
+      meta = "Half-marathon build: the third run";
+      body = `<p class="run-line">${esc(t.target)}</p>`;
     }
     return `<li><details class="up up--${kind}" data-i="${i}"${ui.upOpen.has(i) ? " open" : ""}>
       <summary><span class="up__n num" aria-hidden="true">${i + 1}</span>
@@ -132,7 +144,7 @@ function viewNext() {
     <h2 id="next-h" class="sr-only">Coming up</h2>
     <p class="meta">The next ${list.length} sessions, in order. Missed days never skip one: each waits its turn. Tap any to see what's in it.</p>
     <ol class="ups">${cards}</ol>
-    <p class="quiet">Plus at least one rest day. Runs and sport fit any day.</p>
+    <p class="quiet">Plus at least one rest day. Runs fit any day.</p>
   </section>`;
 }
 
@@ -152,7 +164,7 @@ function viewModes() {
     <div class="card">
       <span class="label">The rotation</span>
       <ol class="list">${rot.map((d) => `<li><b>${esc(d.name)}</b> · ${esc(d.focus)}</li>`).join("")}</ol>
-      <p class="meta">Plus 1 run and 1 sport or conditioning session, and at least 1 rest day. Missed days never skip a session.</p>
+      <p class="meta">Plus a quality run and a long run, and at least 1 rest day. Missed days never skip a session.</p>
       <p class="quiet">No gym today? Pick it on the check-in screen. Race mode is set from the run screen.</p>
     </div>
   </section>`;
@@ -264,7 +276,7 @@ function viewSettings() {
     <div class="card">
       <label class="field"><span class="label">Your sport</span>
         <input id="sport" maxlength="30" autocomplete="off" enterkeyhint="done" value="${esc(s.sportName || "Basketball")}" placeholder="Basketball"></label>
-      <p class="quiet">Shown in "Log something else". It fills the sport slot in your week.</p>
+      <p class="quiet">Shown in "Log something else". A game counts as that rotation's quality run.</p>
     </div>
     <div class="card">
       <span class="label" id="wd-l">Usually busy on</span>

@@ -256,19 +256,29 @@ async function runAndOther(label, viewport) {
   await shot(pg, `${label}-15-run`);
   check(await noHScroll(pg), `${label}: run screen has no horizontal scroll`);
   check(await logBtnInThumbZone(pg), `${label}: Done in the thumb zone`);
-  check((await pg.textContent(".run-target")).includes("6 × 800 m"), `${label}: first run is intervals with a one-line target`);
+  check((await pg.textContent(".run-target")).includes("20 min at"), `${label}: first quality run is a tempo run with a one-line target`);
   await pg.fill("#run-time", "10k 52:30");
   check((await pg.textContent("#time-hint")).includes("5:15/km"), `${label}: time line is read back as a pace`);
   await shot(pg, `${label}-16-run-time`);
   await pg.click("[data-act=run-done]");
   await pg.waitForSelector("[data-screen=home]");
   let d = await db(pg);
-  check(d.activities.some((a) => a.kind === "run" && a.run === "interval" && a.time === "10k 52:30"), `${label}: run saved on one tap`);
+  check(d.activities.some((a) => a.kind === "run" && a.run === "tempo" && a.time === "10k 52:30"), `${label}: run saved on one tap`);
   check(d.settings.paceRef?.km === 10 && d.settings.paceRef?.sec === 3150, `${label}: time line updates the paces`);
   check((await pg.textContent(".toast")).includes("Paces updated"), `${label}: toast confirms with Undo`);
   await pg.click(".toast [data-act=undo]");
   d = await db(pg);
   check(!d.activities.some((a) => a.kind === "run") && d.settings.paceRef == null, `${label}: undo removes the run and the pace change`);
+
+  // the long run: the sport/conditioning slot's default
+  await pg.goto(`${base}?start=long`);
+  await pg.waitForSelector("[data-screen=run]");
+  check((await pg.textContent(".run-target")).includes("8 km easy"), `${label}: first long run is 8 km easy`);
+  await pg.click("[data-act=run-done]");
+  await pg.waitForSelector("[data-screen=home]");
+  d = await db(pg);
+  check(d.activities.some((a) => a.kind === "run" && a.run === "long" && a.km === 8), `${label}: long run saved with its distance`);
+  await pg.click(".toast [data-act=undo]");
 
   // race mode
   await pg.click("a[href$='start=run']");
@@ -279,7 +289,7 @@ async function runAndOther(label, viewport) {
   await shot(pg, `${label}-17-run-race`);
   d = await db(pg);
   check(d.settings.race?.distance === "21k" && d.settings.race?.date === "2027-01-20", `${label}: race saved`);
-  check((await pg.textContent(".run-target")).includes("3 × 2 km"), `${label}: race build leans toward the half`);
+  check((await pg.textContent(".run-target")).includes("30 min at"), `${label}: race build leans toward the half (tempo at half pace)`);
   check(await noHScroll(pg), `${label}: race mode has no horizontal scroll`);
   await pg.click("[data-act=home]");
 

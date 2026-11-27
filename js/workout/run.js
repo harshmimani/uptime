@@ -1,6 +1,6 @@
 // Runs, kept light: Strava records them, Uptime only says what today's run is.
 //
-// - runTarget(): the one-line target for a run the engine picked (js/engine.js nextRunType).
+// - runTarget(): the one-line target for a run the engine picked (js/engine.js runPick / longPick).
 // - parseTimeLine(): reads an optional "10k 52:30" so the target paces stay current.
 // - Paces come from a 5K-equivalent time (Riegel), from that line or the plan baseline.
 // Pure functions: no DOM, no storage, no clock.
@@ -65,7 +65,7 @@ export function paces(fiveK, plan = PLAN) {
 const pace = (s) => `${mmss(s)}/km`;
 
 /**
- * The run as one line. `pick` comes from the engine: { run, km?, phase?, distance? }.
+ * The run as one line. `pick` comes from the engine: { run, reps?, km?, cap?, hold?, phase?, distance? }.
  * Returns { type, name, target, note }.
  */
 export function runTarget(pick, fiveK = PLAN.baseline.fiveKSec, plan = PLAN) {
@@ -76,19 +76,27 @@ export function runTarget(pick, fiveK = PLAN.baseline.fiveKSec, plan = PLAN) {
   const focus = pick.phase === "build" || taper ? pick.distance : "base";
   const racePace = pick.distance ? pc[pick.distance] : pc["5k"];
   const out = { type, name: runName(type, plan), target: "", note: "" };
+  // Riegel's half-marathon pace assumes big mileage: shown as a ceiling, never a target.
+  const ceiling = (at) => (at === "21k" ? " Half pace is a ceiling, not a target: slower is fine." : "");
   if (type === "interval") {
     const v = taper ? { ...R.interval.taper, at: pick.distance } : R.interval[focus] || R.interval.base;
-    out.target = `${v.text} at ${pace(pc[v.at])}, ${v.jog}`;
-    out.note = R.warmup;
+    const text = v.text || `${pick.reps || v.reps[0]} × ${v.dist}`;
+    out.target = `${text} at ${pace(pc[v.at])}, ${v.jog}`;
+    out.note = R.warmup + (v.reps && !taper ? ` Adds a rep every second time, up to ${v.reps[1]}.` : "") + ceiling(v.at);
   } else if (type === "tempo") {
     const v = taper ? { ...R.tempo.taper, at: pick.distance } : R.tempo[focus] || R.tempo.base;
     out.target = `${v.text} at ${pace(pc[v.at])}${v.jog ? `, ${v.jog}` : ""}`;
-    out.note = R.warmup;
+    out.note = R.warmup + ceiling(v.at);
   } else if (type === "long") {
-    const [lo, hi] = R.long.holdKm;
-    const km = pick.hold ? `${lo}–${hi} km` : `${pick.km} km`;
-    out.target = `${km} easy at ${mmss(pc.easy[0])}–${pace(pc.easy[1])}`;
-    out.note = "Conversational the whole way. Walk breaks are fine.";
+    out.target = `${pick.km} km easy at ${mmss(pc.easy[0])}–${pace(pc.easy[1])}`;
+    const racing = pick.phase === "build" || taper;
+    out.note = "Conversational the whole way. Walk breaks are fine."
+      + (taper ? " Taper: shorter on purpose."
+        : pick.hold && !racing ? ` That's the normal-week cap (about ${R.long.capMin} min); it holds here.`
+        : ` Grows by at most 10% over your longest run of the last ${R.long.lookbackDays} days.`);
+  } else if (type === "easy") {
+    out.target = `${R.easyMinutes[0]}–${R.easyMinutes[1]} min easy at ${mmss(pc.easy[0])}–${pace(pc.easy[1])}`;
+    out.note = "Conversational the whole way.";
   } else if (type === "shakeout") {
     out.target = R.shakeout;
     out.note = "Race week: stay fresh.";
@@ -96,6 +104,7 @@ export function runTarget(pick, fiveK = PLAN.baseline.fiveKSec, plan = PLAN) {
     const label = { "5k": "5K", "10k": "10K", "21k": "Half marathon" }[pick.distance];
     if (label) out.name = `${label} race`;
     out.target = `Goal pace about ${pace(racePace)}. Start a little slower.`;
+    if (pick.distance === "21k") out.target = `Goal pace no faster than ${pace(racePace)}. Start slower and hold back until 15 km.`;
     out.note = "Add your time below and the paces update.";
   } else {
     out.target = "Easy, conversational.";

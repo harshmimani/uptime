@@ -48,18 +48,36 @@ test("last 7 days: sessions, exercises, sets and the muscles worked", () => {
   assert.ok(!s.muscles.also.some((k) => s.muscles.main.includes(k)));
 });
 
-test("this week: done with the day, next, not yet; a second run fills the sport slot", () => {
+test("this week: done with the day, next, not yet; the quality run and the long-run slot", () => {
   const slots = weekSlots(db, today, { next: "UB" });
   const by = Object.fromEntries(slots.map((x) => [x.id, x]));
-  assert.equal(slots.length, 6);
+  assert.deepEqual(slots.map((x) => x.id), ["UA", "LA", "UB", "LB", "run", "long"]);
   assert.equal(by.UA.state, "done");
   assert.equal(by.LA.state, "done");
   assert.equal(by.UB.state, "next");
   assert.equal(by.LB.state, "later");
   assert.equal(by.run.state, "done");
-  assert.equal(by.sport.state, "done");
-  assert.equal(by.run.day, "Yesterday");
-  assert.equal(by.sport.what, "Intervals");
+  assert.equal(by.run.what, "Intervals");
+  assert.equal(by.run.day, "Tue");
+  assert.equal(by.long.state, "done"); // an easy run fills the long-run slot when there's no time
+  assert.equal(by.long.what, "Easy run");
+  assert.equal(by.long.day, "Yesterday");
+});
+
+test("a game fills the Run slot, never the long run", () => {
+  const game = { id: "g", date: "2026-11-25", t: T("2026-11-25"), kind: "sport", ex: "basketball", min: 60 };
+  const slots = weekSlots({ ...db, activities: [game] }, today, { next: "UB" });
+  const by = Object.fromEntries(slots.map((x) => [x.id, x]));
+  assert.equal(by.run.what, "Basketball");
+  assert.equal(by.long.state, "later");
+});
+
+test("a 21K build shows three lifts and three runs", () => {
+  const slots = weekSlots(db, today, { next: "UB", cycle: ["UA", "LA", "UB"], threeLifts: true });
+  assert.deepEqual(slots.map((x) => x.id), ["UA", "LA", "UB", "run", "long", "easy"]);
+  const by = Object.fromEntries(slots.map((x) => [x.id, x]));
+  assert.equal(by.long.state, "later"); // only a long run fills it in a build
+  assert.equal(by.easy.state, "done");
 });
 
 test("busy mode shows its full-body sessions and the run", () => {

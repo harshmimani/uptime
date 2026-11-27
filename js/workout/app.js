@@ -58,7 +58,7 @@ const backBtn = (act, label, text = "Back") => `<button class="back" type="butto
 const CHECK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>`;
 const dayName = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long" });
 const shortDate = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-/** The sport slot is named by the user (Settings › Sport); stored as "basketball" so old logs still match. */
+/** The sport is named by the user (Settings › Sport); stored as "basketball" so old logs still match. */
 const actName = (ex) => (ex === "basketball" && db().settings.sportName ? db().settings.sportName : M.exName(ex));
 const say = (text) => { live.textContent = ""; setTimeout(() => (live.textContent = text), 30); };
 
@@ -209,12 +209,13 @@ addEventListener("popstate", () => {
 
 // ---------------------------------------------------------------- check-in
 
-function runInfo() {
-  const pick = E.runPick(engineLog(db()), today(), db().settings);
-  return { pick, t: R.runTarget(pick, R.fiveKSec(db().activities, db().settings)) };
+/** The quality run (Run slot), or with kind "long" the long run (sport/conditioning slot). */
+function runInfo(kind = "run") {
+  const pick = kind === "long" ? E.longPick(engineLog(db()), today(), db().settings) : E.runPick(engineLog(db()), today(), db().settings);
+  return { kind, pick, t: R.runTarget(pick, R.fiveKSec(db().activities, db().settings)) };
 }
-function startRun() {
-  ui.run = { ...runInfo(), raceOpen: false, raceDraft: null };
+function startRun(kind = "run") {
+  ui.run = { ...runInfo(kind), raceOpen: false, raceDraft: null };
   go("run", { vt: true });
 }
 
@@ -236,6 +237,8 @@ function viewCheckin() {
     if (pd.adjust.loadFactor < 1) notes.push(`Weights today: about ${Math.round(pd.adjust.loadFactor * 100)}% of last time${pd.adjust.setsDelta ? ", one set fewer per exercise" : ""}.`);
     if (pd.adjust.deload) notes.push("Deload week: same exercises, about half the sets.");
     else if (pd.deload?.suggested) notes.push("A deload is due: same exercises, about half the sets, for a week.");
+    // the 6-week check: a note only, it never changes or blocks the session
+    if (pd.deload?.checkpoint) notes.push(`${PLAN.rules.checkpoint.note} Left more than 10% behind? Do Lower A's calf raise single-leg, left first.`);
     if (pd.noGym) notes.push(PLAN.noGym.loadTip);
   }
   return `<main class="scr vt-card" data-screen="checkin">
@@ -313,7 +316,8 @@ function targetLine(p, it) {
     const unit = t.last.sec != null ? " s" : " reps";
     goal = t.last.kg > 0 ? `Beat ${fmtKg(t.last.kg)} ${unitLabel()} × ${lr}: ${lr + 1}${unit}, or more weight` : `Beat ${lr}${unit}: go for ${lr + 1}`;
   } else if (t.kind === "up") goal = `Up from ${fmtKg(t.fromKg)} ${unitLabel()}. Any set in range beats last time.`;
-  else if (t.kind === "plan") goal = `Plan today: ${M.rangeText(it)}${it.tempo ? `, ${it.tempo}` : ""}. Last time was a different scheme.`;
+  else if (t.kind === "slow") goal = "Same weight with 3-second lowers. Every clean set in range counts.";
+  else if (t.kind === "plan") goal = `Plan today: ${M.rangeText({ ...it, reps: p.range || it.reps })}${it.tempo ? `, ${it.tempo}` : ""}. Last time was a different scheme.`;
   else if (t.kind === "easy") goal = t.lighter ? "Lighter day: about 90% of last time. Just move well." : ui.view === "set" && db().active?.adjust?.deload ? "Deload: same weights, fewer sets." : "Short version: no target, just get it done.";
   else goal = p.weighted ? "First time: pick a weight that leaves 1–3 reps in the tank." : it.role === "main" ? "First time: clean reps, stop 1–3 short of failure." : "First time: note what you can do with good form.";
   const beatable = t.kind === "beat" || t.kind === "up";
@@ -406,11 +410,11 @@ function viewSet() {
   // folds to one line (tap to open it again) that stays until the first exercise is finished.
   const firstKey = w.items[0]?.key;
   const showWarm = (it.key === firstKey || w.log.length === 0) && !w.rest && !w.work;
-  const wu = showWarm ? M.warmup(w, hist) : null;
+  const wu = showWarm ? M.warmup(w, hist, PLAN, db().settings) : null;
   const warmFolded = wu && (w.warm === "done" || w.log.length > 0) && !ui.warmOpen;
   // The ramp-up belongs to the first loaded main lift. When that lift isn't first (Upper A opens
   // with pull-ups), the card is gone by the time it comes up, so the ramp-up shows again there.
-  const rampHere = !wu && mine.length === 0 && !w.rest && !w.adjust.deload ? M.warmup(w, hist).ramp : null;
+  const rampHere = !wu && mine.length === 0 && !w.rest && !w.adjust.deload ? M.warmup(w, hist, PLAN, db().settings).ramp : null;
   const rampText = (r) => r.sets.map((s) => `${fmtKg(s.kg)} ${unitLabel()} × ${s.reps}`).join(", ");
   const warmEnd = w.startedAt + PLAN.warmup.minutes * 60000;
   const steppers = [];
@@ -452,12 +456,12 @@ function viewSet() {
         ${it.note ? `<p class="quiet" style="margin-top:4px">${esc(it.note)}</p>` : ""}
       </div>
       ${targetLine(p, it)}
-      ${p.prog.action === "reset" ? `<div class="notice"><div>${esc(PLAN.rules.stallAdvice)}</div></div>` : ""}
+      ${p.prog.action === "reset" ? `<div class="notice"><div>${esc(PLAN.rules.stallAdvice)}</div></div>` : p.prog.slow ? `<div class="notice"><div>${esc(p.prog.advice)}</div></div>` : ""}
       ${loggedList(w, it)}
     </div>
     <div class="scr__foot">
       <div class="toast-slot" id="toast-slot" aria-live="polite"></div>
-      <div class="setline" id="setline"><b>Set ${p.n} of ${it.sets}</b><span class="meta">${esc(M.rangeText(it))}${it.tempo ? ` · ${esc(it.tempo)}` : ""}</span></div>
+      <div class="setline" id="setline"><b>Set ${p.n} of ${it.sets}</b><span class="meta">${esc(M.rangeText({ ...it, reps: p.range || it.reps }))}${it.tempo ? ` · ${esc(it.tempo)}` : p.prog.slow ? " · 3-s lower" : ""}</span></div>
       <div class="steppers">${steppers.join("")}</div>
       <div class="row tools"><button class="btn btn--secondary grow" data-act="open-swap" ${w.work ? "disabled" : ""}>Swap</button><button class="btn btn--secondary grow" data-act="open-skip" ${w.work ? "disabled" : ""}>Skip</button><button class="btn btn--secondary grow" data-act="open-all">All</button></div>
       <button class="btn btn--primary" id="log-btn" data-act="log">
@@ -1111,7 +1115,7 @@ function viewRun() {
       ${saveErrorBox()}
       <p class="run-target">${esc(t.target)}</p>
       ${t.note ? `<p class="meta" style="margin:0">${esc(t.note)}</p>` : ""}
-      ${pick.run === "long" && !pick.hold ? `<p class="quiet">Each long run adds a little until ${PLAN.run.long.holdKm[0]}–${PLAN.run.long.holdKm[1]} km, then it holds.</p>` : ""}
+      ${pick.run === "long" && !pick.hold && pick.phase !== "taper" ? `<p class="quiet">Each long run adds a little, up to ${pick.cap} km${pick.phase === "build" ? " for the race" : ` (about ${PLAN.run.long.capMin} min)`}, then it holds.</p>` : ""}
       <div class="field">
         <label class="label" for="run-time">Your time (optional)</label>
         <input id="run-time" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="10k 52:30" aria-describedby="time-hint">
@@ -1163,7 +1167,7 @@ function saveRace(clear) {
     db().settings.race = { distance: d.distance || db().settings.race?.distance || "10k", date };
   }
   persist();
-  ui.run = { ...runInfo(), raceOpen: false, raceDraft: null };
+  ui.run = { ...runInfo(ui.run.kind), raceOpen: false, raceDraft: null };
   render();
   toast(clear ? "Race mode off." : "Race saved. Your runs follow it.");
 }
@@ -1173,8 +1177,11 @@ function saveRace(clear) {
 function viewOther() {
   const o = ui.other;
   const saved = o.savedId ? db().activities.find((a) => a.id === o.savedId) : null;
+  // the day after Lower B a game is flagged, never blocked (sore hamstrings and sprinting don't mix)
+  const afterLB = todayPlan().hints.includes("no-sprint-after-lower-b");
+  const optNote = (c) => (afterLB && c.ex === "basketball" ? "Lower B yesterday: a game fits better tomorrow." : c.note || M.exCue(c.ex));
   const opts = PLAN.conditioning.options.map((c) => `<button class="opt opt--row" data-act="log-activity" data-ex="${esc(c.ex)}">
-      <span><b>${esc(actName(c.ex))}</b><br><span>${esc(c.note || M.exCue(c.ex))}</span></span><span class="num">${c.minutes[0]} min</span></button>`).join("");
+      <span><b>${esc(actName(c.ex))}</b><br><span>${esc(optNote(c))}</span></span><span class="num">${c.minutes[0]} min</span></button>`).join("");
   const when = (d, label) => `<button class="chip" type="button" data-act="${saved ? "edit-date" : "pick-date"}" data-d="${d}" aria-pressed="${(saved ? saved.date : o.date) === d}">${label}</button>`;
   const dates = `<div class="when" role="group" aria-label="When">${when(today(), "Today")}${when(E.addDays(today(), -1), "Yesterday")}</div>`;
   return `<main class="scr" data-screen="other">
@@ -1186,7 +1193,8 @@ function viewOther() {
           <div class="row" style="margin-top:4px"><button class="btn btn--text" data-act="edit-activity" aria-expanded="${!!o.editing}">Edit</button><button class="btn btn--text" data-act="undo-activity">Undo</button></div></div></div>
         ${o.editing ? `<section class="card" aria-label="Edit">${stepper({ id: "min", value: saved.min, unit: "minutes", label: "Minutes", step: 5, min: 5 })}${dates}<p class="quiet">Changes save as you make them.</p></section>` : ""}`
       : `${dates}<div class="act-list">${opts}
-          <button class="opt opt--row" data-act="start-run"><span><b>Today's planned run</b><br><span>${esc(runInfo().t.name)}: ${esc(runInfo().t.target)}</span></span><span></span></button></div>
+          <button class="opt opt--row" data-act="start-run"><span><b>Today's quality run</b><br><span>${esc(runInfo().t.name)}: ${esc(runInfo().t.target)}</span></span><span></span></button>
+          ${E.isBusy(db().settings, today()) ? "" : `<button class="opt opt--row" data-act="start-long"><span><b>Today's long run</b><br><span>${esc(runInfo("long").t.target)}</span></span><span></span></button>`}</div>
         <p class="quiet">Tap one and it's saved straight away with the usual time. You can edit it after.</p>`}
     </div>
     <div class="scr__foot"><div class="toast-slot" id="toast-slot" aria-live="polite"></div>
@@ -1253,6 +1261,7 @@ app.addEventListener("click", (ev) => {
     case "next-open": moveTo(M.nextStep(w, null)?.key); break;
     case "finish-done": finishWorkout(false); break;
     case "start-run": startRun(); break;
+    case "start-long": startRun("long"); break;
     case "open-other": ui.other = { date: today(), savedId: null, editing: false }; go("other"); break;
     case "pick-length": ui.pending.short = el.dataset.short === "1"; render(); break;
     case "toggle-nogym": ui.pending.noGym = !ui.pending.noGym; render(); break;
@@ -1400,8 +1409,8 @@ function boot() {
       const p = todayPlan();
       ui.pending = { type: "lift", session: p.next, short: !!(p.primary?.short || p.hints.includes("busy-weekday")), noGym: false, adjust: liftAdjust(p), deload: p.deload };
       ui.view = "checkin";
-    } else if (start === "run") {
-      ui.run = { ...runInfo(), raceOpen: false, raceDraft: null };
+    } else if (start === "run" || start === "long") {
+      ui.run = { ...runInfo(start), raceOpen: false, raceDraft: null };
       ui.view = "run";
     } else if (start === "other") {
       ui.other = { date: today(), savedId: null, editing: false };

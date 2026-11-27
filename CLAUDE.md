@@ -33,18 +33,21 @@ When the two conflict, choose what the user is most likely to actually stick wit
 
 - Student now, moving into full-time work soon.
 - Goal: athletic, lean, strong, fit for life.
+- Runs 5K, 10K and 21K (every run tracked on Strava) and plays basketball regularly.
+- Left Achilles was sore earlier and settled with physio.
 - Targets: sub-25 min 5K, 10 strict pull-ups, visibly leaner.
 - Schedule is irregular (classes some days, busy others) and will get busier.
 - **The #1 risk is quitting, not under-training.**
 
 ## Training model: a rotation, not a calendar
 
-- A full cycle = 6 sessions: 4 strength (Upper A, Lower A, Upper B, Lower B), 1 run, 1 sport-or-conditioning session, plus at least 1 rest day. The user plays basketball only occasionally, so the sport slot is filled by any conditioning when there's no game (an easy run is suggested first).
-- Strength sessions follow a fixed order **UA → LA → UB → LB → repeat**. Missing a day never skips a session; the app shows the next one in line. Nothing is "missed", only "not done yet".
+- A full cycle = 6 sessions: 4 strength (Upper A, Lower A, Upper B, Lower B), 1 run (the **quality run**), 1 sport-or-conditioning session, plus at least 1 rest day. In normal weeks the sport/conditioning slot **defaults to a long easy run** (other easy cardio fills it when a long run doesn't fit). **Basketball replaces the quality run that rotation, never the long run** (coach review, approved 27 Nov 2026). See **Running**.
+- Strength sessions follow a fixed order **UA → LA → UB → LB → repeat**. Missing a day never skips a session; the app shows the next one in line. Nothing is "missed", only "not done yet". The one exception is a 21K race build (see **Running**), which runs UA → one Lower (LA and LB take turns) → UB.
 - Run and sport/conditioning float: done any day they fit, and the app suggests good slots. What the run slot holds is under **Running**.
 - Progress is counted over a **rolling 7 days**, not Mon–Sun. Weekdays are never hard-coded. Optionally the user can mark usually-busy weekdays; the app uses them only for gentle suggestions.
 - Spacing rules (suggestions, never blocking):
   - Avoid a Lower session the day after sport or a hard run if another option exists.
+  - No basketball or interval run the day after Lower B (Nordics and deadlifts leave the hamstrings sore for 24–48 h): choose Upper or an easy run. Flagged, never blocked.
   - No Lower session the day before a long run or race (the app doesn't suggest a long run the day after Lower, and flags Lower the day before race day).
   - Consecutive strength days are fine because upper/lower alternate.
   - Avoid 3 hard days in a row.
@@ -54,7 +57,7 @@ When the two conflict, choose what the user is most likely to actually stick wit
   - 7–13 days off → first session at ~90% of last weights.
   - 14+ days off → first week at ~80% with one fewer set per exercise, then resume normally.
 - Week levels:
-  - **Full** = 4 lifts + run + sport or conditioning.
+  - **Full** = 4 lifts + the quality run (or a game) + the long run (or other conditioning). Two hard runs, or a run and a game, without the long-run slot make a Good week. In a 21K build, Full = 3 lifts + 3 runs.
   - **Good** = 3 lifts + 1 conditioning.
   - **Minimum** = 2 full-body sessions.
   - Streaks count every week that reaches Minimum, so busy weeks never break the streak.
@@ -62,13 +65,18 @@ When the two conflict, choose what the user is most likely to actually stick wit
 
 ## Session rules
 
-- Strength sessions ≤50 min including warm-up. Every session has a **Short version ≤30 min** (first 3 exercises, fewer sets).
+- Strength sessions ≤50 min including warm-up. Every session has a **Short version ≤30 min** (first 3 exercises, fewer sets; a superset pair counts as one exercise).
+- Time caps are checked with the coach's method: about 4.5 s per rep (6 s for 3 s up / 3 s down), rest as written after every set or superset round, 45 s per station change, warm-up and ramp sets included. Last check (27 Nov 2026, mid-range reps): Upper A 45, Upper B 48, Lower A 45 (50 with the optional carry), Lower B 47; Short versions 22–27; Busy sessions 43–46.
+- **Lower-day order:** jump → main lift → calf-raise superset (Lower A: heavy slow Smith calf raise + Copenhagen plank; Lower B: Nordic curl + seated calf raise) → the rest. The calf work sits third so the Short version always keeps it. Lower A's farmer carry is optional (only if under about 42 min).
 - One-tap check-in before each session: **Good / Okay / Rough**. Rough suggests the Short version. Never guilt-trip.
-- Warm-up: 5 min general + 1–3 ramp-up sets on the first main lift. It is shown as a checklist card above the first exercise, not as a separate step, so Start → check-in → first set is 2 taps. The card has a real **Done** button; once Done is tapped or set 1 is logged it folds to one small line ("Warm-up done", plus the ramp-up when it's on this exercise) that can be tapped open again, and it goes once the first exercise is finished (changed 27 Nov 2026 at the user's request; before, it stayed full size until set 1).
+- Warm-up: 5 min general + 1–3 ramp-up sets on the first main lift. Lower and full-body days add single-leg balance (2 × 30 s per side, eyes closed once easy) for ankle sprains. Lower B adds pull-up practice (2 × 2 of the current ladder move, about 3 min), left out of the Short version. It is shown as a checklist card above the first exercise, not as a separate step, so Start → check-in → first set is 2 taps. The card has a real **Done** button; once Done is tapped or set 1 is logged it folds to one small line ("Warm-up done", plus the ramp-up when it's on this exercise) that can be tapped open again, and it goes once the first exercise is finished (changed 27 Nov 2026 at the user's request; before, it stayed full size until set 1).
 - Main lifts 5–8 reps, accessories 8–15, carries/core by time or distance. Most sets end 1–3 reps short of failure; never train main lifts to failure.
+- **Dumbbell rep ranges follow the weight** (per hand) for the bench, overhead and incline presses: up to 10 kg 8–15 reps, 12.5–17.5 kg 6–10, 20 kg and up 5–8. Lateral raises 12–20; at the top of the range, one session of 3-second lowers at the same weight before the next dumbbell. (`rules.dumbbellBands`, `byLoad`, `slowFirst` in `js/plan.js`.)
 - **Double progression:** when all sets hit the top of the range, add the smallest sensible jump (2.5 kg lower-body main lifts, 1–2.5 kg upper, next dumbbell up). Stalled 2 sessions in a row → suggest a small reset or rep-range change.
-- **Deload** every 6–8 weeks, or after 3+ "Rough" check-ins within one rotation: same exercises, about half the sets.
-- Every exercise has an easier swap, a harder swap, and a no-equipment swap.
+- **Pull-ups:** the ladder in `js/plan.js`. At levels 1–2 Upper B does scap pull-ups 1 × 6–8, then foot-assisted pull-ups 3 × 5–8 with a 3 s lower (feet flat → heels only → feet on a bench). Upper A pairs a kneeling two-arm cable lat pulldown (3 × 6–10, 1–2 reps in reserve) with the Pallof press.
+- **Deload** every 6–8 weeks, or after 3+ "Rough" check-ins within one rotation: same exercises, about half the sets. **Skip the scheduled deload** if the 42 days before it included a 7+ day gap or two light 7-day blocks (Minimum-level lifting, 2 lifts or fewer, or Busy mode on); its clock restarts from the day it fell due. Rough check-ins always count.
+- **6-week check** (with the deload, or when it's skipped): pull-up max test and single-leg heel raises to fatigue on each side. A note only, never blocking: if the left is more than 10% behind, do Lower A's calf raise single-leg (its harder swap), 3 × 6–10 slow, left first. Physio clearance before jump block 3 (pogo hops) and before a 21K build.
+- Every exercise has an easier swap, a harder swap, and a no-equipment swap. Rows without equipment use the backpack row with a 3 s lower (not the towel door row: it depends on door hardware).
 - Every exercise shows the muscles it works (main and secondary) on a front/back muscle map, 3–4 short how-to steps, the main mistake to avoid, and a **Watch on YouTube** link that is a YouTube *search* for the exercise (so it never goes dead). Content lives in `js/plan.js` under `guide`; the map is drawn by `js/muscles.js`. Plan › Week has every session's exercises; Learn has the muscle coverage matrix ("Where the work lands").
 - Before starting, the check-in screen lists today's exercises with sets, reps and muscles; tapping one opens its how-to. During rest the timer always shows **Up next** (the next set, and the next exercise after it).
 - Units: stored in kg. Settings can show weights in lb (requested 26 Nov 2026); switching never changes stored logs.
@@ -77,15 +85,20 @@ When the two conflict, choose what the user is most likely to actually stick wit
 
 The user runs 5K, 10K and 21K and **Strava records every run**. Uptime never duplicates Strava: no run stats, charts, splits, timers or PB tracking. One exception (requested 26 Nov 2026): Progress shows a **5K trend** built only from the optional time lines the user types (as 5K-equivalents) and old time trials. Nothing else about runs is charted.
 
-- The single run slot cycles **intervals → tempo → long easy run**, so all three distances stay maintained. The long run adds 1 km each time from 8 km up to 12 km, then holds at 12–14 km. More than 5 weeks since the last long run: start 2 km lower.
-- Targets are one line, with paces from the user's latest time (5K-equivalent via Riegel's formula; the plan baseline until then). Intervals 6 × 800 m at 5K pace; tempo 20 min at 5K pace + 15 s/km; long runs at 5K pace + 75–100 s/km.
-- Run day in the app: what today's run is, its one-line target, one tap **Done** (saves straight away, with Undo). An optional single text line for a time (e.g. "10k 52:30", "half 1:55:00") is used **only** to update the target paces.
+Two runs per rotation (coach review, approved 27 Nov 2026):
+
+- **Quality run** (the Run slot): tempo and intervals take turns. Tempo 20 min at 5K pace + 15 s/km. Intervals start at **4 × 800 m** at 5K pace with 2 min jog, and add one rep every second interval session up to 6; more than 30 days since the last interval session starts over at 4. **Basketball replaces the quality run** that rotation (it's already a hard day); the next quality run is still the one that was due.
+- **Long easy run** (the sport/conditioning slot's default) at 5K pace + 75–100 s/km. Starts at 8 km and never goes more than **10% beyond the longest run of the last 30 days**, rounded down to the half km and at most 1 km at a time (8 → 8.5 → 9 → 9.5 → 10 → 11…). Last long run 15–30 days ago: repeat it. Nothing in 30 days: 2 km lower (never below 8). **Normal weeks cap it at 10–12 km, about 70 min**: as many whole km as fit in 70 min at the faster end of easy pace, kept within 10–12. Only race mode goes beyond. A game never replaces it.
+- Long runs go past the 50-minute cap; that's accepted and said plainly.
+- Targets are one line, with paces from the user's latest time (5K-equivalent via Riegel's formula; the plan baseline until then). Riegel's 21K pace assumes big mileage, so it's shown as a ceiling, not a target.
+- Run day in the app: what today's run is, its one-line target, one tap **Done** (saves straight away, with Undo; a long run saves its km). An optional single text line for a time (e.g. "10k 52:30", "half 1:55:00") is used **only** to update the target paces.
 - **Race mode (optional):** the user sets a race distance (5K, 10K or 21K) and date.
-  - The last 8 (5K), 10 (10K) or 12 (21K) weeks lean toward the distance: race-pace intervals and tempo, and for 10K/21K quality runs alternate with long runs that build to about 15 km (10K) or 19 km (21K).
-  - Taper: the last 7 (5K), 10 (10K) or 14 (21K) days, with shorter runs and a long run at about 60% of the longest; lifts suggest the Short version. The last 6 days are easy shakeouts only. Race day shows the race.
-  - After race day the cycle returns to normal by itself.
+  - The last 8 (5K), 10 (10K) or 12 (21K) weeks lean toward the distance: quality runs at race pace (10K: 5 × 1 km, 2 × 12 min; 21K: 3 × 2 km, 30 min at half pace) and the long run builds in 1 km steps (still within the 10% rule) to about 15 km (10K) or **18 km (21K)**. A 5K keeps the normal cap.
+  - **21K build (last 12 weeks): three lifts and three runs** — Upper A, one Lower (LA and LB take turns), Upper B, plus the quality run, the long run and an easy 30–40 min run. One strength session a week maintains strength and power, so this holds for 12 weeks. If the user won't run three times a week for those 12 weeks, race a 10K instead.
+  - Taper: the last 7 (5K), 10 (10K) or 14 (21K) days, with shorter runs and a long run at about 60% of the longest; lifts suggest the Short version. The last 6 days are easy shakeouts only (no long run). Race day shows the race.
+  - After race day the cycle returns to normal by itself (the long run drops back to the normal cap).
 - Busy mode: one tempo run a week; the cycle waits.
-- Numbers live in `js/plan.js` under `run`.
+- Numbers live in `js/plan.js` under `run`; the long-run and interval rules are in `js/engine.js` (`longRunKm`, `intervalReps`).
 
 ## Modes
 
@@ -113,10 +126,10 @@ The user runs 5K, 10K and 21K and **Strava records every run**. Uptime never dup
 ## Home page & first impression
 
 - The app has a **Home** page and a **Workout** section. Home is the showpiece: anyone who sees it should immediately feel this is a premium, thoughtfully crafted product, not a template.
-- Navigation: three bottom tabs, **Home**, **Progress** and **Plan**. Plan opens on **Week** (every session with its exercises, sets × reps, muscle maps and videos, plus the run and sport slots), then **Coming up**, Modes, Fuel, Learn and Settings. **Coming up** (`plan.html#next`, linked from Home under This week) is the presentable "what I'm doing next" view: one cycle from the next session (Next, Then, After that…), lifts in rotation order with the run and sport slot placed before an upper session (`E.upcoming`), each opening in place to its exercises, sets × reps and a combined muscle map. Progress starts with **Last 7 days** (sessions, exercises, sets and a combined muscle map) and **Past sessions** (each opens its exercises, sets and weights). The Workout is not a tab: it is a full-screen mode entered with Start and left from the summary, with the tabs hidden while it runs.
+- Navigation: three bottom tabs, **Home**, **Progress** and **Plan**. Plan opens on **Week** (every session with its exercises, sets × reps, muscle maps and videos, plus the quality-run and long-run slots), then **Coming up**, Modes, Fuel, Learn and Settings. **Coming up** (`plan.html#next`, linked from Home under This week) is the presentable "what I'm doing next" view: one cycle from the next session (Next, Then, After that…), lifts in rotation order with the quality run and long run placed before an upper session (`E.upcoming`), each opening in place to its exercises, sets × reps and a combined muscle map. Progress starts with **Last 7 days** (sessions, exercises, sets and a combined muscle map) and **Past sessions** (each opens its exercises, sets and weights). The Workout is not a tab: it is a full-screen mode entered with Start and left from the summary, with the tabs hidden while it runs.
 - Home is the hub (approved 27 Nov 2026). Content, in priority order:
   1. Today's "Next up" session with one large green Start button. On phones it fills the first screen so Start sits in the thumb zone.
-  2. **This week**: the six slots (Upper A, Lower A, Upper B, Lower B, Run, Sport; Busy mode shows its full-body sessions and the run) over the rolling 7 days, each done (with the day), next, or not yet. Tapping a slot opens its exercises with muscle maps, how-to and YouTube links.
+  2. **This week**: the six slots (Upper A, Lower A, Upper B, Lower B, Run, Long run; Busy mode shows its full-body sessions and the run; a 21K build shows its three lifts and three runs) over the rolling 7 days, each done (with the day), next, or not yet. Tapping a slot opens its exercises with muscle maps, how-to and YouTube links.
   3. Rolling-week progress and streak.
   4. One standout stat (e.g. pull-up max, total kg lifted), shown only once there is a real number. Never a run stat: Strava has those.
   5. The most recent past sessions, each opening its sets and weights, with "See all" to Progress.

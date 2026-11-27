@@ -9,7 +9,7 @@
 //     kind: "lift", id, session: "UA", name, sessionKind, date, startedAt,
 //     checkIn: "Good" | "Okay" | "Rough", short, noGym, adjust: { loadFactor, setsDelta, setsFactor, returnTier, deload },
 //     items: [{ key, planEx, ex, swapped: null | "today" | "always" | "nogym", role, sets, reps?, sec?, perSide?,
-//               rest, pair?, tempo?, note?, start?, ladder?, carryKg? }],
+//               rest, pair?, tempo?, note?, start?, ladder?, carryKg?, byLoad?, slowFirst?, optional? }],
 //     log: [{ key, ex, n, kg?, reps?, sec?, t }],     // n = set number within the item, 1-based
 //     cur: item key | null,                           // the exercise in focus
 //     rest: { startAt, endAt } | null,                // end timestamp: right after a lock or app switch
@@ -22,7 +22,7 @@
 
 import PLAN from "../plan.js";
 import { fmtW, wu } from "../units.js";
-import { sessionDef, adjustSets, progression, roundDown } from "../engine.js";
+import { sessionDef, adjustSets, progression, roundDown, shortItems, repRange } from "../engine.js";
 
 export const RESUME_AFTER_MS = 90 * 60 * 1000;
 export const KG_STEP = 2.5;
@@ -136,7 +136,10 @@ export function buildItems(sessionId, { short = false, noGym = false, adjust = {
   const def = sessionDef(sessionId, plan);
   if (!def) return [];
   let raw = def.items.map((it, idx) => ({ it, idx }));
-  if (short) raw = raw.slice(0, plan.short.items);
+  if (short) {
+    const keep = new Set(shortItems(def.items, plan));
+    raw = raw.filter((x) => keep.has(x.it));
+  }
   const s = { ladderLevel: settings.ladderLevel ?? plan.baseline.ladderLevel, jumpBlock: settings.jumpBlock ?? 1 };
   const out = [];
   const add = (c, key, base) => {
@@ -151,6 +154,7 @@ export function buildItems(sessionId, { short = false, noGym = false, adjust = {
       sets: adjustSets(c.sets ?? 3, { short, setsFactor: adjust.setsFactor, setsDelta: adjust.setsDelta }, plan),
       reps: c.reps, sec: c.sec, perSide: c.perSide, rest: c.rest ?? 60,
       pair: base.pair, tempo: c.tempo, note: c.note, start: c.start, ladder: c.ladder,
+      byLoad: c.byLoad, slowFirst: c.slowFirst, optional: c.optional,
     });
   };
   for (const { it, idx } of raw) {
@@ -419,7 +423,8 @@ export function beats(v, last) {
  * history(ex) → past sessions of that exercise (store.exerciseHistory). history.lastKg(ex), if
  * given, is the old app's last typed weight, used only when there's no dated history.
  * target.kind: "beat" (last time's same set), "up" (progression added weight),
- *              "easy" (lighter day: return, deload, Short), "first" (no history).
+ *              "easy" (lighter day: return, deload, Short), "first" (no history),
+ *              "slow" (top of the range on a slowFirst item: same weight, 3-s lowers).
  */
 export function prefill(w, key, history, plan = PLAN) {
   const it = item(w, key);
@@ -449,25 +454,28 @@ export function prefill(w, key, history, plan = PLAN) {
     if (kg == null) kg = 0;
   }
 
+  // today's rep range: dumbbell presses follow the weight (light dumbbells get more reps)
+  const range = it.reps && ex === it.planEx ? repRange(it, kg, plan) : it.reps;
   let reps = null, sec = null;
   if (it.sec) {
     sec = prev?.sec ?? (prog.action === "increase" ? it.sec[0] : lastSet?.sec != null ? Math.min(lastSet.sec, it.sec[1]) : null) ?? it.sec[0];
   } else {
-    const top = it.reps ? it.reps[1] : 8;
+    const top = range ? range[1] : 8;
     if (prev?.reps != null && !lastSet) reps = prev.reps;
-    else if (prog.action === "increase" && it.reps) reps = it.reps[0];
+    else if (prog.action === "increase" && range) reps = range[0];
     else if (lastSet?.reps != null) reps = Math.min(lastSet.reps, top); // never above the plan's range (old logs used other schemes)
     else reps = top;
   }
 
   // last time was well past today's range (a different scheme, e.g. 15 reps where the plan
   // now says 3 slow negatives): "beat 15" would be the wrong goal, so the plan's range is the target
-  const offPlan = lastSet && ((it.reps && lastSet.reps > it.reps[1] && !(lastSet.kg > 0)) || (it.sec && lastSet.sec > it.sec[1] && !(lastSet.kg > 0)));
+  const offPlan = lastSet && ((range && lastSet.reps > range[1] && !(lastSet.kg > 0)) || (it.sec && lastSet.sec > it.sec[1] && !(lastSet.kg > 0)));
   let target;
   if (!last) target = { kind: "first" };
   else if (offPlan) target = { kind: "plan" };
   else if (reducedDay) target = { kind: "easy", lighter, last: lastSet };
   else if (prog.action === "increase" && weighted && kg > (lastSet?.kg ?? 0)) target = { kind: "up", fromKg: lastSet?.kg ?? 0, toKg: kg, last: lastSet };
+  else if (prog.slow) target = { kind: "slow", last: lastSet };
   else target = { kind: "beat", last: lastSet };
 
   if (w.draft && w.draft.key === key && w.draft.n === n) {
@@ -476,7 +484,7 @@ export function prefill(w, key, history, plan = PLAN) {
     if (w.draft.sec != null && sec != null) sec = w.draft.sec;
   }
   return {
-    key, ex, n, of: it.sets, weighted, kg, reps, sec, last, lastSet, prog, target,
+    key, ex, n, of: it.sets, weighted, kg, reps, sec, last, lastSet, prog, target, range,
     unit: kgNote(it, ex), setup: setupNote(it, ex),
   };
 }
@@ -494,10 +502,18 @@ export const fmtKg = (kg) => fmtW(kg);
 
 // ------------------------------------------------------------------ warm-up
 
-/** The warm-up card: general checklist plus ramp-up sets on the first loaded main lift. */
-export function warmup(w, history, plan = PLAN) {
+/**
+ * The warm-up card: general checklist plus ramp-up sets on the first loaded main lift.
+ * `settings` names today's pull-up ladder move in Lower B's pull-up practice.
+ */
+export function warmup(w, history, plan = PLAN, settings = {}) {
   const general = [...plan.warmup.general];
-  if (w.sessionKind !== "upper") general.push(plan.warmup.lowerExtra.join(", "));
+  if (w.sessionKind !== "upper") general.push(...plan.warmup.lowerExtra);
+  const extra = w.short ? null : plan.warmup.extra?.[w.session]; // Short keeps the warm-up short
+  if (extra) {
+    const lvl = plan.ladder.find((l) => l.level === (settings.ladderLevel ?? plan.baseline.ladderLevel)) || plan.ladder[0];
+    general.push(extra.replace("{ladder}", exName(lvl.a[0].ex, plan).toLowerCase()));
+  }
   let ramp = null;
   for (const it of w.items) {
     if (it.role !== "main") continue;

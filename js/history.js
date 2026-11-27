@@ -101,16 +101,17 @@ export function dayLabel(date, today) {
 }
 
 /**
- * This week's slots over the rolling 7 days: the four lifts (or Busy mode's full-body
- * sessions), the run and the sport-or-conditioning slot.
- * [{ id, kind: "lift" | "run" | "sport", name, short, state: "done" | "next" | "later", date?, day? }]
- * A second run fills the sport slot (as the week count does). Partial sessions count.
+ * This week's slots over the rolling 7 days: the lifts of the cycle (the four lifts, Busy
+ * mode's full-body sessions, or a 21K build's three), the Run slot (the quality run; a game
+ * counts) and the long-run slot (the long run, or any easy cardio). A 21K build adds an
+ * easy-run slot. Partial sessions count.
+ * [{ id, kind: "lift" | "run" | "long" | "easy", name, short, state: "done" | "next" | "later", date?, day?, what? }]
  */
-export function weekSlots(db, today, { next, busy = false, runName = "Run" } = {}, plan = PLAN) {
+export function weekSlots(db, today, { next, busy = false, runName = "Run", cycle = null, threeLifts = false } = {}, plan = PLAN) {
   const start = E.addDays(today, -6);
   const inWin = (d) => d >= start && d <= today;
   const latest = (list) => list.reduce((a, x) => (!a || x.date > a.date || (x.date === a.date && (x.t || 0) > (a.t || 0)) ? x : a), null);
-  const rot = busy ? plan.busy.rotation : plan.rules.rotation;
+  const rot = cycle || (busy ? plan.busy.rotation : plan.rules.rotation);
   const slots = rot.map((id) => {
     const def = E.sessionDef(id, plan);
     const done = latest(db.sessions.filter((s) => s.session === id && inWin(s.date)));
@@ -119,13 +120,14 @@ export function weekSlots(db, today, { next, busy = false, runName = "Run" } = {
       state: done ? "done" : id === next ? "next" : "later", date: done?.date, day: done ? dayLabel(done.date, today) : null };
   });
   const acts = db.activities.filter((a) => inWin(a.date)).sort((a, b) => (a.date === b.date ? (a.t || 0) - (b.t || 0) : a.date < b.date ? -1 : 1));
-  const runs = acts.filter((a) => a.kind === "run");
-  const cond = acts.filter((a) => CONDITIONING.has(a.kind));
-  const run = runs[runs.length - 1] || null;
-  const sport = cond[cond.length - 1] || runs[runs.length - 2] || null;
-  slots.push({ id: "run", kind: "run", name: "Run", short: "Run", focus: runName, state: run ? "done" : "later", date: run?.date, day: run ? dayLabel(run.date, today) : null, what: run ? activityName(run, db.settings, plan) : null });
-  if (!busy) {
-    slots.push({ id: "sport", kind: "sport", name: "Sport", short: "Sport", focus: "Or any conditioning", state: sport ? "done" : "later", date: sport?.date, day: sport ? dayLabel(sport.date, today) : null, what: sport ? activityName(sport, db.settings, plan) : null });
-  }
+  const slotOf = (a) => E.classify(a, plan);
+  const runs = acts.filter((a) => slotOf(a).slot === "run");
+  const longs = acts.filter((a) => slotOf(a).slot === "cond" && (!threeLifts || slotOf(a).long));
+  const easies = acts.filter((a) => slotOf(a).slot === "cond" && !slotOf(a).long);
+  const mk = (id, kind, name, short, focus, a) => ({ id, kind, name, short, focus, state: a ? "done" : "later", date: a?.date,
+    day: a ? dayLabel(a.date, today) : null, what: a ? activityName(a, db.settings, plan) : null });
+  slots.push(mk("run", "run", "Run", "Run", runName, latest(runs)));
+  if (!busy) slots.push(mk("long", "long", "Long run", "Long", threeLifts ? "Long easy run" : "Or other easy cardio", latest(longs)));
+  if (!busy && threeLifts) slots.push(mk("easy", "easy", "Easy run", "Easy", "30–40 min", latest(easies)));
   return slots;
 }
