@@ -366,3 +366,51 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 .warm-line .warm__time { white-space: nowrap; }
 .timerbox .row .btn { white-space: nowrap; padding-inline: var(--sp-2); }
 @media (min-width: 1024px) { .wo :is([data-screen="set"], [data-screen="review"]) .toast-slot { top: 128px; } } /* under the taller desktop header */
+
+/* ================================================================= enjoyment pass (27 Nov 2026)
+   Top 5 from the design review: the rest takeover's last seconds and green wipe, the exercise
+   name always on screen, a reward for beating last time, and sliding between exercises. */
+
+/* ---- header: session label, or the exercise name when the big one is out of view (and during rest) */
+.head-label { display: grid; min-width: 0; }
+.head-label > .label { grid-area: 1 / 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: center;
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), visibility 0s linear 0s; }
+.head-label .head-ex { opacity: 0; visibility: hidden; transform: translateY(calc(6px * var(--motion-distance))); }
+.head-label.is-ex .head-session { opacity: 0; visibility: hidden; transform: translateY(calc(-6px * var(--motion-distance))); }
+.head-label.is-ex .head-ex { opacity: 1; visibility: visible; transform: none; }
+
+/* ---- Next / Previous: the new exercise slides in 24 px from its side, 200 ms */
+.scr__body.slide-next > :not(.timerbox) { animation: ex-in-next 200ms var(--ease-out) both; }
+.scr__body.slide-prev > :not(.timerbox) { animation: ex-in-prev 200ms var(--ease-out) both; }
+@keyframes ex-in-next { from { opacity: 0; transform: translateX(calc(24px * var(--motion-distance))); } }
+@keyframes ex-in-prev { from { opacity: 0; transform: translateX(calc(-24px * var(--motion-distance))); } }
+
+/* ---- rest, last 10 seconds: the digits beat once a second (1 → 1.06) */
+.ring__time.beat { animation: final-beat 600ms var(--ease-out) both; }
+@keyframes final-beat { 0% { transform: scale(calc(1 + .06 * var(--motion-distance))); } 100% { transform: none; } }
+.ring.final .ring__time { color: var(--c-green); }
+
+/* ---- rest over: the whole card wipes green from the timer outward (400 ms expanding circle).
+   Inside, every colour turns to the ink that sits on green, so contrast holds in both themes. */
+.timerbox { position: relative; isolation: isolate; }
+.timerbox::before {
+  content: ""; position: absolute; inset: 0; z-index: 0; border-radius: inherit; background: var(--c-green); pointer-events: none;
+  opacity: 0; clip-path: circle(0 at 50% var(--oy, 40%));
+}
+.timerbox > * { position: relative; z-index: 1; }
+.timerbox.is-over::before { opacity: 1; clip-path: circle(150% at 50% var(--oy, 40%)); }
+.timerbox.is-over.wipe::before { animation: card-wipe 400ms var(--ease-emphasized) both; }
+@keyframes card-wipe { from { opacity: 1; clip-path: circle(0 at 50% var(--oy, 40%)); } }
+.timerbox.is-over {
+  --c-text: var(--c-on-green); --c-text-2: var(--c-on-green); --c-text-3: var(--c-on-green);
+  --c-line: color-mix(in srgb, var(--c-on-green) 35%, transparent); --c-line-strong: var(--c-on-green);
+  color: var(--c-on-green);
+}
+.timerbox.is-over .ring__track, .timerbox.is-over .ring__half, .timerbox.is-over .ring__go { opacity: 0; }
+.timerbox.is-over .btn--secondary { --btn-ink: var(--c-on-green); --btn-wash: var(--c-on-green); color: var(--c-on-green); }
+.timerbox.is-over .upnext .mmap { border-radius: var(--r-sm); background: var(--c-surface-2); }
+.timerbox.is-over .ring__time { color: var(--c-on-green); }
+@media (prefers-reduced-motion: reduce) {
+  .timerbox.is-over.wipe::before { animation: card-fade 200ms linear both; }
+  @keyframes card-fade { from { opacity: 0; clip-path: circle(150% at 50% 50%); } }
+}

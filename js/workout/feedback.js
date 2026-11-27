@@ -29,11 +29,17 @@ function tone(freq, start, dur, vol) {
   o.stop(t + dur + 0.02);
 }
 
-/** "tick": last 3 seconds of rest. "go": rest over. "done": session finished. */
+/**
+ * "log": a set was logged (a 60 ms 520 Hz tap, the cue iPhones get instead of vibration).
+ * "best": a set beat last time (two rising notes). "tick": last 3 seconds of rest.
+ * "go": rest over. "done": session finished.
+ */
 export function sound(kind, enabled = true) {
   if (!enabled || !ctx || ctx.state !== "running") return;
   try {
-    if (kind === "tick") tone(660, 0, 0.09, 0.12);
+    if (kind === "log") tone(520, 0, 0.06, 0.14);
+    else if (kind === "best") { tone(784, 0, 0.1, 0.18); tone(1175, 0.1, 0.2, 0.2); }
+    else if (kind === "tick") tone(660, 0, 0.09, 0.12);
     else if (kind === "go") { tone(880, 0, 0.14, 0.22); tone(1175, 0.16, 0.22, 0.22); }
     else if (kind === "done") { tone(660, 0, 0.12, 0.16); tone(880, 0.12, 0.12, 0.16); tone(1320, 0.24, 0.3, 0.18); }
   } catch { /* ignore */ }

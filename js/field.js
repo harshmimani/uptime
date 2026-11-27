@@ -6,17 +6,21 @@
 // so it can never delay Start. Runs at most 30 frames a second, stops when the tab is hidden
 // or the card is off screen, and draws one still frame under reduced motion.
 // No WebGL? Nothing happens: the card's CSS glow is already there.
+// A touch or the mouse on the card pulls a soft green light that follows the thumb (not under
+// reduced motion).
 
 const VERT = "attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}";
 const FRAG = `precision mediump float;
-uniform vec2 r;uniform float t;uniform vec3 base;uniform vec3 g1;uniform vec3 g2;uniform float k;
+uniform vec2 r;uniform float t;uniform vec3 base;uniform vec3 g1;uniform vec3 g2;uniform float k;uniform vec2 m;uniform float mk;
 float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
   return mix(mix(h(i),h(i+vec2(1.,0.)),f.x),mix(h(i+vec2(0.,1.)),h(i+vec2(1.,1.)),f.x),f.y);}
 float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*n(p);p=p*2.03+vec2(1.7,9.2);a*=.5;}return v;}
 void main(){
   vec2 uv=gl_FragCoord.xy/r;
-  vec2 p=uv*vec2(r.x/r.y,1.)*1.7;
+  vec2 d=(uv-m)*vec2(r.x/r.y,1.);
+  float g=exp(-dot(d,d)*26.)*mk;
+  vec2 p=uv*vec2(r.x/r.y,1.)*1.7-d*g*.7;
   float s=t*.055;
   vec2 q=vec2(fbm(p+vec2(0.,s)),fbm(p+vec2(5.2,1.3)-s));
   vec2 w=vec2(fbm(p+2.2*q+vec2(1.7,9.2)+s*1.4),fbm(p+2.2*q+vec2(8.3,2.8)-s*.8));
@@ -24,6 +28,7 @@ void main(){
   float top=.45+.55*uv.y;
   vec3 c=mix(base,g2,smoothstep(.25,.85,f)*.6*k*top);
   c=mix(c,g1,smoothstep(.5,1.,f)*.55*k*top);
+  c=mix(c,g1,g*(.16+.3*f)*k);
   gl_FragColor=vec4(c,1.);
 }`;
 
@@ -51,7 +56,7 @@ export function startField() {
   const loc = gl.getAttribLocation(prog, "a");
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-  const U = Object.fromEntries(["r", "t", "base", "g1", "g2", "k"].map((n) => [n, gl.getUniformLocation(prog, n)]));
+  const U = Object.fromEntries(["r", "t", "base", "g1", "g2", "k", "m", "mk"].map((n) => [n, gl.getUniformLocation(prog, n)]));
 
   const still = matchMedia("(prefers-reduced-motion: reduce)");
   const dark = matchMedia("(prefers-color-scheme: dark)");
@@ -72,7 +77,35 @@ export function startField() {
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; gl.viewport(0, 0, w, h); }
     gl.uniform2f(U.r, w, h);
   }
+  // The glow follows the thumb (or the mouse): a soft green light that bends the flow around it.
+  // It eases toward the finger each frame and fades out when the finger lifts.
+  const touch = { x: 0.5, y: 0.6, k: 0, tx: 0.5, ty: 0.6, tk: 0 };
+  function aim(cx, cy, on = true) {
+    if (!card) return;
+    const b = card.getBoundingClientRect();
+    if (!b.width || !b.height) return;
+    touch.tx = Math.min(1, Math.max(0, (cx - b.left) / b.width));
+    touch.ty = Math.min(1, Math.max(0, 1 - (cy - b.top) / b.height));
+    if (touch.k < 0.01) { touch.x = touch.tx; touch.y = touch.ty; } // appear where the finger is, not slide in
+    touch.tk = on ? 1 : 0;
+    kick();
+  }
+  const release = () => { touch.tk = 0; };
+  const onPointer = (e) => { if (e.pointerType !== "touch") aim(e.clientX, e.clientY); };
+  const onTouch = (e) => { const p = e.touches[0]; if (p) aim(p.clientX, p.clientY); };
+  function listen(el, on) {
+    const f = on ? "addEventListener" : "removeEventListener", o = { passive: true };
+    el[f]("pointermove", onPointer, o); el[f]("pointerdown", onPointer, o);
+    el[f]("pointerleave", release, o);
+    el[f]("touchstart", onTouch, o); el[f]("touchmove", onTouch, o);
+    el[f]("touchend", release, o); el[f]("touchcancel", release, o);
+  }
   function draw(now) {
+    const e = 0.14;
+    touch.x += (touch.tx - touch.x) * e; touch.y += (touch.ty - touch.y) * e;
+    touch.k += (touch.tk - touch.k) * (touch.tk ? 0.12 : 0.05);
+    gl.uniform2f(U.m, touch.x, touch.y);
+    gl.uniform1f(U.mk, still.matches ? 0 : touch.k);
     gl.uniform1f(U.t, (now - t0) / 1000);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
@@ -100,7 +133,9 @@ export function startField() {
     mount(next) {
       if (!next || next === card) return;
       io?.disconnect(); ro?.disconnect();
+      if (card) listen(card, false);
       card = next;
+      listen(card, true);
       card.prepend(canvas);
       io?.observe(card); ro?.observe(card);
       colours();
@@ -111,6 +146,6 @@ export function startField() {
     },
     /** The theme changed: read the colours again. */
     refresh() { colours(); kick(); },
-    stop() { cancelAnimationFrame(raf); io?.disconnect(); ro?.disconnect(); canvas.remove(); card = null; },
+    stop() { cancelAnimationFrame(raf); io?.disconnect(); ro?.disconnect(); if (card) listen(card, false); canvas.remove(); card = null; },
   };
 }
