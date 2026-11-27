@@ -70,6 +70,13 @@ const db = (pg) => pg.evaluate(() => JSON.parse(localStorage.getItem("uptime2"))
 const smallTargets = (pg) => pg.evaluate(() => [...document.querySelectorAll("button, a.tabs__tab, a.chip, summary, input")]
   .filter((e) => e.offsetParent && !e.closest(".sr-only")).map((e) => e.getBoundingClientRect())
   .filter((r) => r.height < 44 || r.width < 44).length);
+// Wait for an element to be open and still: staggerIn's rise scales each card and its section
+// (0.985 each), so a 48 px button measures about 46.6 px mid-animation. Measure the resting size.
+const settled = (pg, sel) => pg.waitForFunction((sel) => {
+  const el = document.querySelector(sel);
+  return !!el && el.offsetParent !== null && (!el.closest("details") || el.closest("details").open)
+    && document.getAnimations().every((a) => ["finished", "idle"].includes(a.playState) || !a.effect?.target?.contains(el));
+}, sel);
 const shot = async (pg, n) => { if (out) await pg.screenshot({ path: `${out}/${n}.png`, fullPage: true }); };
 
 for (const [label, viewport] of [["360", { width: 360, height: 780 }], ["390", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 900 }]]) {
@@ -112,6 +119,8 @@ for (const [label, viewport] of [["360", { width: 360, height: 780 }], ["390", {
   check(await pp.evaluate(() => [...document.querySelectorAll(".up__when")].map((x) => x.textContent).join("|") === "Next|Then|After that"), `${label}: only the first three carry a label`);
   check(await noHScroll(pp) && await smallTargets(pp) === 0, `${label}: Coming up: no horizontal scroll, tap targets ≥ 44 px`);
   await pp.click(".coming .ups > li:nth-child(1) summary");
+  await settled(pp, ".coming .ups > li:nth-child(1) .up__start");
+  await settled(pp, ".coming .exrow__video");
   { const first = (await pp.textContent(".coming .ups > li:nth-child(1) .up__name")).trim();
     check(await pp.isVisible(".coming .ups > li:nth-child(1) .up__start") && (await pp.textContent(".up__start")).trim() === `Start ${first}`
       && await pp.evaluate(() => document.querySelector(".up__start").getBoundingClientRect().height >= 48), `${label}: the first card ends with a 48 px "Start ${first}"`); }
