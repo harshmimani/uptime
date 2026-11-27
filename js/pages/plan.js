@@ -3,6 +3,7 @@
 // All plan content comes from js/plan.js. Every change saves at once and offers Undo;
 // imports and resets keep a backup copy first (store.replace), so Undo survives a reload.
 
+import { sheetChrome, installSheetSwipe } from "../sheet.js";
 import PLAN from "../plan.js";
 import * as E from "../engine.js";
 import { createStore, emptyDB, engineLog, exportJSON, parseImport, isoDate, importLegacy, legacyReport } from "../store.js";
@@ -351,6 +352,7 @@ function infoSheet() {
   if (!ui.info) return "";
   return `<div class="scrim" data-act="close-info"></div>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
+      ${sheetChrome("close-info")}
       ${howToHTML(ui.info, { name: exName(ui.info), cue: exCue(ui.info), headingId: "sheet-h" })}
       <button class="btn btn--text" style="justify-self:center" data-act="close-info">Back</button>
     </div>`;
@@ -445,6 +447,8 @@ function render() {
     </div>
     <div class="scr__foot scr__foot--tabs"><div class="toast-slot" id="toast-slot" aria-live="polite"></div>${tabBar("plan")}</div>
   </main>${infoSheet()}`;
+  // the strip is rebuilt at its start: bring the selected section into view (Settings sits off the edge on a phone)
+  app.querySelector('.subnav [aria-current="page"]')?.scrollIntoView({ inline: "center", block: "nearest" });
   if (ui.info) app.querySelector(".sheet")?.focus();
   else if (ui.focus) { document.querySelector(ui.focus)?.focus(); ui.focus = null; }
 }
@@ -554,5 +558,6 @@ app.addEventListener("toggle", (ev) => {
 fromHash();
 render();
 installPressGlow(document);
+installSheetSwipe();
 
 startServiceWorker();

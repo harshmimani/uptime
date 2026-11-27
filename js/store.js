@@ -507,10 +507,22 @@ export function legacyReport(db, plan = PLAN) {
 let idn = 0;
 export const newId = (prefix = "x") => `${prefix}${Date.now().toString(36)}${(idn++).toString(36)}`;
 
-/** Log entries in the engine's shape (js/engine.js, "log entries"). */
+/**
+ * A partial session saved with under half its planned sets (Exit › Save and finish after a set
+ * or two). Its sets stay in history and count for each exercise's progress, but it isn't the
+ * session: the rotation stays on it and it doesn't fill a slot of the week.
+ */
+export function isStub(s) {
+  if (!s?.partial || !(s.planned > 0)) return false;
+  const logged = (s.items || []).reduce((n, it) => n + (it.sets?.length || 0), 0);
+  return logged * 2 < s.planned;
+}
+
+/** Log entries in the engine's shape (js/engine.js, "log entries"). Stubs (above) are left out. */
 export function engineLog(db) {
   const out = [];
   for (const s of db.sessions) {
+    if (isStub(s)) continue;
     out.push({ date: s.date, t: s.t, session: s.session, checkIn: s.checkIn, short: s.short || undefined, deload: s.deload || undefined });
   }
   for (const a of db.activities) {

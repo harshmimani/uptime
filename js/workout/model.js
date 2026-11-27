@@ -532,6 +532,9 @@ export function warmup(w, history, plan = PLAN, settings = {}) {
 
 // ------------------------------------------------------------------ finishing
 
+/** A partial save with under half its planned sets: kept in history, but not counted as the session. */
+export const isStubCount = (logged, planned) => planned > 0 && logged * 2 < planned;
+
 /** The record saved in db.sessions. */
 export function toSession(w, { partial = false, end } = {}) {
   const items = [];

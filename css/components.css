@@ -171,10 +171,11 @@ button { font: inherit; color: inherit; }
 .toast {
   display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
   min-height: var(--hit-min); padding: 0 var(--sp-2) 0 var(--sp-4); border-radius: var(--r-md);
-  background: var(--c-toast); color: var(--c-text); font-size: var(--fs-small);
+  background: var(--c-toast); color: var(--c-toast-text); font-size: var(--fs-small);
   box-shadow: var(--elev-3); backdrop-filter: blur(var(--blur-glass)); -webkit-backdrop-filter: blur(var(--blur-glass));
 }
-.toast .btn--text { color: var(--c-text); font-weight: var(--fw-bold); }
+.toast .btn--text { color: var(--c-toast-text); font-weight: var(--fw-bold); }
+.toast .btn:focus-visible { outline-color: var(--c-toast-text); outline-offset: -3px; }
 .toast.enter { animation: toast-in var(--dur-base) var(--ease-emphasized) both; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(calc(16px * var(--motion-distance))); } }
 
@@ -326,13 +327,13 @@ button { font: inherit; color: inherit; }
   display: inline-flex; align-items: center; gap: var(--sp-2);
   min-height: var(--hit-min); padding: 0 var(--sp-5); max-width: calc(100vw - 2 * var(--sp-4));
   border: 1px solid var(--c-line-strong); border-radius: var(--r-pill);
-  background: var(--c-toast); color: var(--c-text); box-shadow: var(--elev-3);
+  background: var(--c-toast); color: var(--c-toast-text); box-shadow: var(--elev-3);
   -webkit-backdrop-filter: blur(var(--blur-glass)); backdrop-filter: blur(var(--blur-glass));
   font: inherit; font-size: var(--fs-small); font-weight: var(--fw-semibold); white-space: nowrap;
   cursor: pointer; animation: update-in var(--dur-base) var(--ease-emphasized) both;
 }
 .update:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
-.update__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-text); }
+.update__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-toast-text); }
 @keyframes update-in { from { opacity: 0; transform: translate(-50%, -12px); } }
 @media (prefers-reduced-motion: reduce) { .update { animation-name: update-fade; } }
 @keyframes update-fade { from { opacity: 0; } }
@@ -515,3 +516,35 @@ button { font: inherit; color: inherit; }
 /* the 7-day muscle map: big enough to read, not the whole screen */
 .l7 .mmap--l { max-width: 220px; justify-self: center; }
 @media (min-width: 720px) { .l7__map { grid-template-columns: 220px minmax(0, 1fr); align-items: center; } }
+
+/* ---------------------------------------------------------------- sheet chrome (js/sheet.js)
+   A grab handle, a close button that stays top right however far the sheet scrolls, and
+   swipe-down to close: the sheet follows the finger through --drag (transform only). */
+.sheet { padding-top: var(--sp-2); transform: translateX(-50%) translateY(var(--drag, 0px)); }
+.sheet.is-dragging { animation: none; transition: none; }
+.sheet:not(.is-dragging) { transition: transform var(--dur-base) var(--ease-emphasized); }
+.sheet__grab { justify-self: center; width: 36px; height: 4px; border-radius: 2px; background: var(--c-line-strong); }
+.sheet__x {
+  position: sticky; top: 0; z-index: 2; justify-self: end; align-self: start;
+  display: grid; place-items: center; width: var(--hit-min); height: var(--hit-min);
+  margin: calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) calc(-1 * var(--hit-min)) 0;
+  border: 0; border-radius: 50%; background: transparent; color: var(--c-text); cursor: pointer;
+}
+.sheet__x::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--c-surface-3); box-shadow: var(--elev-1); }
+.sheet__x svg { position: relative; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.sheet__x:focus-visible { outline: 2px solid var(--c-focus); outline-offset: -2px; }
+.sheet .sheet__title, .sheet .sheet__head { padding-right: 52px; }
+.sheet .sheet__head .sheet__title { padding-right: 0; }
+@media (min-width: 900px) and (min-height: 640px) {
+  .sheet { padding-top: var(--sp-5); transform: translate(-50%, calc(-50% + var(--drag, 0px))); }
+  .sheet__grab { display: none; }
+}
+
+/* the muscle map (js/muscles.js): hairlines of body colour between the muscles; in list rows a
+   plain silhouette with only the worked muscles lit, so the highlight reads at 64 px */
+.mm-seam { fill: none; stroke: var(--c-map-body); stroke-width: 1.1; stroke-linecap: round; }
+.mmap--s .mm-body, .mmap--s .mm-idle { fill: var(--c-map-idle); }
+.mmap--s .mm-seam { display: none; }
+.mm-lab { font-size: 7.5px; }
+/* how-to: the figure is capped so step 1 is on the first screen of the sheet */
+.howto__map .mmap--l { width: auto; max-width: 100%; height: 220px; }

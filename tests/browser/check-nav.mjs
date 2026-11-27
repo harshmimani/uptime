@@ -50,6 +50,9 @@ const DATA = {
     S(4, "LB", "Lower B", [{ key: "1", ex: "barbell-deadlift", sets: [{ kg: 70, reps: 5 }] }])],
 };
 
+/** While a rest runs the dock is one line: Edit opens Swap / Skip set / All. */
+async function dock(pg) { if (await pg.locator("[data-act=dock-edit]").count()) await pg.click("[data-act=dock-edit]"); }
+
 async function open(viewport, { seed = DATA, theme = "light" } = {}) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: out ? 2 : 1, isMobile: viewport.width < 600, hasTouch: viewport.width < 600, reducedMotion: "reduce" });
   const pg = await ctx.newPage();
@@ -111,11 +114,20 @@ async function waysOut() {
     await pg.click(".sheet [data-act=close-sheet]");
     await pg.waitForSelector(".sheet", { state: "detached" });
     check(await pg.isVisible("[data-screen=set]"), "Keep going closes the sheet and stays on the set");
+    // Pause, keep it open: the first option; Home then offers Resume and nothing is saved or lost
+    await pg.click("[data-act=exit]");
+    check(await pg.evaluate(() => document.querySelector(".sheet .opt")?.dataset.act === "exit-pause"), "Exit: \"Pause, keep it open\" comes first");
+    await pg.click("[data-act=exit-pause]");
+    await pg.waitForSelector("[data-screen=home] .hm-start");
+    check((await pg.textContent(".hm-start")).includes("Resume") && (await db(pg)).active?.log.length === 2, "Pause: back on Home with Resume, both sets kept");
+    await pg.click(".hm-start");
+    await pg.waitForSelector("[data-screen=set]");
     await pg.click("[data-act=exit]");
     await pg.click("[data-act=exit-save]");
     await pg.waitForSelector("[data-screen=summary]");
     let d = await db(pg);
     check(!d.active && d.sessions.at(-1).partial === true && d.sessions.at(-1).items.flatMap((i) => i.sets).length === 2, "Save and finish: saved as a partial session with both sets");
+    check((await pg.textContent("[data-screen=summary]")).includes("stays next up"), "Save and finish under half the sets: the summary says the session stays next up");
     check(await topLeft(pg), "summary: back button at the top left");
     await pg.click(".toast [data-act=resume]");
     await pg.waitForSelector("[data-screen=set]");
@@ -141,8 +153,9 @@ async function waysOut() {
 async function backGesture() {
   const { pg, ctx, errors } = await open({ width: 390, height: 844 });
   await startLift(pg);
+  const liftName = (await db(pg)).active.name;
   await logSet(pg);
-  await pg.click("[data-act=open-skip]");
+  await dock(pg); await pg.click("[data-act=open-skip]");
   await pg.waitForSelector(".sheet");
   await pg.goBack();
   await pg.waitForSelector(".sheet", { state: "detached" });
@@ -164,7 +177,7 @@ async function backGesture() {
   await pg.waitForSelector("[data-screen=summary]");
   await pg.click("[data-screen=summary] .back");
   await pg.waitForSelector("[data-screen=home]");
-  ok("summary › Home");
+  check((await pg.textContent("#next-title")).includes(liftName), `summary › Home: one set saved isn't the session, ${liftName} is still next up`);
   // Home: a slot sheet closes on back
   await pg.click(".slot >> nth=0");
   await pg.waitForSelector(".sheet");
@@ -182,14 +195,14 @@ async function skipping() {
   const first = await pg.textContent("#ex-name");
   const setsOf = async () => (await db(pg)).active.items[0].sets;
   const before = await setsOf();
-  await pg.click("[data-act=open-skip]");
+  await dock(pg); await pg.click("[data-act=open-skip]");
   await shot(pg, "nav-04-skip-sheet");
   await pg.click("[data-act=skip-set]");
   check(await setsOf() === before - 1 && (await db(pg)).active.log.length === 0, "Skip this set: one fewer set, nothing logged");
   await pg.click(".toast [data-act=undo-snap]");
   check(await setsOf() === before, "Undo brings the skipped set back");
   await logSet(pg);
-  await pg.click("[data-act=open-skip]");
+  await dock(pg); await pg.click("[data-act=open-skip]");
   await pg.click("[data-act=skip-ex]");
   check((await pg.textContent("#ex-name")) !== first && (await db(pg)).active.log.length === 1, "Skip the rest of an exercise: on to the next one, the logged set stays");
   await pg.click("[data-act=prev-ex]");
@@ -205,7 +218,7 @@ async function skipping() {
   check((await pg.textContent("#ex-name")) === first && await pg.isVisible("#log-btn"), "Add a set reopens the exercise for logging");
   await pg.click("[data-act=next-ex]");
   check((await pg.textContent("#ex-name")) !== first, "Next moves forward without dropping anything");
-  await pg.click("[data-act=open-all]");
+  await dock(pg); await pg.click("[data-act=open-all]");
   check(!(await pg.locator(".sheet [data-act=jump][disabled]").count()), "All exercises: finished ones can be opened too");
   noErrors("skipping", errors);
   await ctx.close();
@@ -241,7 +254,8 @@ async function home() {
     await pg.click(".sheet .exrow button >> nth=0");
     await pg.waitForSelector(".sheet .mmap--l");
     const w = await pg.evaluate(() => document.querySelector(".sheet .mmap--l").getBoundingClientRect().width);
-    check(w >= 300, `${label}: the how-to map is large (${Math.round(w)} px wide)`);
+    const hgt = await pg.evaluate(() => document.querySelector(".sheet .mmap--l").getBoundingClientRect().height);
+    check(w >= 150 && hgt <= 221, `${label}: the how-to map is readable and capped so the steps show (${Math.round(w)} × ${Math.round(hgt)} px)`);
     await pg.click(".sheet [data-act=slot]");
     await pg.waitForSelector(".sheet .exrow");
     ok(`${label}: Back to the session from the how-to`);
@@ -287,7 +301,13 @@ const OVERLAPS = () => {
       const r = document.createRange();
       for (const t of texts) {
         r.selectNodeContents(t);
-        for (const b of r.getClientRects()) if (b.width > 1 && b.height > 1) leaves.push({ el, b });
+        // text cut off by its own box (an ellipsis) only paints inside that box
+        const clip = st.overflow !== "visible" ? el.getBoundingClientRect() : null;
+        for (const b0 of r.getClientRects()) {
+          const b = clip ? { left: Math.max(b0.left, clip.left), right: Math.min(b0.right, clip.right), top: Math.max(b0.top, clip.top), bottom: Math.min(b0.bottom, clip.bottom) } : b0;
+          b.width = b.right - b.left; b.height = b.bottom - b.top;
+          if (b.width > 1 && b.height > 1) leaves.push({ el, b });
+        }
       }
     }
     for (const c of el.children) walk(c);

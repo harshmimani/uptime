@@ -80,6 +80,11 @@ async function liftFlow(label, viewport) {
   await shot(pg, `${label}-02-checkin`);
   check(await noHScroll(pg), `${label}: check-in has no horizontal scroll`);
   check(await logBtnInThumbZone(pg), `${label}: check-in buttons sit in the thumb zone`);
+  check(await pg.evaluate(() => {
+    const b = [...document.querySelectorAll("[data-act=checkin]")].map((x) => x.getBoundingClientRect());
+    return b.length === 3 && b.every((r) => Math.abs(r.top - b[0].top) < 1 && Math.abs(r.width - b[0].width) < 1 && r.height >= 64)
+      && document.querySelectorAll(".feel .btn--primary").length === 1;
+  }), `${label}: Good / Okay / Rough: one row of three equal 64 px buttons, Good the one primary`);
   await pg.click("[data-act=pick-length][data-short='1']");
   check(await pg.locator(".exrows li.out").count() === 4, `${label}: Short greys out 4 of 7 exercises`);
   await pg.click("[data-act=pick-length][data-short='0']");
@@ -91,13 +96,24 @@ async function liftFlow(label, viewport) {
   const yt = await pg.getAttribute(".sheet a[href*='youtube.com/results']", "href");
   check(yt === "https://www.youtube.com/results?search_query=Dumbbell%20bench%20press", `${label}: Watch on YouTube searches the exact name`);
   check(await noHScroll(pg), `${label}: how-to sheet has no horizontal scroll`);
+  check(await pg.evaluate(() => {
+    const map = document.querySelector(".sheet .mmap--l").getBoundingClientRect();
+    const step = document.querySelector(".sheet .steps li").getBoundingClientRect();
+    const x = document.querySelector(".sheet .sheet__x").getBoundingClientRect();
+    return map.height <= 221 && step.top < innerHeight && x.width >= 48 && x.height >= 48 && !!document.querySelector(".sheet .sheet__grab");
+  }), `${label}: how-to: figure ≤ 220 px so step 1 is on screen; handle and a 48 px close button`);
   await shot(pg, `${label}-02b-howto`);
   await pg.keyboard.press("Escape");
   check(await pg.locator(".sheet").count() === 0, `${label}: Escape closes the how-to`);
   await pg.click("[data-act=checkin][data-v=Good]");
   await pg.waitForSelector("[data-screen=set]");
   await pg.waitForTimeout(300);
-  check(await pg.isVisible("#warm-left"), `${label}: warm-up card on the first exercise`);
+  check(await pg.isVisible(".warm-line #warm-left"), `${label}: warm-up starts as one line with its countdown`);
+  check(await pg.evaluate(() => { const h = document.getElementById("ex-name").getBoundingClientRect(); const f = document.querySelector(".scr__foot").getBoundingClientRect(); return h.bottom <= f.top && document.querySelector(".warm-line").getBoundingClientRect().height <= 64; }),
+    `${label}: the exercise name is on the first screen, above the dock`);
+  await pg.click(".warm-line");
+  check(await pg.evaluate(() => { const b = document.querySelector("[data-act=warm-done]").getBoundingClientRect(); return b.height >= 48 && b.width >= 48; }), `${label}: Show opens the warm-up; its Done is ≥ 48 px`);
+  await pg.click("[data-act=warm-open][aria-expanded=true]");
   check((await pg.textContent("#ex-name")).includes("Negative pull-up"), `${label}: first exercise is the ladder`);
   check(await logBtnInThumbZone(pg), `${label}: Log set is in the bottom third and ≥ 48 px`);
   check(await noHScroll(pg), `${label}: set screen has no horizontal scroll`);
@@ -115,7 +131,7 @@ async function liftFlow(label, viewport) {
   check(await pg.isVisible("#warm-left"), `${label}: warm-up card moved with the user to bench`);
   await pg.click("[data-act=step][data-f=reps][data-d='1']");
   check(await pg.locator("#beat.on").count() === 1, `${label}: 9 reps lights up "Beats last time"`);
-  check((await pg.textContent("#log-label")).includes("9 × 15 kg"), `${label}: Log restates 9 × 15 kg`);
+  check((await pg.textContent("#log-label")).includes("15 kg × 9"), `${label}: Log restates 15 kg × 9 (weight first)`);
   check((await db(pg)).active.log.length === 0, `${label}: tapping a number never logs`);
   await shot(pg, `${label}-05-set-beat`);
 
@@ -129,6 +145,31 @@ async function liftFlow(label, viewport) {
   check(await pg.isHidden("#warm-left").catch(() => true), `${label}: warm-up card leaves after set 1`);
   check(/^2:0\d$/.test(await pg.textContent("#ring-time")), `${label}: 2:00 rest started by itself`);
   check(await pg.isVisible(".toast-slot .toast"), `${label}: "Set 1 logged · Undo" toast`);
+  // design review: rest is a takeover. Big digits, green arc, Up next in view, the dock one line, the toast up top.
+  const rest = await pg.evaluate(() => {
+    const r = (sel) => document.querySelector(sel)?.getBoundingClientRect();
+    const foot = r(".scr__foot"), up = r(".timerbox .upnext"), toast = r(".toast-slot .toast"), head = r(".scr__head");
+    const ring = document.getElementById("ring");
+    const green = getComputedStyle(document.documentElement).getPropertyValue("--c-green").trim().toLowerCase();
+    return {
+      digits: parseFloat(getComputedStyle(document.getElementById("ring-time")).fontSize),
+      arc: getComputedStyle(ring).getPropertyValue("--arc").trim().toLowerCase(), green,
+      docked: !!document.querySelector(".scr__foot--docked"), footH: foot.height,
+      upVisible: up && up.top >= 0 && up.bottom <= foot.top + 1 && (!toast || up.top >= toast.bottom - 1),
+      toastTop: toast ? toast.top : -1, headBottom: head.bottom,
+      headEx: document.getElementById("head-ex")?.textContent || "",
+      skipRest: document.querySelector("[data-act=rest-skip]")?.textContent.trim(),
+    };
+  });
+  check(rest.digits >= 56, `${label}: rest digits are ${rest.digits} px (≥ 56)`);
+  check(rest.arc === rest.green || rest.arc.includes("c-green"), `${label}: the rest arc is green while it runs (${rest.arc})`);
+  check(rest.docked && rest.footH <= 140, `${label}: the dock folds to one line and Log during rest (${Math.round(rest.footH)} px)`);
+  check(rest.upVisible, `${label}: Up next is fully in view, clear of the dock and the toast`);
+  check(rest.toastTop >= rest.headBottom - 1 && rest.toastTop < 160, `${label}: the toast sits at the top, under the header (${Math.round(rest.toastTop)} px)`);
+  check(rest.headEx.includes("Dumbbell bench press"), `${label}: the exercise name is in the header during rest`);
+  check(rest.skipRest === "Skip rest", `${label}: the rest's skip says "Skip rest"`);
+  await pg.click("[data-act=dock-edit]");
+  check(await pg.isVisible("[data-act=open-skip]") && (await pg.textContent("[data-act=open-skip]")).trim() === "Skip set", `${label}: Edit opens the dock; its skip says "Skip set"`);
   check(await logBtnInThumbZone(pg), `${label}: Log set 2 stays live during rest, same place`);
   const up = await pg.textContent(".timerbox .upnext");
   check(/Up next · set 2 of 3/.test(up) && up.includes("Dumbbell bench press") && /Then /.test(up), `${label}: rest shows Up next and the exercise after it`);
@@ -149,6 +190,8 @@ async function liftFlow(label, viewport) {
   await pg.clock.fastForward(60000);
   await pg.waitForTimeout(400);
   check((await pg.textContent("#ring-time")) === "Go", `${label}: rest over shows Go`);
+  check(await pg.evaluate(() => getComputedStyle(document.querySelector(".ring__go")).opacity === "1"), `${label}: at zero the timer turns green`);
+  check(await pg.isVisible("#v-reps"), `${label}: rest over: the dock opens again (a different rep count is two taps)`);
   await shot(pg, `${label}-08-rest-over`);
   check((await pg.inputValue("#v-kg")) === "15", `${label}: weight carries to set 2`);
 

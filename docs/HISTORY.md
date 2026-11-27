@@ -21,6 +21,7 @@ A review of every commit before the Uptime redesign, so the next upgrade builds 
 - **Teaching more.** Every exercise gained cues for what to feel, how to breathe and why it is there.
 - **Running shrank.** From a long run plus an easy run down to one 4 to 5 km jog, even though running is the owner's strongest sport.
 - **Running grew back (27 Nov 2026).** A senior coach's review (6.5/10) found one run per rotation couldn't carry a 10K or 21K. Each rotation now has a quality run and a long run (10% / 30-day rule, 10–12 km cap), basketball replaces the quality run, a 21K build trades a lift for a third run, lower days were trimmed to fit 50 min with the calf work kept in the Short version, and Upper B got a concentric pull-up progression.
+- **Design review (27 Nov 2026).** An external senior designer scored it 7 / 6 / 5 (look, ease, fun): Home looked premium but the rest screen, the one watched most, was the least finished. Fixed: rest became a takeover (56–80 px digits, green arc, green "Go", a bar on short screens, the dock folded to one line, the exercise name in the header, the toast at the top), the warm-up starts folded, "Skip rest" / "Skip set", Up next's figure no longer overlaps, a one-row check-in, "Pause, keep it open" on Exit (and a save under half the sets no longer moves the rotation), weight-first numbers, sheets with a handle, swipe-down and a sticky close, a solid tab bar (top bar on laptops), a tighter Home dial with one ring, an inverse toast in light, and a redrawn anatomical muscle figure.
 
 ## Tried, then dropped
 

@@ -5,6 +5,7 @@
 import PLAN from "./plan.js";
 import * as E from "./engine.js";
 import { guideFor } from "./muscles.js";
+import { isStub } from "./store.js";
 
 const exName = (ex, plan) => plan.exercises[ex]?.name || ex;
 const CONDITIONING = new Set(["sport", "conditioning"]);
@@ -114,7 +115,7 @@ export function weekSlots(db, today, { next, busy = false, runName = "Run", cycl
   const rot = cycle || (busy ? plan.busy.rotation : plan.rules.rotation);
   const slots = rot.map((id) => {
     const def = E.sessionDef(id, plan);
-    const done = latest(db.sessions.filter((s) => s.session === id && inWin(s.date)));
+    const done = latest(db.sessions.filter((s) => s.session === id && inWin(s.date) && !isStub(s)));
     const short = id.startsWith("FB") ? `FB${id.slice(2)}` : `${def.name[0]}${def.name.slice(-1)}`;
     return { id, kind: "lift", name: def.name, short, focus: def.focus || "Full body",
       state: done ? "done" : id === next ? "next" : "later", date: done?.date, day: done ? dayLabel(done.date, today) : null };

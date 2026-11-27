@@ -160,8 +160,10 @@ async function introAndLayout(label, viewport) {
   check(await pg.locator(".float").count() === 1, `${label}: one quiet run/sport line under Next up`);
   check(await pg.locator(".tabbar [aria-current=page]").textContent().then((t) => t.includes("Home")), `${label}: tabs with Home current`);
   if (viewport.width < 600) {
-    const zone = await pg.evaluate(() => { const r = document.querySelector(".hm-start").getBoundingClientRect(); return r.top > innerHeight * 0.6 && r.bottom <= innerHeight - 56 && r.height >= 48; });
-    check(zone, `${label}: Start sits in the thumb zone, above the tabs, ≥ 48 px`);
+    // design review (27 Nov 2026): the card ends with its buttons, so This week starts on the first screen
+    const zone = await pg.evaluate(() => { const r = document.querySelector(".hm-start").getBoundingClientRect(); const tab = document.querySelector(".tabs").getBoundingClientRect(); const slot = document.querySelector(".slot").getBoundingClientRect();
+      return { ok: r.top > innerHeight * 0.45 && r.bottom <= tab.top && r.height >= 48 && slot.top < tab.top - 24 && (innerHeight < 800 || slot.bottom <= tab.top), start: Math.round(r.top), slot: Math.round(slot.top), tab: Math.round(tab.top) }; });
+    check(zone.ok, `${label}: Start in the lower half above the tabs, ≥ 48 px, and This week's first row shows below it, whole on phones 800 px tall or more (Start ${zone.start}, slots ${zone.slot}, tabs ${zone.tab})`);
   }
   // second open the same day: no intro, only the quick entrance (≤ 0.8 s), and Start never moves
   await pg.reload();

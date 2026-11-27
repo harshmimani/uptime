@@ -68,7 +68,7 @@ export function pastDetail(e, { plan = PLAN } = {}) {
       <p class="quiet">Strava has the details of runs. It counts toward your week here.</p>`;
   }
   const rows = sessionDetail(e.ref, plan);
-  const set = (x) => x.sec != null ? `${x.sec} s${x.kg ? ` × ${fmtW(x.kg)} ${wu()}` : ""}` : `${x.kg ? `${fmtW(x.kg)} ${wu()} × ` : ""}${x.reps ?? "–"}${x.kg ? "" : " reps"}`;
+  const set = (x) => x.sec != null ? `${x.kg ? `${fmtW(x.kg)} ${wu()} × ` : ""}${x.sec} s` : `${x.kg ? `${fmtW(x.kg)} ${wu()} × ` : ""}${x.reps ?? "–"}${x.kg ? "" : " reps"}`;
   return `<p class="meta" style="margin:0">${esc(fullDate(e.date))}${e.minutes ? ` · ${e.minutes} min` : ""} · ${e.sets} ${e.sets === 1 ? "set" : "sets"}${e.partial ? " · partial session" : ""}${e.short ? " · Short version" : ""}</p>
     ${rows.length ? `<ol class="done-list">${rows.map((r) => `<li>${miniMap(r.ex, plan)}<div><b>${esc(r.name)}</b>
       <ol class="done-sets">${r.sets.map((x, i) => `<li><span>Set ${i + 1}</span><b class="num">${esc(set(x))}</b></li>`).join("")}</ol></div></li>`).join("")}</ol>`
