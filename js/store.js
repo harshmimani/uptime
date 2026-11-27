@@ -478,11 +478,26 @@ export function parseOldCSV(textIn) {
 
 // ------------------------------------------------------------------ derived views
 
+/**
+ * The exercise an id's logs count as now: the plan exercise that lists it in `from` (it replaced
+ * it with the same movement and weight, e.g. hammer curl → cross-body hammer curl), else itself.
+ * The logs keep their own id; only reading follows the carry.
+ */
+const carryMaps = new WeakMap();
+export function carriedTo(id, plan = PLAN) {
+  if (!carryMaps.has(plan)) {
+    const m = new Map();
+    for (const [ex, e] of Object.entries(plan.exercises)) for (const old of e.from || []) m.set(old, ex);
+    carryMaps.set(plan, m);
+  }
+  return carryMaps.get(plan).get(id) || id;
+}
+
 /** The plan exercise an old app's exercise id counts as (PLAN.legacyIds, else the same id), or null. */
 export function legacyTarget(oldId, plan = PLAN) {
   const m = plan.legacyIds?.[oldId];
-  if (m) return m.to || null;
-  return plan.exercises[oldId] ? oldId : null;
+  if (m) return m.to ? carriedTo(m.to, plan) : null;
+  return plan.exercises[oldId] ? carriedTo(oldId, plan) : null;
 }
 
 /** The old app's last typed weight for a plan exercise (kg or null). Used only before any dated set exists. */
@@ -550,13 +565,14 @@ export function engineLog(db) {
 }
 
 /**
- * Every past session of one exercise, oldest first:
+ * Every past session of one exercise, oldest first, including the logs of exercises it
+ * replaced (`from` in js/plan.js):
  * [{ date, sets: [{ kg, reps, sec }], short, deload, reduced, legacy }]
  */
 export function exerciseHistory(db, ex) {
   const byDate = new Map();
   for (const s of db.sessions) {
-    const sets = s.items.filter((it) => it.ex === ex).flatMap((it) => it.sets);
+    const sets = s.items.filter((it) => carriedTo(it.ex) === ex).flatMap((it) => it.sets);
     if (!sets.length) continue;
     byDate.set(`${s.date}|${s.t}`, { date: s.date, t: s.t, sets, short: !!s.short, deload: !!s.deload, reduced: !!s.reduced, partial: !!s.partial });
   }

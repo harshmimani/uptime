@@ -86,10 +86,10 @@ async function liftFlow(label, viewport) {
       && document.querySelectorAll(".feel .btn--primary").length === 1;
   }), `${label}: Good / Okay / Rough: one row of three equal 64 px buttons, Good the one primary`);
   await pg.click("[data-act=pick-length][data-short='1']");
-  check(await pg.locator(".exrows li.out").count() === 4, `${label}: Short greys out 4 of 7 exercises`);
+  check(await pg.locator(".exrows li.out").count() === 3, `${label}: Short greys out 3 of Upper A's 6 exercises`);
   await pg.click("[data-act=pick-length][data-short='0']");
   // session overview: muscles on every row, tap for how-to
-  check(await pg.locator(".exrows li .mmap").count() === 7 && (await pg.locator(".exrows li .exrow__text span").first().textContent()).length > 2, `${label}: every exercise shows its muscles`);
+  check(await pg.locator(".exrows li .mmap").count() === 6 && (await pg.locator(".exrows li .exrow__text span").first().textContent()).length > 2, `${label}: every exercise shows its muscles`);
   await pg.click(".exrows li:nth-child(2) button");
   await pg.waitForSelector(".sheet .howto");
   check(await pg.isVisible(".sheet .mmap--l") && await pg.locator(".sheet .steps li").count() >= 3 && await pg.isVisible(".sheet .notice--avoid"), `${label}: how-to sheet: map, steps, main mistake`);

@@ -579,7 +579,7 @@ describe("21K build: three lifts and three runs", () => {
     assert.equal(threeLiftBuild({ ...s, modeLog: [{ date: d(90), busy: true }] }, d(100)), false);
   });
 
-  test("Upper A → the build Lower (squat and deadlift take turns) → Upper B → Upper A", () => {
+  test("Upper A → the build Lower (split squat and deadlift take turns) → Upper B → Upper A", () => {
     const o = { threeLifts: true };
     assert.equal(nextSession([], o), "UA");
     assert.equal(nextSession([lift(80, "UA")], o), "LS");
@@ -587,7 +587,7 @@ describe("21K build: three lifts and three runs", () => {
     assert.equal(nextSession([lift(80, "UA"), lift(81, "LS"), lift(83, "UB")], o), "UA");
     assert.equal(nextSession([lift(80, "UA"), lift(81, "LS"), lift(83, "UB"), lift(85, "UA")], o), "LD");
     assert.equal(nextSession([lift(81, "LD"), lift(83, "UB"), lift(85, "UA")], o), "LS");
-    // carries on from the normal rotation: Lower A squatted, so the deadlift turn is next
+    // carries on from the normal rotation: Lower A split-squatted, so the deadlift turn is next
     assert.equal(nextSession([lift(78, "LA"), lift(79, "UB"), lift(80, "UA")], o), "LD");
     // mid-cycle of the normal rotation when the build starts: it carries on from there
     assert.equal(nextSession([lift(70, "UB")], o), "UA");
@@ -615,7 +615,8 @@ describe("21K build: three lifts and three runs", () => {
       assert.ok(shortItems(PLAN.sessions[id].items).some((i) => i.ex === "smith-calf-raise"), id);
     }
     assert.ok(PLAN.sessions.LS.items.some((i) => i.ex === "dumbbell-romanian-deadlift"));
-    assert.ok(PLAN.sessions.LD.items.some((i) => i.ex === "bulgarian-split-squat"));
+    assert.equal(PLAN.sessions.LS.items.find((i) => i.role === "main").ex, "bulgarian-split-squat");
+    assert.ok(PLAN.sessions.LD.items.some((i) => i.ex === "dumbbell-walking-lunge"));
     // no intervals or basketball the day after either: Nordics leave the hamstrings sore
     assert.ok(planToday([lift(80, "UA"), lift(81, "LD")], s, d(82)).hints.includes("no-sprint-after-lower-b"));
   });
@@ -695,7 +696,7 @@ describe("Rep ranges by dumbbell weight, slow lowers and the Short version", () 
 
   test("Short keeps the first 3 stations: lower days keep their calf work", () => {
     const ex = (id) => prescribe(id, { short: true }).items.map((i) => i.ex || i.slot);
-    assert.deepEqual(ex("LA"), ["jump", "smith-machine-back-squat", "smith-calf-raise", "copenhagen-side-plank"]);
+    assert.deepEqual(ex("LA"), ["jump", "bulgarian-split-squat", "smith-calf-raise", "copenhagen-side-plank"]);
     assert.deepEqual(ex("LB"), ["jump", "barbell-deadlift", "nordic-hamstring-curl", "seated-dumbbell-calf-raise"]);
     assert.deepEqual(ex("UA"), ["ladder", "dumbbell-bench-press", "smith-machine-inverted-row"]);
     assert.equal(shortItems([{ ex: "a" }, { ex: "b", pair: "x" }, { ex: "c" }, { ex: "d", pair: "x" }, { ex: "e" }]).length, 4);

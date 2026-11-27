@@ -15,7 +15,11 @@
 // - rest: seconds after each set (or after each round of a superset).
 // - pair: items sharing a letter are done as a superset (alternate sets).
 // - role drives progression: "main" | "accessory" | "jump" | "carry" | "core".
-// - start: a first-session suggestion; the first session calibrates it.
+// - start: a first-session suggestion; the first session calibrates it. start.atLeastFrom
+//   (an exercise promoted to a main lift): until it's logged on or after that date, the
+//   first session starts at least at start.kg, whatever the lighter old logs say.
+// - from: on an exercise, the ids it replaced with the same movement and weight per hand.
+//   Their logs keep their ids and count as this exercise's history.
 // - Session items may be { slot: "ladder" } or { slot: "jump" }; the engine
 //   fills them from `ladder` and `jumpBlocks` for the user's current level.
 // - swaps.none may equal the exercise's own id: it already needs no equipment.
@@ -63,7 +67,7 @@ const plan = {
     ],
     repsInReserve: [1, 3],
     increments: {
-      lowerMain: 2.5, // Smith squat, deadlift
+      lowerMain: 2.5, // deadlift; Bulgarian split squat: the next dumbbell (2.5 kg per hand)
       upperMain: [1, 2.5],
       dumbbell: "next dumbbell up; items marked slowFirst do one session of 3-s lowers at the top of the range first",
       carry: "add 10 s per set up to 60 s, then the next dumbbell up and back to 40 s",
@@ -149,6 +153,13 @@ const plan = {
       cue: "Elbows pinned to your sides, spread the rope at the bottom.",
       swaps: { easier: "cable-bar-pushdown", harder: "overhead-cable-extension", none: "close-grip-push-up" },
     },
+    // Keeps the old app's "cable-overhead-triceps-extension" logs (legacyIds).
+    "overhead-cable-extension": {
+      name: "Overhead cable triceps extension", kind: "arms",
+      cue: "Elbows point forward by your ears, lower into a deep stretch.",
+      why: "Working the triceps in a deep stretch overhead builds them better than pushdowns do.",
+      swaps: { easier: "cable-bar-pushdown", harder: "paused-overhead-cable-extension", none: "backpack-overhead-extension" },
+    },
     "dumbbell-lateral-raise": {
       name: "Dumbbell lateral raise", kind: "shoulders",
       cue: "Lead with your elbows, stop at shoulder height.",
@@ -166,6 +177,13 @@ const plan = {
       name: "One-arm dumbbell row", kind: "pull",
       cue: "Pull your elbow to your hip, no twisting.",
       swaps: { easier: "chest-supported-dumbbell-row", harder: "paused-one-arm-dumbbell-row", none: "backpack-row" },
+    },
+    // `from`: this exercise keeps the logs of these ids (same movement, same weight per hand).
+    "dumbbell-bent-over-row": {
+      name: "Dumbbell bent-over row", kind: "pull", from: ["one-arm-dumbbell-row"],
+      cue: "Hinge to about 45°, back flat, pull both elbows to your hips.",
+      why: "Rows both arms at once and trains your back to hold a hinge. Your one-arm row weights carry over, per hand.",
+      swaps: { easier: "chest-supported-dumbbell-row", harder: "paused-dumbbell-bent-over-row", none: "backpack-row" },
     },
     "half-kneeling-cable-pulldown": {
       name: "Half-kneeling single-arm cable pulldown", kind: "pull",
@@ -189,6 +207,12 @@ const plan = {
       cue: "Elbows still, no swing.",
       why: "7.5 → 10 kg is a 33% jump: at the top of the range, do a session of 3-s lowers first, and expect 6–8 reps at first on the new dumbbell.",
       swaps: { easier: "seated-hammer-curl", harder: "slow-hammer-curl", none: "backpack-curl" },
+    },
+    "cross-body-hammer-curl": {
+      name: "Cross-body hammer curl", kind: "arms", from: ["hammer-curl"],
+      cue: "Curl across your body toward the other side of your chest, elbow still.",
+      why: "Your hammer-curl weights carry over. 7.5 → 10 kg is a 33% jump: at the top of the range, do a session of 3-s lowers first, and expect 6–8 reps at first on the new dumbbell.",
+      swaps: { easier: "seated-hammer-curl", harder: "slow-cross-body-hammer-curl", none: "backpack-curl" },
     },
 
     // Core
@@ -225,7 +249,8 @@ const plan = {
     // Lower: single-leg and accessories
     "bulgarian-split-squat": {
       name: "Bulgarian split squat", kind: "single-leg",
-      cue: "Lean slightly forward, front heel stays down.",
+      cue: "Lean slightly forward, front heel stays down, back knee drops straight down.",
+      why: "The main leg lift: each leg works on its own, so a weaker side can't hide, and it loads the legs hard with little load on the back.",
       swaps: { easier: "split-squat", harder: "front-foot-elevated-bulgarian-split-squat", none: "bodyweight-bulgarian-split-squat" },
     },
     "dumbbell-lateral-lunge": {
@@ -233,6 +258,12 @@ const plan = {
       cue: "Sit back into the hip, other leg straight.",
       why: "Side-to-side strength for cutting and defending on court.",
       swaps: { easier: "bodyweight-lateral-lunge", harder: "cossack-squat", none: "bodyweight-lateral-lunge" },
+    },
+    "dumbbell-walking-lunge": {
+      name: "Dumbbell walking lunge", kind: "single-leg",
+      cue: "Long step, back knee drops straight down, push through the front heel.",
+      why: "Single-leg strength and balance through a long stride, the way you run and drive to the basket.",
+      swaps: { easier: "split-squat", harder: "paused-walking-lunge", none: "bodyweight-walking-lunge" },
     },
     "dumbbell-romanian-deadlift": {
       name: "Dumbbell Romanian deadlift", kind: "hinge",
@@ -388,7 +419,8 @@ const plan = {
     "dumbbell-push-press": { name: "Dumbbell push press", kind: "push", cue: "Short dip, drive with the legs, press to lockout." },
     "single-arm-incline-dumbbell-press": { name: "Single-arm incline dumbbell press", kind: "push", cue: "Don't let your body twist." },
     "cable-bar-pushdown": { name: "Cable bar pushdown", kind: "arms", cue: "Elbows pinned, lock out fully." },
-    "overhead-cable-extension": { name: "Overhead cable extension", kind: "arms", cue: "Elbows point forward, stretch at the bottom." },
+    "paused-overhead-cable-extension": { name: "Paused overhead cable extension", kind: "arms", cue: "2-s hold in the deep stretch." },
+    "backpack-overhead-extension": { name: "Backpack overhead triceps extension", kind: "arms", cue: "Bag behind your head, elbows forward." },
     "seated-dumbbell-lateral-raise": { name: "Seated dumbbell lateral raise", kind: "shoulders", cue: "No swing, elbows lead." },
     "cable-lateral-raise": { name: "Cable lateral raise", kind: "shoulders", cue: "Cable behind you, raise to shoulder height." },
     "backpack-lateral-raise": { name: "Backpack lateral raise", kind: "shoulders", cue: "Hold a bag strap in each hand, slow lower." },
@@ -396,6 +428,7 @@ const plan = {
     "feet-elevated-inverted-row": { name: "Feet-elevated inverted row", kind: "pull", cue: "Feet on the bench, chest to the bar." },
     "towel-door-row": { name: "Towel door row", kind: "pull", cue: "Towel round both handles of a shut door, lean back, row." },
     "paused-one-arm-dumbbell-row": { name: "Paused one-arm dumbbell row", kind: "pull", cue: "2-s hold at the top." },
+    "paused-dumbbell-bent-over-row": { name: "Paused dumbbell bent-over row", kind: "pull", cue: "2-s hold at the top, same hinge angle." },
     "backpack-row": { name: "Backpack row", kind: "pull", cue: "Hinge forward, row the bag to your hip, 3-s lower." },
     "cable-lat-pulldown": { name: "Cable lat pulldown", kind: "pull", cue: "Chest up, pull the bar to your upper chest." },
     "rear-delt-dumbbell-raise": { name: "Rear-delt dumbbell raise", kind: "shoulders", cue: "Chest on an incline bench, arms out wide." },
@@ -403,6 +436,7 @@ const plan = {
     "prone-y-t-raise": { name: "Prone Y-T raise", kind: "shoulders", cue: "Lie face down, lift arms into a Y, then a T." },
     "seated-hammer-curl": { name: "Seated hammer curl", kind: "arms", cue: "Back against the bench, no swing." },
     "slow-hammer-curl": { name: "Slow hammer curl", kind: "arms", cue: "3-s lower." },
+    "slow-cross-body-hammer-curl": { name: "Slow cross-body hammer curl", kind: "arms", cue: "Across your body, 3-s lower." },
     "backpack-curl": { name: "Backpack curl", kind: "arms", cue: "Hold the bag by its top strap, curl slowly." },
     "half-kneeling-pallof-press": { name: "Half-kneeling Pallof press", kind: "core", cue: "Inside knee down, ribs down." },
     "split-stance-pallof-press": { name: "Split-stance Pallof press", kind: "core", cue: "Narrow split stance, hold 2 s at full reach." },
@@ -416,6 +450,8 @@ const plan = {
     "split-squat": { name: "Split squat", kind: "single-leg", cue: "Back foot on the floor, straight down and up." },
     "front-foot-elevated-bulgarian-split-squat": { name: "Front-foot-elevated Bulgarian split squat", kind: "single-leg", cue: "Front foot on a plate, deeper range." },
     "bodyweight-lateral-lunge": { name: "Bodyweight lateral lunge", kind: "single-leg", cue: "Sit into the hip, other leg straight." },
+    "paused-walking-lunge": { name: "Paused walking lunge", kind: "single-leg", cue: "2-s hold with the back knee just off the floor." },
+    "bodyweight-walking-lunge": { name: "Bodyweight walking lunge", kind: "single-leg", cue: "Long step, back knee straight down. A loaded backpack makes it harder." },
     "cossack-squat": { name: "Cossack squat", kind: "single-leg", cue: "Sink deep to one side, heel down, other toes up." },
     "kickstand-romanian-deadlift": { name: "Kickstand Romanian deadlift", kind: "hinge", cue: "Back toes down for balance, most weight on the front leg." },
     "single-leg-romanian-deadlift": { name: "Single-leg Romanian deadlift", kind: "hinge", cue: "Hips square, reach long through the back leg." },
@@ -459,7 +495,7 @@ const plan = {
 
   // ------------------------------------------------------------------ guide
   // How to do every exercise: muscles (m = main, s = also works), 3–4 short
-  // steps and the one mistake to avoid. Muscle names are the keys the muscle
+  // steps, the one mistake to avoid and, where set, a breathing cue. Muscle names are the keys the muscle
   // map draws (js/muscles.js). `yt` replaces the exercise name in the YouTube
   // search only where the name alone wouldn't find the movement.
   guide: {
@@ -500,6 +536,14 @@ const plan = {
     "hammer-curl": { m: ["biceps", "forearms"], s: [],
       steps: ["Stand tall, palms facing each other.", "Elbows pinned to your sides.", "Curl up without swinging your body.", "Lower slowly."],
       mistake: "Swinging your back to lift the weight. If you need to swing, it's too heavy." },
+    "cross-body-hammer-curl": { m: ["biceps", "forearms"], s: [],
+      steps: ["Stand tall, a dumbbell in each hand, palms facing your thighs.", "Keep your upper arm still and curl one dumbbell up and across toward the other side of your chest.", "Squeeze at the top, then lower slowly to your side.", "Switch arms each rep. The rep count is per arm."],
+      mistake: "Swinging the shoulder forward to lift it. The elbow stays by your side; go lighter if it moves.",
+      breath: "Breathe out as you curl up, in as you lower." },
+    "dumbbell-bent-over-row": { m: ["lats", "upperback"], s: ["biceps", "reardelts", "lowerback"],
+      steps: ["A dumbbell in each hand, soft knees. Push your hips back until your chest is about 45° to the floor.", "Back flat, arms hanging straight under your shoulders.", "Row both dumbbells to your hips, squeezing your shoulder blades together.", "Lower to a full stretch without letting your back round."],
+      mistake: "Standing taller with every rep until it's a shrug. Hold the same hinge angle from the first rep to the last.",
+      breath: "Breathe in and brace with your arms long; breathe out as you row." },
 
     // Core
     "pallof-press": { m: ["obliques", "abs"], s: ["glutes"],
@@ -522,11 +566,17 @@ const plan = {
 
     // Lower: single-leg and accessories
     "bulgarian-split-squat": { m: ["quads", "glutes"], s: ["adductors"],
-      steps: ["Top of the back foot on a bench, front foot about two feet ahead.", "Lean your torso slightly forward with a flat back.", "Lower until the back knee nearly touches the floor.", "Drive up through the front heel."],
-      mistake: "Front foot too close to the bench, so the heel lifts. Step it further out." },
+      steps: ["Top of the back foot on a bench, front foot about two feet ahead, a dumbbell in each hand.", "Lean your torso slightly forward with a flat back.", "Lower until the back knee nearly touches the floor.", "Drive up through the front heel. Finish one leg, then the other."],
+      mistake: "Front foot too close to the bench, so the heel lifts. Step it further out.",
+      breath: "Breathe in and brace at the top, hold it on the way down, breathe out as you drive up." },
     "dumbbell-lateral-lunge": { m: ["glutes", "adductors", "quads"], s: [],
       steps: ["Hold one dumbbell at your chest, feet together.", "Step wide to the side and sit back into that hip, chest up.", "Keep the other leg straight and both feet flat.", "Push off the bent leg back to standing."],
       mistake: "The bent knee shooting forward past your toes. Sit your hips back instead." },
+    "dumbbell-walking-lunge": { m: ["quads", "glutes"], s: ["adductors", "hamstrings", "forearms"],
+      yt: "dumbbell walking lunges",
+      steps: ["Stand tall, a dumbbell in each hand by your sides.", "Take a long step and lower until the back knee nearly touches the floor.", "Push through the front heel and bring the back leg through into the next step.", "Short on space: turn round after a few steps, or alternate reverse lunges on the spot."],
+      mistake: "Short steps that push the front knee far past the toes and lift the heel. Take a longer stride.",
+      breath: "Breathe in as you step and lower, out as you drive up." },
     "dumbbell-romanian-deadlift": { m: ["hamstrings", "glutes"], s: ["lowerback", "forearms"],
       steps: ["Stand tall, dumbbells in front of your thighs, knees slightly bent.", "Push your hips back and slide the dumbbells down to just below your knees.", "Keep your back flat and the dumbbells close to your legs.", "Stand up by squeezing your glutes."],
       mistake: "Bending the knees more and more so it turns into a squat. Hips go back, shins stay nearly still." },
@@ -652,11 +702,23 @@ const plan = {
     "cable-bar-pushdown": { m: ["triceps"], s: [],
       yt: "tricep pushdown straight bar",
       steps: ["Straight bar on the high pulley.", "Elbows pinned to your sides.", "Push down to full lockout.", "Let it rise slowly."],
-      mistake: "Leaning over the bar. Stand tall." },
+      mistake: "Leaning over the bar. Stand tall.",
+      breath: "Breathe out as you push down, in as the bar rises." },
     "overhead-cable-extension": { m: ["triceps"], s: [],
       yt: "overhead cable tricep extension",
-      steps: ["Face away from a low cable, rope behind your head.", "Elbows point forward.", "Straighten your arms overhead.", "Lower into a stretch."],
-      mistake: "Elbows flaring wide. Keep them pointing forward." },
+      steps: ["Rope on a low pulley. Face away from the stack, rope behind your head, one foot forward.", "Lean slightly forward, elbows pointing forward by your ears.", "Straighten your arms overhead and slightly forward.", "Lower slowly until your hands are behind your head in a deep stretch."],
+      mistake: "Elbows flaring wide, so the shoulders take over. Keep them pointing forward.",
+      breath: "Breathe in as you lower into the stretch, out as you straighten your arms." },
+    "paused-overhead-cable-extension": { m: ["triceps"], s: [],
+      yt: "overhead cable tricep extension",
+      steps: ["Set up like the overhead cable extension.", "Lower into the deep stretch behind your head and hold 2 seconds.", "Straighten your arms overhead."],
+      mistake: "Bouncing out of the stretch. Hold it still for the full 2 seconds.",
+      breath: "Breathe in as you lower and hold, out as you straighten your arms." },
+    "backpack-overhead-extension": { m: ["triceps"], s: [],
+      yt: "overhead tricep extension at home",
+      steps: ["Hold a loaded bag by its sides above your head.", "Elbows point forward, lower the bag behind your head.", "Straighten your arms back up."],
+      mistake: "Elbows flaring wide so the bag tips to one side. Keep them pointing forward.",
+      breath: "Breathe in as you lower, out as you press up." },
     "seated-dumbbell-lateral-raise": { m: ["shoulders"], s: [],
       steps: ["Sit on a bench, dumbbells by your sides.", "Raise to shoulder height, elbows leading.", "Lower slowly."],
       mistake: "Shrugging. Keep the shoulders down." },
@@ -667,9 +729,15 @@ const plan = {
       yt: "lateral raise at home",
       steps: ["Hold a loaded bag strap in each hand, or one bag in one hand.", "Raise out to shoulder height.", "Lower for 3 seconds."],
       mistake: "Swinging the bag. Go slow." },
+    "paused-dumbbell-bent-over-row": { m: ["lats", "upperback"], s: ["biceps", "reardelts", "lowerback"],
+      yt: "dumbbell bent over row",
+      steps: ["Set up like the bent-over row.", "Row both dumbbells to your hips.", "Hold 2 seconds with your shoulder blades squeezed, then lower slowly."],
+      mistake: "Letting your chest rise to make the hold easier. Same hinge angle all the way.",
+      breath: "Breathe out as you row, hold the brace through the pause, breathe in as you lower." },
     "chest-supported-dumbbell-row": { m: ["upperback", "lats"], s: ["reardelts", "biceps"],
       steps: ["Lie face-down on a bench set to 30–45°.", "Pull your elbows back toward your hips.", "Squeeze your shoulder blades for 1 second.", "Lower to a full stretch."],
-      mistake: "Lifting your chest off the pad. Stay down so the back does the work." },
+      mistake: "Lifting your chest off the pad. Stay down so the back does the work.",
+      breath: "Breathe out as you row, in as you lower." },
     "feet-elevated-inverted-row": { m: ["lats", "upperback"], s: ["biceps", "reardelts", "abs"],
       steps: ["Bar at hip height, feet on a bench.", "Body straight.", "Pull your chest to the bar.", "Lower slowly."],
       mistake: "Hips dropping. Squeeze your glutes." },
@@ -683,7 +751,8 @@ const plan = {
     "backpack-row": { m: ["lats", "upperback"], s: ["biceps"],
       yt: "backpack bent over row",
       steps: ["Hinge forward, back flat, holding a loaded bag.", "Row the bag to your hip or belly.", "Lower for 3 seconds."],
-      mistake: "Standing up as you row. Hold the hinge." },
+      mistake: "Standing up as you row. Hold the hinge.",
+      breath: "Breathe in and brace with your arm long; breathe out as you row." },
     "cable-lat-pulldown": { m: ["lats"], s: ["biceps", "upperback"],
       yt: "lat pulldown",
       steps: ["Grip just wider than shoulders, thighs under the pad.", "Chest up, pull the bar to your upper chest.", "Let it rise until your arms are straight."],
@@ -702,15 +771,22 @@ const plan = {
       mistake: "Lifting with the lower back. Chest stays near the floor." },
     "seated-hammer-curl": { m: ["biceps", "forearms"], s: [],
       steps: ["Sit with your back against an upright bench.", "Palms facing in, curl up.", "Lower slowly."],
-      mistake: "Rocking off the pad. Back stays on the bench." },
+      mistake: "Rocking off the pad. Back stays on the bench.",
+      breath: "Breathe out as you curl up, in as you lower." },
     "slow-hammer-curl": { m: ["biceps", "forearms"], s: [],
       yt: "hammer curl",
       steps: ["Set up like the hammer curl.", "Curl up.", "Lower for 3 seconds."],
       mistake: "Rushing the lower. That's where the work is." },
+    "slow-cross-body-hammer-curl": { m: ["biceps", "forearms"], s: [],
+      yt: "cross body hammer curl",
+      steps: ["Set up like the cross-body hammer curl.", "Curl across toward the other side of your chest.", "Lower for 3 seconds."],
+      mistake: "Rushing the lower. That's where the work is.",
+      breath: "Breathe out as you curl, in slowly as you lower." },
     "backpack-curl": { m: ["biceps"], s: ["forearms"],
       yt: "backpack bicep curl",
       steps: ["Hold a loaded bag by its top strap.", "Elbows by your sides, curl it up.", "Lower slowly."],
-      mistake: "Swinging the bag. Slow both ways." },
+      mistake: "Swinging the bag. Slow both ways.",
+      breath: "Breathe out as you curl up, in as you lower." },
     "half-kneeling-pallof-press": { m: ["obliques", "abs"], s: ["glutes"],
       yt: "half kneeling pallof press",
       steps: ["Kneel with the inside knee down, side-on to the cable.", "Press out and hold 2 seconds.", "Bring it back slowly."],
@@ -742,18 +818,31 @@ const plan = {
     "bodyweight-bulgarian-split-squat": { m: ["quads", "glutes"], s: ["adductors"],
       yt: "bulgarian split squat",
       steps: ["Back foot on a step or sofa.", "Lower for 3 seconds until the back knee nearly touches.", "Drive up through the front heel."],
-      mistake: "Rushing the lowering. Slow makes bodyweight hard enough." },
+      mistake: "Rushing the lowering. Slow makes bodyweight hard enough.",
+      breath: "Breathe in as you lower for 3 seconds, out as you drive up." },
     "split-squat": { m: ["quads", "glutes"], s: ["adductors"],
       steps: ["Long stride, back foot on the floor.", "Drop straight down.", "Drive back up."],
-      mistake: "Front heel lifting. Keep it planted." },
+      mistake: "Front heel lifting. Keep it planted.",
+      breath: "Breathe in and brace at the top, out as you drive up." },
     "front-foot-elevated-bulgarian-split-squat": { m: ["quads", "glutes"], s: ["adductors"],
       yt: "front foot elevated bulgarian split squat",
       steps: ["Front foot on a plate, back foot on the bench.", "Lower deeper than usual.", "Drive up through the front heel."],
-      mistake: "Losing balance from going heavy too soon. Earn the range first." },
+      mistake: "Losing balance from going heavy too soon. Earn the range first.",
+      breath: "Breathe in and brace at the top, hold it on the way down, out as you drive up." },
     "bodyweight-lateral-lunge": { m: ["glutes", "adductors", "quads"], s: [],
       yt: "lateral lunge",
       steps: ["Feet together.", "Step wide and sit into the hip, other leg straight.", "Push back to standing."],
       mistake: "Knee shooting forward. Sit back." },
+    "paused-walking-lunge": { m: ["quads", "glutes"], s: ["adductors", "hamstrings"],
+      yt: "paused walking lunge",
+      steps: ["Set up like the walking lunge.", "Step and lower until the back knee is just off the floor.", "Hold 2 seconds, then drive up into the next step."],
+      mistake: "Resting the back knee on the floor. Hover it.",
+      breath: "Breathe in as you lower, keep the brace through the hold, out as you drive up." },
+    "bodyweight-walking-lunge": { m: ["quads", "glutes"], s: ["adductors", "hamstrings"],
+      yt: "walking lunges",
+      steps: ["Hands on hips, or a loaded backpack on your back.", "Take a long step and lower until the back knee nearly touches.", "Drive through the front heel into the next step.", "No room: alternate reverse lunges on the spot."],
+      mistake: "Front heel lifting. Take a longer stride.",
+      breath: "Breathe in as you lower, out as you drive up." },
     "cossack-squat": { m: ["adductors", "glutes", "quads"], s: [],
       steps: ["Very wide stance.", "Sink to one side, heel down, other toes up.", "Shift across to the other side."],
       mistake: "Heel lifting. Only go as deep as your heel stays down." },
@@ -920,17 +1009,17 @@ const plan = {
     "cable-overhead-triceps-extension": { to: "overhead-cable-extension", name: "Cable overhead triceps extension" },
     "one-arm-dumbbell-snatch": { to: "single-arm-dumbbell-snatch", name: "One-arm dumbbell snatch" },
     "pull-up-attempt-2-negatives": { to: "pull-up-attempt", name: "Pull-up attempt + 2 negatives" },
-    "barbell-back-squat": { to: null, name: "Barbell back squat", why: "Free barbell; the plan squats on the Smith machine, so the weights don't match." },
+    "barbell-back-squat": { to: null, name: "Barbell back squat", why: "Not in this plan: Bulgarian split squats are the main leg lift, and a barbell's weight doesn't carry over to dumbbells." },
     "barbell-bench-press": { to: null, name: "Barbell bench press", why: "Barbell; the plan uses dumbbells, weighed per hand." },
     "barbell-overhead-press": { to: null, name: "Barbell overhead press", why: "Barbell; the plan presses dumbbells, weighed per hand." },
-    "barbell-bent-over-row": { to: null, name: "Barbell bent-over row", why: "Barbell; the plan rows one dumbbell at a time." },
+    "barbell-bent-over-row": { to: null, name: "Barbell bent-over row", why: "Barbell; the plan rows dumbbells, weighed per hand." },
     "barbell-hip-thrust": { to: null, name: "Barbell hip thrust", why: "Not in this plan: deadlifts and Romanian deadlifts train the same hips." },
-    "goblet-squat": { to: null, name: "Goblet squat", why: "Not in this plan: the Smith squat replaced it." },
-    "dumbbell-walking-lunges": { to: null, name: "Dumbbell walking lunges", why: "Not in this plan: Bulgarian split squats and lateral lunges cover it." },
+    "goblet-squat": { to: null, name: "Goblet squat", why: "Not in this plan: Bulgarian split squats are the main leg lift." },
+    "dumbbell-walking-lunges": { to: "dumbbell-walking-lunge", name: "Dumbbell walking lunges" },
     "dumbbell-calf-raises": { to: null, name: "Dumbbell calf raises", why: "Standing two-leg raise; the plan loads calves on the Smith machine or seated." },
     "hammer-curl-triceps-extension": { to: null, name: "Hammer curl + triceps extension", why: "One weight for two exercises, so it can't stand for either." },
     "half-kneeling-one-arm-dumbbell-press": { to: null, name: "Half-kneeling one-arm dumbbell press", why: "One arm at a time; not the same load as the two-arm standing press." },
-    "incline-dumbbell-curl": { to: null, name: "Incline dumbbell curl", why: "Not in this plan: hammer curls train the arms." },
+    "incline-dumbbell-curl": { to: null, name: "Incline dumbbell curl", why: "Not in this plan: cross-body hammer curls train the arms." },
     "seated-leg-curl": { to: null, name: "Seated leg curl", why: "Machine; the plan trains hamstrings with bodyweight Nordic curls." },
     "explosive-push-up": { to: null, name: "Explosive push-up", why: "Not in this plan." },
     "hollow-hold": { to: null, name: "Hollow hold", why: "Not in this plan: Pallof presses and knee raises cover the core." },
@@ -1043,10 +1132,9 @@ const plan = {
         { slot: "ladder", list: "a", role: "main" },
         { ex: "dumbbell-bench-press", role: "main", sets: 3, reps: [6, 10], byLoad: true, rest: 120, start: { kg: 12.5, note: "per hand" } },
         { ex: "smith-machine-inverted-row", role: "accessory", sets: 3, reps: [8, 12], rest: 90, start: { note: "bar at hip height" } },
-        { ex: "kneeling-cable-lat-pulldown", role: "accessory", sets: 3, reps: [6, 10], rest: 60, pair: "b", note: "Stop 1–2 reps short of failure.", start: { note: "a weight you could lift 10–12 times" } },
-        { ex: "hammer-curl", role: "accessory", sets: 2, reps: [10, 15], slowFirst: true, newWeight: "Expect 6–8 reps at first on the new dumbbell, then build back up.", rest: 60, pair: "a", start: { kg: 7.5, note: "per hand" } },
-        { ex: "cable-rope-pushdown", role: "accessory", sets: 2, reps: [10, 15], rest: 60, pair: "a", start: { note: "light" } },
-        { ex: "pallof-press", role: "core", sets: 2, reps: [10, 10], perSide: true, rest: 45, pair: "b", start: { note: "light" } },
+        { ex: "cross-body-hammer-curl", role: "accessory", sets: 2, reps: [10, 15], perSide: true, slowFirst: true, newWeight: "Expect 6–8 reps at first on the new dumbbell, then build back up.", rest: 60, pair: "a", start: { kg: 7.5, note: "per hand" } },
+        { ex: "overhead-cable-extension", role: "accessory", sets: 2, reps: [10, 15], rest: 60, pair: "a", start: { kg: 10, note: "a weight you could lift about 15 times" } },
+        { ex: "pallof-press", role: "core", sets: 2, reps: [10, 10], perSide: true, rest: 45, start: { note: "light" } },
       ],
     },
     UB: {
@@ -1054,7 +1142,7 @@ const plan = {
       items: [
         { slot: "ladder", list: "b", role: "main" },
         { ex: "standing-dumbbell-overhead-press", role: "main", sets: 3, reps: [8, 15], byLoad: true, rest: 120, start: { kg: 7.5, note: "per hand" } },
-        { ex: "one-arm-dumbbell-row", role: "accessory", sets: 3, reps: [8, 12], perSide: true, rest: 90, start: { kg: 15 } },
+        { ex: "dumbbell-bent-over-row", role: "accessory", sets: 3, reps: [8, 12], rest: 90, start: { kg: 12.5, note: "per hand" } },
         { ex: "incline-dumbbell-press", role: "accessory", sets: 2, reps: [8, 15], byLoad: true, rest: 90, pair: "b", start: { kg: 10, note: "per hand" } },
         { ex: "dumbbell-lateral-raise", role: "accessory", sets: 2, reps: [12, 20], slowFirst: true, rest: 60, pair: "a", start: { kg: 5, note: "per hand" } },
         { ex: "cable-face-pull", role: "accessory", sets: 2, reps: [12, 15], rest: 60, pair: "a", start: { note: "light" } },
@@ -1062,17 +1150,16 @@ const plan = {
       ],
     },
     // Lower days put the calf raises third, so the Short version (first 3 stations, a superset
-    // counting as one) always keeps the Achilles work. Single-leg quad volume was trimmed
-    // instead: squats, jumps, running and basketball already load it.
+    // counting as one) always keeps the Achilles work. Lower A's main leg lift is the Bulgarian
+    // split squat (27 Nov 2026: the Smith squat is gone, no other squat added).
     LA: {
-      name: "Lower A", kind: "lower", focus: "Squat, jump, calves",
+      name: "Lower A", kind: "lower", focus: "Split squat, jump, calves",
       items: [
         { slot: "jump", role: "jump" },
-        { ex: "smith-machine-back-squat", role: "main", sets: 3, reps: [5, 8], rest: 150, start: { kg: 40, note: "added to the bar" } },
-        { ex: "smith-calf-raise", role: "accessory", sets: 3, reps: [6, 10], tempo: "3 s up, 3 s down", rest: 60, pair: "a", note: "Same Smith bar as the squat.", start: { kg: 40 } },
+        { ex: "bulgarian-split-squat", role: "main", sets: 3, reps: [6, 10], perSide: true, rest: 120, note: "The main leg lift: stop 1–3 reps short of failure.", start: { kg: 12.5, note: "per hand", atLeastFrom: "2026-11-27" } },
+        { ex: "smith-calf-raise", role: "accessory", sets: 3, reps: [6, 10], tempo: "3 s up, 3 s down", rest: 60, pair: "a", start: { kg: 40 } },
         { ex: "copenhagen-side-plank", role: "core", sets: 2, sec: [15, 20], perSide: true, rest: 60, pair: "a" },
         { ex: "dumbbell-romanian-deadlift", role: "accessory", sets: 3, reps: [8, 12], rest: 90, start: { kg: 15, note: "per hand" } },
-        { ex: "bulgarian-split-squat", role: "accessory", sets: 2, reps: [8, 10], perSide: true, rest: 75, start: { kg: 7.5, note: "per hand" } },
         { ex: "farmer-carry", role: "carry", sets: 2, sec: [40, 50], rest: 60, optional: true, note: "Only if you're under about 42 minutes; otherwise skip it.", start: { kg: 20, note: "per hand" } },
       ],
     },
@@ -1083,7 +1170,7 @@ const plan = {
         { ex: "barbell-deadlift", role: "main", sets: 3, reps: [5, 6], rest: 150, start: { kg: 62.5, note: "total" } },
         { ex: "nordic-hamstring-curl", role: "accessory", sets: 3, reps: [3, 5], rest: 75, pair: "a" },
         { ex: "seated-dumbbell-calf-raise", role: "accessory", sets: 3, reps: [10, 15], rest: 75, pair: "a", start: { kg: 15 } },
-        { ex: "dumbbell-lateral-lunge", role: "accessory", sets: 2, reps: [8, 8], perSide: true, rest: 75, start: { kg: 7.5 } },
+        { ex: "dumbbell-walking-lunge", role: "accessory", sets: 2, reps: [8, 12], perSide: true, rest: 75, start: { kg: 10, note: "per hand" } },
         { ex: "suitcase-carry", role: "carry", sets: 2, sec: [30, 45], perSide: true, rest: 45, start: { kg: 15 } },
       ],
     },
@@ -1091,11 +1178,11 @@ const plan = {
     // turns, so Nordics and heavy slow calf raises still come every rotation while running load
     // peaks (their effect fades within 2–4 weeks without them). The main lift takes turns.
     LS: {
-      name: "Lower · squat", code: "LS", kind: "lower", build: true, soreHamstrings: true, jump: "LA",
-      focus: "Half build: squat, calves, Nordics",
+      name: "Lower · split squat", code: "LS", kind: "lower", build: true, soreHamstrings: true, jump: "LA",
+      focus: "Half build: split squat, calves, Nordics",
       items: [
         { slot: "jump", role: "jump" },
-        { ex: "smith-machine-back-squat", role: "main", sets: 3, reps: [5, 8], rest: 150, start: { kg: 40, note: "added to the bar" } },
+        { ex: "bulgarian-split-squat", role: "main", sets: 3, reps: [6, 10], perSide: true, rest: 120, note: "The main leg lift: stop 1–3 reps short of failure.", start: { kg: 12.5, note: "per hand", atLeastFrom: "2026-11-27" } },
         { ex: "smith-calf-raise", role: "accessory", sets: 3, reps: [6, 10], tempo: "3 s up, 3 s down", rest: 60, pair: "a", start: { kg: 40 } },
         { ex: "copenhagen-side-plank", role: "core", sets: 2, sec: [15, 20], perSide: true, rest: 60, pair: "a" },
         { ex: "nordic-hamstring-curl", role: "accessory", sets: 2, reps: [3, 5], rest: 75, pair: "b" },
@@ -1113,7 +1200,7 @@ const plan = {
         { ex: "copenhagen-side-plank", role: "core", sets: 2, sec: [15, 20], perSide: true, rest: 60, pair: "a" },
         { ex: "nordic-hamstring-curl", role: "accessory", sets: 2, reps: [3, 5], rest: 75, pair: "b" },
         { ex: "seated-dumbbell-calf-raise", role: "accessory", sets: 2, reps: [10, 15], rest: 75, pair: "b", start: { kg: 15 } },
-        { ex: "bulgarian-split-squat", role: "accessory", sets: 2, reps: [8, 10], perSide: true, rest: 75, start: { kg: 7.5, note: "per hand" } },
+        { ex: "dumbbell-walking-lunge", role: "accessory", sets: 2, reps: [8, 12], perSide: true, rest: 75, start: { kg: 10, note: "per hand" } },
       ],
     },
   },
@@ -1133,7 +1220,7 @@ const plan = {
         name: "Full body 1", kind: "full",
         items: [
           { ex: "squat-jump", role: "jump", sets: 3, reps: [3, 3], rest: 75 },
-          { ex: "smith-machine-back-squat", role: "main", sets: 3, reps: [5, 8], rest: 150 },
+          { ex: "bulgarian-split-squat", role: "main", sets: 3, reps: [6, 10], perSide: true, rest: 120, start: { kg: 12.5, note: "per hand", atLeastFrom: "2026-11-27" } },
           { slot: "ladder", list: "a", role: "main" },
           { ex: "dumbbell-bench-press", role: "accessory", sets: 3, reps: [6, 10], byLoad: true, rest: 90 },
           { ex: "smith-calf-raise", role: "accessory", sets: 2, reps: [6, 10], tempo: "3 s up, 3 s down", rest: 60 },
@@ -1145,14 +1232,14 @@ const plan = {
           { ex: "broad-jump", role: "jump", sets: 3, reps: [3, 3], rest: 75 },
           { ex: "barbell-deadlift", role: "main", sets: 3, reps: [5, 5], rest: 150 },
           { ex: "standing-dumbbell-overhead-press", role: "main", sets: 3, reps: [8, 15], byLoad: true, rest: 120 },
-          { ex: "one-arm-dumbbell-row", role: "accessory", sets: 2, reps: [8, 12], perSide: true, rest: 60 },
+          { ex: "dumbbell-bent-over-row", role: "accessory", sets: 2, reps: [8, 12], rest: 60 },
           { ex: "suitcase-carry", role: "carry", sets: 2, sec: [30, 45], perSide: true, rest: 60 },
         ],
       },
       FB3: {
         name: "Full body 3", kind: "full",
         items: [
-          { ex: "bulgarian-split-squat", role: "accessory", sets: 3, reps: [8, 10], perSide: true, rest: 90 },
+          { ex: "dumbbell-walking-lunge", role: "accessory", sets: 3, reps: [8, 12], perSide: true, rest: 90 },
           { slot: "ladder", list: "b", role: "main" },
           { ex: "incline-dumbbell-press", role: "accessory", sets: 2, reps: [8, 15], byLoad: true, rest: 90 },
           { ex: "nordic-hamstring-curl", role: "accessory", sets: 2, reps: [3, 5], rest: 90 },
@@ -1255,8 +1342,8 @@ const plan = {
       longStepKm: 1,
       taperLongFactor: 0.6, // taper long run ≈ 60% of the longest
       liftShortInTaper: true,
-      // A 21K build trades one lift for a third run: Upper A, the build Lower (squat and
-      // deadlift take turns; Nordics and calf raises every time), Upper B, plus an easy run.
+      // A 21K build trades one lift for a third run: Upper A, the build Lower (split squat
+      // and deadlift take turns; Nordics and calf raises every time), Upper B, plus an easy run.
       // One strength session a week maintains strength and power, so this holds for 12 weeks.
       // Won't run three times a week? Race a 10K instead.
       buildLowers: ["LS", "LD"],
@@ -1405,7 +1492,7 @@ const plan = {
       lead: "Add reps first, then weight. That's the whole rule.",
       points: [
         "Each exercise has a rep range, like 5–8. Keep the same weight and add reps session by session.",
-        "When every set reaches the top of the range, go up the smallest jump: 2.5 kg on squats and deadlifts, 1–2.5 kg on upper-body lifts, or the next dumbbell. Reps drop back to the bottom of the range.",
+        "When every set reaches the top of the range, go up the smallest jump: 2.5 kg on deadlifts, the next dumbbell on split squats, 1–2.5 kg on upper-body lifts, or the next dumbbell. Reps drop back to the bottom of the range.",
         "Light dumbbells jump a lot in one step, so presses use a wider range while they're light: up to 10 kg per hand 8–15 reps, 12.5–17.5 kg 6–10, from 20 kg 5–8. Lateral raises: 12–20, then a session of 3-second lowers before the next dumbbell.",
         "Most sets stop with 1–3 good reps left. You get stronger without grinding, and form stays clean.",
         "Two sessions in a row with no progress: drop about 10% and build back up, or switch rep range for a few weeks. Stalls are normal, not failure.",
@@ -1443,7 +1530,7 @@ const plan = {
         "Long run: starts at 8 km and grows by at most 10% over your longest run of the last 30 days, about 1 km at a time once you're at 10 km. Normal weeks stop at about 10–12 km, around 70 minutes.",
         "Last long run more than 2 weeks ago? Repeat that distance. No long run for a month? Start 2 km lower. No running at all for a month? An easy 30–40 min run first, then 8 km.",
         "Basketball replaces the quality run that rotation, never the long run. It's already a hard day. After two games in a row, the third rotation is a tempo run; play as well and that rotation's Lower B is the Short version.",
-        "A half-marathon build (race mode) builds the long run toward 18 km from 16 weeks out. The last 12 weeks add an easy 30–40 min run and drop to three lifts: Upper A, one build Lower (squat and deadlift take turns, with Nordics and calf raises every time), Upper B.",
+        "A half-marathon build (race mode) builds the long run toward 18 km from 16 weeks out. The last 12 weeks add an easy 30–40 min run and drop to three lifts: Upper A, one build Lower (split squat and deadlift take turns, with Nordics and calf raises every time), Upper B.",
         "Long runs go past the 50-minute cap. That's the price of a half, and the plan says so honestly.",
       ],
     },
@@ -1468,7 +1555,7 @@ const plan = {
         "Pain that's sharp, or more than 3/10 and not settled by next morning: swap the exercise for its easier option and tell a physio if it keeps happening.",
       ],
       // Exercise ids whose cue is shown under these points (cues live in `exercises`).
-      exercises: ["smith-machine-back-squat", "barbell-deadlift", "dumbbell-bench-press", "standing-dumbbell-overhead-press", "pull-up", "negative-pull-up", "bulgarian-split-squat", "farmer-carry"],
+      exercises: ["bulgarian-split-squat", "barbell-deadlift", "dumbbell-bench-press", "standing-dumbbell-overhead-press", "pull-up", "negative-pull-up", "farmer-carry"],
     },
   ],
 };

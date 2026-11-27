@@ -25,6 +25,8 @@ A review of every commit before the Uptime redesign, so the next upgrade builds 
 
 - **Enjoyment pass (27 Nov 2026).** The same review's "Top 5 for enjoyment" and nice-to-haves: the rest's last 10 s beat and the card wipes green at zero, the exercise name stays in the header whenever it's out of view, beating last time gets a burst, a two-note tone and "New best" (only when it really is), the Home glow follows the thumb, exercises slide in from their side, a green full-screen wipe into the summary, staggered cards on Progress and Plan, Plan › Week collapsed to one line per session, two-line week-card descriptions, "0 runs", and a 520 Hz tap on every logged set.
 
+- **Exercise changes (27 Nov 2026, chosen by the owner).** Upper A dropped the lat pulldown, rope pushdown and hammer curl for a superset of cross-body hammer curls and overhead cable triceps extensions. Lower A dropped the Smith squat with no squat in its place: the Bulgarian split squat became the main leg lift (3 × 6–10 per side, heavier, a main lift's progression). Upper B rows two dumbbells instead of one, Lower B does walking lunges instead of lateral lunges. Hammer-curl and one-arm-row logs carry over to their replacements; every changed exercise gained a breathing cue.
+
 ## Tried, then dropped
 
 Don't bring these back without a new reason.
@@ -34,12 +36,13 @@ Don't bring these back without a new reason.
 - **Electrolyte sachets.** Salted buttermilk or nimbu paani does the job with mess food.
 - **Peanut butter and makhana** as staples.
 - **Dead bug, bird dog and goblet squat.**
+- **Smith machine back squat** (removed 27 Nov 2026 by the owner's choice; the Bulgarian split squat is the main leg lift). Its logs are kept.
 - **Logs keyed by list position or by weekday.** Both break as soon as the plan changes. Key logs by date and exercise.
 - **Dates written into text.** The start date had to be edited twice. Derive every date string from one constant.
 
 ## Kept on purpose
 
-- Squats on the Smith machine, presses with dumbbells, a dumbbell snatch instead of a medicine ball, and finishers that fit one spot on a small floor.
+- Presses with dumbbells, a dumbbell snatch instead of a medicine ball, and finishers that fit one spot on a small floor.
 - Muscle maps on every exercise.
 - Light and dark themes.
 - Local-only storage: no accounts, no server, no analytics.

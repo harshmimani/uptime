@@ -147,7 +147,7 @@ test("lift trend uses the top set per session, including old-app history", () =>
   const t = P.liftTrend(db, "dumbbell-bench-press");
   assert.deepEqual(t.map((p) => [p.date, p.kg]), [["2026-11-02", 15], ["2026-11-24", 17.5], ["2026-11-26", 20]]);
   assert.equal(t[2].reps, 6);
-  assert.deepEqual(P.mainLifts(), ["dumbbell-bench-press", "smith-machine-back-squat", "standing-dumbbell-overhead-press", "barbell-deadlift"]);
+  assert.deepEqual(P.mainLifts(), ["dumbbell-bench-press", "bulgarian-split-squat", "standing-dumbbell-overhead-press", "barbell-deadlift"]);
 });
 
 test("pull-up max: best strict set per day; ladder drills don't count", () => {

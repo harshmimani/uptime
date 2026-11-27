@@ -20,7 +20,8 @@ test("Upper A builds from the plan with the ladder slot filled", () => {
   assert.equal(w.items[0].ex, "negative-pull-up");
   assert.equal(w.items[0].role, "main");
   assert.equal(w.items[1].ex, "dumbbell-bench-press");
-  assert.equal(w.items.length, 7);
+  assert.equal(w.items.length, 6);
+  assert.deepEqual(w.items.slice(3).map((i) => [i.ex, i.pair]), [["cross-body-hammer-curl", "a"], ["overhead-cable-extension", "a"], ["pallof-press", undefined]]);
   assert.equal(w.cur, "0");
 });
 
@@ -42,7 +43,7 @@ test("Lower B jump slot uses block 1; Upper B ladder level 1 expands to two item
 
 test("No-gym swaps every exercise to its no-equipment version and adds lower extras", () => {
   const la = M.newWorkout({ id: "x", sessionId: "LA", date: "2026-11-26", now: T0, noGym: true });
-  const squat = la.items.find((i) => i.planEx === "smith-machine-back-squat");
+  const squat = la.items.find((i) => i.planEx === "bulgarian-split-squat");
   assert.equal(squat.ex, "bodyweight-bulgarian-split-squat");
   assert.equal(squat.swapped, "nogym");
   assert.equal(la.items[la.items.length - 1].ex, "tibialis-raise");
@@ -69,13 +70,13 @@ test("supersets alternate with no rest, then rest after the round", () => {
   // finish the first three exercises
   let now = T0;
   while (["0", "1", "2"].includes(w.cur)) M.logSet(w, { kg: 10, reps: 8 }, (now += 1000));
-  assert.equal(w.cur, "3"); // pulldown (pair b)
-  let r = M.logSet(w, { kg: 10, reps: 10 }, (now += 1000));
-  assert.equal(w.cur, "6"); // pallof (pair b)
+  assert.equal(w.cur, "3"); // cross-body hammer curl (pair a)
+  let r = M.logSet(w, { kg: 7.5, reps: 12 }, (now += 1000));
+  assert.equal(w.cur, "4"); // overhead cable triceps extension (pair a)
   assert.equal(r.restSec, 0);
-  r = M.logSet(w, { kg: 10, reps: 10 }, (now += 1000));
+  r = M.logSet(w, { kg: 10, reps: 12 }, (now += 1000));
   assert.equal(w.cur, "3");
-  assert.equal(r.restSec, 45);
+  assert.equal(r.restSec, 60);
 });
 
 test("undo puts the set back on screen with its numbers", () => {
@@ -98,7 +99,7 @@ test("switching Full → Short keeps logged sets and exercises that have them", 
   assert.equal(M.item(w, "4").sets, 1);
   assert.equal(w.items.length, 4);
   M.setShort(w, false);
-  assert.equal(w.items.length, 7);
+  assert.equal(w.items.length, 6);
   assert.equal(M.doneCount(w, "4"), 1);
 });
 
