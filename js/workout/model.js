@@ -15,7 +15,9 @@
 //     rest: { startAt, endAt } | null,                // end timestamp: right after a lock or app switch
 //     work: { key, startAt, endAt } | null,           // a timed set (carry, plank, hang) that is running
 //     draft: { key, n, kg, reps, sec } | null,        // stepper values not logged yet
-//     lastSetAt: ms | null
+//     lastSetAt: ms | null,
+//     touchedAt: ms | null,                           // last tap of any kind (stepper, swap, skip…)
+//     clock: { ms, since } | null                     // session time, counted only while the app is open
 //   }
 
 import PLAN from "../plan.js";
@@ -25,6 +27,48 @@ import { sessionDef, adjustSets, progression, roundDown } from "../engine.js";
 export const RESUME_AFTER_MS = 90 * 60 * 1000;
 export const KG_STEP = 2.5;
 export const SEC_STEP = 5;
+
+// ------------------------------------------------------------------ idle and the session clock
+// "Pick up or finish?" comes 90 minutes after the last sign of life: the last logged set, or
+// any other tap, or the start when nothing has been logged yet. The header clock counts only
+// while the app is open and in front, and never counts the idle stretch before that prompt,
+// so it can't show 7:42:30 for a session left open overnight.
+
+/** When the user last did anything in this workout. */
+export const lastActive = (w) => Math.max(w.lastSetAt ?? 0, w.touchedAt ?? 0, w.startedAt ?? 0);
+/** Left alone for more than 90 minutes: time to ask "Pick up or finish?". */
+export const isStale = (w, now) => now - lastActive(w) > RESUME_AFTER_MS;
+
+/** Session time in ms. A running stretch never counts past the last activity + the idle limit. */
+export function clockMs(w, now) {
+  const c = w.clock;
+  if (!c) return w.lastSetAt ? Math.max(0, w.lastSetAt - w.startedAt) : 0; // older saves: start → last set
+  if (c.since == null) return c.ms;
+  const end = Math.min(now, lastActive(w) + RESUME_AFTER_MS);
+  return c.ms + Math.max(0, end - c.since);
+}
+/** The app went to the background (or was left idle): bank the time so far and stop counting. */
+export function clockPause(w, now) {
+  if (!w.clock) w.clock = { ms: clockMs(w, now), since: null };
+  else if (w.clock.since != null) w.clock = { ms: clockMs(w, now), since: null };
+}
+/** The app is in front again: count from now. Time away is never counted. */
+export function clockRun(w, now) {
+  if (!w.clock) w.clock = { ms: clockMs(w, now), since: now };
+  else if (w.clock.since == null) w.clock.since = now;
+}
+/** Left idle past the limit: stop the clock at the last activity, so the idle time isn't counted. */
+export function clockStopIdle(w) {
+  if (!w.clock) w.clock = { ms: clockMs(w, lastActive(w)), since: null };
+  else if (w.clock.since != null) w.clock = { ms: w.clock.ms + Math.max(0, lastActive(w) - w.clock.since), since: null };
+}
+/** "12:04", or "1:02:30" past an hour. */
+export function clockText(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+  const p = (n) => String(n).padStart(2, "0");
+  return h ? `${h}:${p(m)}:${p(r)}` : `${m}:${p(r)}`;
+}
 
 // ------------------------------------------------------------------ exercise facts
 
@@ -143,7 +187,8 @@ export function newWorkout({ id, sessionId, date, now, checkIn, short = false, n
     kind: "lift", id, session: sessionId, name: def.name, sessionKind: def.kind, date, startedAt: now,
     checkIn, short, noGym, adjust: { loadFactor: 1, setsDelta: 0, setsFactor: 1, ...adjust },
     items: buildItems(sessionId, { short, noGym, adjust, settings }, plan),
-    log: [], cur: null, rest: null, work: null, draft: null, lastSetAt: null,
+    log: [], cur: null, rest: null, work: null, draft: null, lastSetAt: null, touchedAt: now,
+    clock: { ms: 0, since: now },
   };
   w.cur = nextStep(w, null)?.key ?? null;
   return w;
@@ -406,17 +451,21 @@ export function prefill(w, key, history, plan = PLAN) {
 
   let reps = null, sec = null;
   if (it.sec) {
-    sec = prev?.sec ?? (prog.action === "increase" ? it.sec[0] : lastSet?.sec) ?? it.sec[0];
+    sec = prev?.sec ?? (prog.action === "increase" ? it.sec[0] : lastSet?.sec != null ? Math.min(lastSet.sec, it.sec[1]) : null) ?? it.sec[0];
   } else {
     const top = it.reps ? it.reps[1] : 8;
     if (prev?.reps != null && !lastSet) reps = prev.reps;
     else if (prog.action === "increase" && it.reps) reps = it.reps[0];
-    else if (lastSet?.reps != null) reps = lastSet.reps;
+    else if (lastSet?.reps != null) reps = Math.min(lastSet.reps, top); // never above the plan's range (old logs used other schemes)
     else reps = top;
   }
 
+  // last time was well past today's range (a different scheme, e.g. 15 reps where the plan
+  // now says 3 slow negatives): "beat 15" would be the wrong goal, so the plan's range is the target
+  const offPlan = lastSet && ((it.reps && lastSet.reps > it.reps[1] && !(lastSet.kg > 0)) || (it.sec && lastSet.sec > it.sec[1] && !(lastSet.kg > 0)));
   let target;
   if (!last) target = { kind: "first" };
+  else if (offPlan) target = { kind: "plan" };
   else if (reducedDay) target = { kind: "easy", lighter, last: lastSet };
   else if (prog.action === "increase" && weighted && kg > (lastSet?.kg ?? 0)) target = { kind: "up", fromKg: lastSet?.kg ?? 0, toKg: kg, last: lastSet };
   else target = { kind: "beat", last: lastSet };
@@ -497,7 +546,7 @@ export function toSession(w, { partial = false, end } = {}) {
  */
 export function summarize(w, history, historyAfter, plan = PLAN) {
   const sets = w.log.length;
-  const minutes = Math.max(1, Math.round(((w.lastSetAt ?? w.startedAt) - w.startedAt) / 60000));
+  const minutes = Math.max(1, Math.round(clockMs(w, w.lastSetAt ?? w.startedAt) / 60000));
   let volume = 0;
   let beat = 0;
   const lastByEx = new Map();

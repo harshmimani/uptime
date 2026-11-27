@@ -449,3 +449,15 @@ describe("Runs: long run build and race mode", () => {
     assert.equal(planToday([lift(97, "LB")], {}, d(100)).primary.short, undefined);
   });
 });
+
+test("upcoming: one cycle from the next session; run and sport never right before a lower session", async () => {
+  const { upcoming } = await import("../js/engine.js");
+  const order = (log, settings = {}) => upcoming(log, settings, "2026-11-27").map((x) => (x.type === "lift" ? x.id : x.type));
+  assert.deepEqual(order([]), ["UA", "LA", "run", "UB", "LB", "sport"]);
+  const did = (session) => [{ date: "2026-11-26", type: "lift", session }];
+  assert.deepEqual(order(did("UA")), ["LA", "run", "UB", "LB", "sport", "UA"]);
+  assert.deepEqual(order(did("LA")), ["UB", "LB", "run", "UA", "LA", "sport"]);
+  assert.deepEqual(order(did("UB")), ["LB", "run", "UA", "LA", "sport", "UB"]);
+  const busy = { modeLog: [{ date: "2026-11-20", busy: true }] };
+  assert.deepEqual(order([], busy), ["FB1", "run", "FB2", "FB3"]);
+});

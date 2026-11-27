@@ -11,18 +11,19 @@ import { startServiceWorker } from "../sw-client.js";
 import { tabBar, esc, showToast, say, dayMonth } from "../nav.js";
 import { setUnits, wu, fmtW } from "../units.js";
 import { exName, exCue, buildItems, estimateMin } from "../workout/model.js";
-import { howToHTML, coverage } from "../muscles.js";
+import { howToHTML, coverage, guideFor, mapSVG, muscleList } from "../muscles.js";
 import { exerciseList } from "../session-view.js";
 import * as R from "../workout/run.js";
 import { getTheme, setTheme } from "../theme.js";
 import { unlockAudio, sound, setVibration, vibrate } from "../workout/feedback.js";
+import { installPressGlow } from "../motion.js";
 
 const store = createStore();
 const db = () => store.db;
 const app = document.getElementById("app");
 const today = () => isoDate(new Date());
-const SECTIONS = [["week", "Week"], ["modes", "Modes"], ["fuel", "Fuel"], ["learn", "Learn"], ["settings", "Settings"]];
-const ui = { section: "week", diet: "both", focus: null, info: null, infoTrigger: null };
+const SECTIONS = [["week", "Week"], ["next", "Coming up"], ["modes", "Modes"], ["fuel", "Fuel"], ["learn", "Learn"], ["settings", "Settings"]];
+const ui = { upOpen: null, section: "week", diet: "both", focus: null, info: null, infoTrigger: null };
 
 function applyPrefs() {
   setUnits(db().settings.units);
@@ -72,6 +73,66 @@ function viewWeek() {
       <ul class="cues">${cond}</ul>
     </article>`}
     <p class="quiet">Rest: at least one full day per rotation, and never three hard days in a row.</p>
+  </section>`;
+}
+
+// ------------------------------------------------------------------ Coming up: the next sessions, to show someone
+// One cycle from the next session, in the order it's likely to happen: lifts in rotation order,
+// the run and the sport slot where the spacing rules like them (E.upcoming). Each card opens
+// in place to its exercises, sets × reps and muscles. Plain and calm, phone or laptop.
+
+const WHEN = ["Next", "Then", "After that"];
+
+function sessionMuscles(items) {
+  const main = new Set(), also = new Set();
+  for (const it of items) { const g = guideFor(it.ex); g.m.forEach((m) => main.add(m)); g.s.forEach((m) => also.add(m)); }
+  return { main: [...main], also: [...also].filter((m) => !main.has(m)) };
+}
+
+function viewNext() {
+  const log = engineLog(db());
+  const list = E.upcoming(log, db().settings, today());
+  const fiveK = R.fiveKSec(db().activities, db().settings);
+  const sport = db().settings.sportName || "Sport";
+  if (!ui.upOpen) ui.upOpen = new Set(); // all closed: the order reads at a glance
+  const cards = list.map((x, i) => {
+    const when = WHEN[i] || "Later";
+    let name, meta, body, kind;
+    if (x.type === "lift") {
+      const def = E.sessionDef(x.id);
+      const items = buildItems(x.id, { settings: db().settings });
+      const mus = sessionMuscles(items);
+      kind = "lift";
+      name = def.name;
+      meta = `${def.focus || "Full body"} · ${items.length} exercises · about ${estimateMin(items)} min`;
+      body = `<div class="up__map">${mapSVG(mus.main, mus.also, { size: "l", label: `${def.name} works ${muscleList(mus.main)}${mus.also.length ? `; also ${muscleList(mus.also)}` : ""}` })}
+          <p class="meta"><b>Works</b> ${esc(muscleList(mus.main))}${mus.also.length ? `<br><b>Helps</b> ${esc(muscleList(mus.also))}` : ""}</p></div>
+        ${exerciseList(items, { video: true, label: `${def.name} exercises` })}`;
+    } else if (x.type === "run") {
+      const t = R.runTarget(x.pick, fiveK);
+      kind = "run";
+      name = t.name;
+      meta = "Run · Strava records it";
+      body = `<p class="run-line">${esc(t.target)}</p>${t.note ? `<p class="meta">${esc(t.note)}</p>` : ""}
+        <p class="quiet">The run slot cycles intervals → tempo → long easy run, so 5K, 10K and 21K all stay sharp.</p>`;
+    } else {
+      kind = "sport";
+      name = `${sport} or conditioning`;
+      meta = "A game if there is one, otherwise any cardio";
+      body = `<ul class="cues">${PLAN.conditioning.options.map((c) => `<li><b>${esc(c.ex === "basketball" && db().settings.sportName ? db().settings.sportName : exName(c.ex))}</b>${c.minutes[0]}–${c.minutes[1]} min${c.note ? ` · ${esc(c.note)}` : ""}</li>`).join("")}</ul>`;
+    }
+    return `<li><details class="up up--${kind}" data-i="${i}"${ui.upOpen.has(i) ? " open" : ""}>
+      <summary><span class="up__n num" aria-hidden="true">${i + 1}</span>
+        <span class="up__text"><span class="up__when">${when}</span><b class="up__name">${esc(name)}</b><span class="up__meta">${esc(meta)}</span></span>
+        <span class="up__chev" aria-hidden="true"></span></summary>
+      <div class="up__body">${body}</div>
+    </details></li>`;
+  }).join("");
+  return `<section class="section coming" aria-labelledby="next-h">
+    <h2 id="next-h" class="sr-only">Coming up</h2>
+    <p class="meta">The next ${list.length} sessions, in order. Missed days never skip one: each waits its turn. Tap any to see what's in it.</p>
+    <ol class="ups">${cards}</ol>
+    <p class="quiet">Plus at least one rest day. Runs and sport fit any day.</p>
   </section>`;
 }
 
@@ -359,7 +420,7 @@ function resetAll() {
 
 function render() {
   const sec = ui.section;
-  const view = { week: viewWeek, modes: viewModes, fuel: viewFuel, learn: viewLearn, settings: viewSettings }[sec]();
+  const view = { week: viewWeek, next: viewNext, modes: viewModes, fuel: viewFuel, learn: viewLearn, settings: viewSettings }[sec]();
   app.innerHTML = `<main class="scr" data-screen="plan">
     <header class="scr__head">
       <h1 class="h1 page-title" tabindex="-1">${sec === "week" ? "Your plan" : esc(SECTIONS.find((s) => s[0] === sec)[1])}</h1>
@@ -470,8 +531,16 @@ function closeInfo() {
   if (back) document.querySelector(back)?.focus({ preventScroll: true });
 }
 addEventListener("hashchange", () => { fromHash(); render(); });
+// Coming up: remember which cards are open, so opening a how-to and coming back keeps them
+app.addEventListener("toggle", (ev) => {
+  const d = ev.target;
+  if (!d.matches?.("details.up") || !ui.upOpen) return;
+  const i = Number(d.dataset.i);
+  if (d.open) ui.upOpen.add(i); else ui.upOpen.delete(i);
+}, true);
 
 fromHash();
 render();
+installPressGlow(document);
 
 startServiceWorker();

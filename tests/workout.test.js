@@ -267,3 +267,47 @@ test("store: an old step-by-step run in progress becomes a logged run; new setti
   db.activities.push({ id: "r2", date: "2026-11-26", t: T0, kind: "run", run: "long", km: 9 });
   assert.equal(engineLog(db).find((e) => e.run === "long").km, 9);
 });
+
+test("prefill never goes above the plan's range: old 15-rep negatives prefill 3", () => {
+  const w = mk();
+  const old = [{ date: "2026-11-19", sets: [{ reps: 15 }, { reps: 15 }, { reps: 12 }] }];
+  const p = M.prefill(w, "0", (ex) => (ex === "negative-pull-up" ? old : []));
+  assert.equal(p.reps, 3);
+  assert.equal(p.target.kind, "plan");
+  for (const id of ["UA", "LA", "UB", "LB"]) {
+    const x = M.newWorkout({ id: "x", sessionId: id, date: "2026-11-26", now: T0 });
+    for (const it of x.items) {
+      const big = [{ date: "2026-11-19", sets: [{ reps: 99, sec: 999 }] }];
+      const q = M.prefill(x, it.key, () => big);
+      if (it.reps) assert.ok(q.reps <= it.reps[1], `${it.ex} reps ${q.reps}`);
+      if (it.sec) assert.ok(q.sec <= it.sec[1], `${it.ex} sec ${q.sec}`);
+    }
+  }
+});
+
+test("idle: 'Pick up or finish?' after 90 min with nothing logged, or after the last set or tap", () => {
+  const w = mk();
+  assert.equal(M.isStale(w, T0 + 89 * 60000), false);
+  assert.equal(M.isStale(w, T0 + 91 * 60000), true); // nothing logged: counts from the start
+  M.logSet(w, { reps: 3 }, T0 + 30 * 60000);
+  assert.equal(M.isStale(w, T0 + 115 * 60000), false);
+  w.touchedAt = T0 + 100 * 60000;
+  assert.equal(M.isStale(w, T0 + 185 * 60000), false);
+  assert.equal(M.isStale(w, T0 + 191 * 60000), true);
+});
+
+test("session clock counts only while the app is open and never the idle stretch", () => {
+  const w = mk();
+  assert.equal(M.clockMs(w, T0 + 10 * 60000), 10 * 60000);
+  M.clockPause(w, T0 + 10 * 60000);            // phone put away
+  assert.equal(M.clockMs(w, T0 + 8 * 3600000), 10 * 60000);
+  M.clockRun(w, T0 + 8 * 3600000);            // back the next morning
+  w.touchedAt = T0 + 8 * 3600000;
+  assert.equal(M.clockMs(w, T0 + 8 * 3600000 + 60000), 11 * 60000);
+  const left = mk();                          // left open overnight, never touched
+  assert.equal(M.clockMs(left, T0 + 8 * 3600000), M.RESUME_AFTER_MS);
+  M.clockStopIdle(left);
+  assert.equal(M.clockMs(left, T0 + 9 * 3600000), 0);
+  assert.equal(M.clockText(65000), "1:05");
+  assert.equal(M.clockText(3725000), "1:02:05");
+});

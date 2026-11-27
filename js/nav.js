@@ -41,3 +41,25 @@ export function say(text) {
 
 /** "26 Nov" from "2026-11-26". */
 export const dayMonth = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+
+// ------------------------------------------------------------------ page-to-page motion
+// Moving between tabs slides the page the way the tabs sit: Home → Progress → Plan moves
+// left, back the other way moves right (cross-document view transitions, where supported).
+// The direction is worked out when leaving and handed to the next page in sessionStorage.
+const ORDER = ["index", "progress", "plan"];
+const pageOf = (url) => { const m = /([a-z]+)\.html$/.exec(new URL(url, location.href).pathname); return m ? m[1] : "index"; };
+if (typeof window !== "undefined" && "onpageswap" in window) {
+  addEventListener("pageswap", (e) => {
+    const to = e.activation?.entry?.url;
+    if (!to) return;
+    const a = ORDER.indexOf(pageOf(location.href)), b = ORDER.indexOf(pageOf(to));
+    const dir = a < 0 || b < 0 || a === b ? "" : b > a ? "forward" : "backward";
+    try { sessionStorage.setItem("uptime-vt", dir); } catch { /* motion only */ }
+    if (dir) e.viewTransition?.types?.add(dir);
+  });
+  addEventListener("pagereveal", (e) => {
+    let dir = "";
+    try { dir = sessionStorage.getItem("uptime-vt") || ""; sessionStorage.removeItem("uptime-vt"); } catch { /* motion only */ }
+    if (dir) e.viewTransition?.types?.add(dir);
+  });
+}

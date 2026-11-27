@@ -123,9 +123,9 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 
 /* rest and timed-set card: the ring shrinks on short screens so Log never leaves the thumb zone */
 .timerbox { display: grid; gap: var(--sp-3); padding: var(--sp-4); border-radius: var(--r-lg); background: var(--c-surface-2); box-shadow: var(--elev-2); }
-/* everything else on the set screen is ~520 px tall, so the ring takes what's left: 120 px on a 640 px phone, 232 px on a big one */
-.timerbox .ring { --size: clamp(112px, calc(100vh - 520px), 232px); }
-@supports (height: 100dvh) { .timerbox .ring { --size: clamp(112px, calc(100dvh - 520px), 232px); } }
+/* everything else on the set screen is ~610 px tall (with the set line above the steppers and room for a toast), so the ring takes what is left: 96 px on a short phone, 232 px on a big one */
+.timerbox .ring { --size: clamp(96px, calc(100vh - 610px), 232px); }
+@supports (height: 100dvh) { .timerbox .ring { --size: clamp(96px, calc(100dvh - 610px), 232px); } }
 .timerbox .ring__time { font-size: calc(var(--size) * .3); }
 .ring__ago { font-size: var(--fs-small); color: var(--c-text-2); min-height: 1.2em; }
 .timerbox .row .btn { flex: 1; }
@@ -265,5 +265,31 @@ input.stepper__num:focus-visible { outline: 2px solid var(--c-focus); outline-of
 @media (max-height: 700px) {
   .scr__head { padding-top: calc(var(--sp-1) + env(safe-area-inset-top)); padding-bottom: var(--sp-2); }
   .timerbox { padding: var(--sp-3); gap: var(--sp-2); }
-  .timerbox .ring { --size: clamp(92px, calc(100dvh - 548px), 232px); }
+  .timerbox .ring { --size: clamp(92px, calc(100dvh - 630px), 232px); }
 }
+
+/* ---------------------------------------------------------------- warm-up: a card, then one line */
+.warm__head { gap: var(--sp-2); }
+.warm__time { font-size: var(--fs-small); font-weight: var(--fw-semibold); color: var(--c-text-2); }
+.warm__time.over { color: var(--c-green); }
+.warm__btn { min-height: 40px; padding-inline: var(--sp-3); }
+.warm-line {
+  display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: var(--hit-min); padding: var(--sp-2) var(--sp-3);
+  border: 0; border-radius: var(--r-md); background: var(--c-surface-1); color: var(--c-text-2); font: inherit; font-size: var(--fs-small);
+  text-align: left; cursor: pointer; animation: warm-fold var(--dur-slow) var(--ease-emphasized) both;
+}
+.warm-line b { color: var(--c-text); font-weight: var(--fw-semibold); }
+.warm-line > span:nth-child(2) { flex: 1; min-width: 0; }
+.warm-line__tick { display: grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--c-action); color: var(--c-on-action); }
+.warm-line__tick svg { width: 14px; height: 14px; }
+.warm-line__more { color: var(--c-text-3); font-weight: var(--fw-semibold); }
+.warm-line:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
+@keyframes warm-fold { from { opacity: 0; transform: translateY(calc(-8px * var(--motion-distance))); } }
+
+/* the set line sits with the controls, so it's never under them */
+.scr__foot .setline { padding: 0 var(--sp-1); }
+.scr__foot .setline b { font-size: var(--fs-body); }
+
+/* "How to" sits on the exercise name's line, not below it */
+.ex-title { align-items: baseline; }
+.howto-btn { align-self: center; }

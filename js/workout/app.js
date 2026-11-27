@@ -17,7 +17,7 @@ import { startServiceWorker } from "../sw-client.js";
 import * as R from "./run.js";
 import { unlockAudio, sound, vibrate, setVibration, KeepAwake } from "./feedback.js";
 import { setUnits, units, wu as unitLabel, fromUnit, weightStep } from "../units.js";
-import { splitLetters, playIn, countTo, reducedMotion, wait } from "../motion.js";
+import { splitLetters, playIn, countTo, reducedMotion, wait, celebrate, installPressGlow } from "../motion.js";
 
 const store = createStore();
 const db = () => store.db;
@@ -146,7 +146,14 @@ function afterRender(focus) {
   const segs = app.querySelectorAll(".week .seg--done");
   segs.forEach((s, i) => setTimeout(() => s.classList.add("on"), reducedMotion() ? 0 : 200 + i * 90));
   const mark = app.querySelector(".done-mark");
-  if (mark) requestAnimationFrame(() => mark.classList.add("play"));
+  if (mark) {
+    requestAnimationFrame(() => mark.classList.add("play"));
+    // the whole session done: a big burst once the check has drawn (not for a partial save)
+    if (ui.view === "summary" && !ui.summary?.partial && !ui.celebrated) {
+      ui.celebrated = true;
+      setTimeout(() => { const r = mark.getBoundingClientRect(); celebrate(r.left + r.width / 2, r.top + r.height / 2, { big: true }); }, reducedMotion() ? 0 : 520);
+    }
+  }
   syncRing();
   tick();
   if (ui.sheet) {
@@ -275,14 +282,13 @@ function checkIn(v) {
 // ---------------------------------------------------------------- set screen
 
 function headerFor(w, it) {
-  const pos = w.items.indexOf(it) + 1;
   const segs = w.items.map((x) => {
     const d = M.doneCount(w, x.key);
     const cls = d >= x.sets ? "done" : x.key === it.key ? "cur" : "";
     return `<i class="${cls}" style="--fill:${(d / x.sets).toFixed(2)}"></i>`;
   }).join("");
   return `<header class="scr__head vt-card">
-    <div class="row between head-row"><div class="row" style="min-width:0">${backBtn("exit", `Exit ${w.name}`, "Exit")}<span class="label">${esc(w.name)}${w.short ? " · Short" : ""} · ${pos} of ${w.items.length}</span></div><span class="meta num" id="elapsed" aria-label="Time in session"></span></div>
+    <div class="row between head-row"><div class="row" style="min-width:0">${backBtn("exit", `Exit ${w.name}`, "Exit")}<span class="label">${esc(w.name)}${w.short ? " · Short" : ""}</span></div><span class="meta num" id="elapsed" aria-label="Time in session"></span></div>
     <div class="segs" aria-hidden="true">${segs}</div>
   </header>`;
 }
@@ -307,6 +313,7 @@ function targetLine(p, it) {
     const unit = t.last.sec != null ? " s" : " reps";
     goal = t.last.kg > 0 ? `Beat ${fmtKg(t.last.kg)} ${unitLabel()} × ${lr}: ${lr + 1}${unit}, or more weight` : `Beat ${lr}${unit}: go for ${lr + 1}`;
   } else if (t.kind === "up") goal = `Up from ${fmtKg(t.fromKg)} ${unitLabel()}. Any set in range beats last time.`;
+  else if (t.kind === "plan") goal = `Plan today: ${M.rangeText(it)}${it.tempo ? `, ${it.tempo}` : ""}. Last time was a different scheme.`;
   else if (t.kind === "easy") goal = t.lighter ? "Lighter day: about 90% of last time. Just move well." : ui.view === "set" && db().active?.adjust?.deload ? "Deload: same weights, fewer sets." : "Short version: no target, just get it done.";
   else goal = p.weighted ? "First time: pick a weight that leaves 1–3 reps in the tank." : it.role === "main" ? "First time: clean reps, stop 1–3 short of failure." : "First time: note what you can do with good form.";
   const beatable = t.kind === "beat" || t.kind === "up";
@@ -393,10 +400,14 @@ function viewSet() {
   if (it.swapped === "nogym") tags.push("No-gym version");
   if ((w.adjust.loadFactor ?? 1) < 1 && p.weighted) tags.push(`About ${Math.round(w.adjust.loadFactor * 100)}% today`);
   if (w.adjust.deload) tags.push("Deload");
-  if (it.tempo) tags.push(it.tempo);
   if (it.ladder) tags.push(`Pull-up ladder · level ${it.ladder}`);
   const partner = it.pair ? w.items.filter((x) => x.pair === it.pair && x.key !== it.key) : [];
-  const wu = w.log.length === 0 ? M.warmup(w, hist) : null;
+  // The warm-up card leads the first exercise. Once it's marked done, or set 1 is logged, it
+  // folds to one line (tap to open it again) that stays until the first exercise is finished.
+  const firstKey = w.items[0]?.key;
+  const showWarm = (it.key === firstKey || w.log.length === 0) && !w.rest && !w.work;
+  const wu = showWarm ? M.warmup(w, hist) : null;
+  const warmFolded = wu && (w.warm === "done" || w.log.length > 0) && !ui.warmOpen;
   // The ramp-up belongs to the first loaded main lift. When that lift isn't first (Upper A opens
   // with pull-ups), the card is gone by the time it comes up, so the ramp-up shows again there.
   const rampHere = !wu && mine.length === 0 && !w.rest && !w.adjust.deload ? M.warmup(w, hist).ramp : null;
@@ -416,14 +427,18 @@ function viewSet() {
     <div class="scr__body">
       ${saveErrorBox()}
       ${timerBox}
-      ${wu ? `<section class="card" aria-labelledby="wu-h">
-        <div class="row between"><h2 class="label" id="wu-h">Warm-up · ${wu.minutes} min</h2><span class="warm__time num" id="warm-left" data-end="${warmEnd}"></span></div>
+      ${wu && warmFolded ? `<button type="button" class="warm-line" data-act="warm-open" aria-expanded="false" aria-label="Warm-up done. Show the warm-up again">
+        <span class="warm-line__tick" aria-hidden="true">${CHECK}</span><span><b>Warm-up done</b>${wu.ramp && wu.ramp.ex === it.ex && mine.length === 0 ? ` · Ramp-up: ${esc(rampText(wu.ramp))}` : ""}</span><span class="warm-line__more" aria-hidden="true">Show</span></button>`
+      : wu ? `<section class="card warm${ui.warmOpen ? " warm--open" : ""}" aria-labelledby="wu-h">
+        <div class="row between"><h2 class="label" id="wu-h">Warm-up · ${wu.minutes} min</h2>${w.log.length || w.warm === "done"
+          ? `<button type="button" class="btn btn--text warm__btn" data-act="warm-open">Hide</button>`
+          : `<span class="row warm__head"><span class="warm__time num" id="warm-left" data-end="${warmEnd}"></span><button type="button" class="btn btn--secondary warm__btn" data-act="warm-done" aria-label="Warm-up done: fold this card">Done</button></span>`}</div>
         <ul class="checklist">${wu.general.map((g) => `<li>${esc(g)}</li>`).join("")}
           ${!wu.ramp ? `<li><b>Ramp-up:</b> ${esc(PLAN.warmup.ramp)}</li>`
             : wu.ramp.ex === it.ex ? `<li><b>Ramp-up on ${esc(wu.ramp.name)}:</b> ${rampText(wu.ramp)}</li>`
             : `<li><b>Ramp-up sets for ${esc(wu.ramp.name)}</b> show up when you get there.</li>`}
         </ul>
-        <p class="quiet">Stays here until you log set 1.</p>
+        <p class="quiet">Tap Done when you're warm. Logging set 1 folds it too.</p>
       </section>` : ""}
       ${rampHere && rampHere.ex === it.ex ? `<div class="notice"><div><b>Ramp-up first:</b> ${rampText(rampHere)}. No rest needed between them.</div></div>` : ""}
       ${exNav(w, it)}
@@ -436,13 +451,13 @@ function viewSet() {
         ${partner.length ? `<p class="quiet" style="margin-top:4px">Superset with ${esc(partner.map((x) => M.exName(x.ex)).join(" and "))}: alternate, rest after both.</p>` : ""}
         ${it.note ? `<p class="quiet" style="margin-top:4px">${esc(it.note)}</p>` : ""}
       </div>
-      <div class="setline"><b>Set ${p.n} of ${it.sets}</b><span class="meta">${esc(M.rangeText(it))}</span></div>
       ${targetLine(p, it)}
       ${p.prog.action === "reset" ? `<div class="notice"><div>${esc(PLAN.rules.stallAdvice)}</div></div>` : ""}
       ${loggedList(w, it)}
     </div>
     <div class="scr__foot">
       <div class="toast-slot" id="toast-slot" aria-live="polite"></div>
+      <div class="setline" id="setline"><b>Set ${p.n} of ${it.sets}</b><span class="meta">${esc(M.rangeText(it))}${it.tempo ? ` · ${esc(it.tempo)}` : ""}</span></div>
       <div class="steppers">${steppers.join("")}</div>
       <div class="row tools"><button class="btn btn--secondary grow" data-act="open-swap" ${w.work ? "disabled" : ""}>Swap</button><button class="btn btn--secondary grow" data-act="open-skip" ${w.work ? "disabled" : ""}>Skip</button><button class="btn btn--secondary grow" data-act="open-all">All</button></div>
       <button class="btn btn--primary" id="log-btn" data-act="log">
@@ -504,12 +519,13 @@ function syncRing() {
 function tick() {
   const a = db().active;
   const t = now();
+  if (a?.kind === "lift" && checkIdle(t)) return;
   const el = document.getElementById("elapsed");
-  if (el && a) el.textContent = clock(t - a.startedAt);
+  if (el && a) el.textContent = M.clockText(M.clockMs(a, t));
   const warm = document.getElementById("warm-left");
   if (warm) {
     const left = Number(warm.dataset.end) - t;
-    warm.textContent = left > 0 ? clock(left) : "Done";
+    warm.textContent = left > 0 ? `${clock(left)} left` : "Time's up";
     warm.classList.toggle("over", left <= 0);
   }
   if (!a) return;
@@ -570,9 +586,39 @@ function beepCountdown(endAt, left, soundOn) {
 
 setInterval(tick, 250);
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) return;
+  const a = db().active;
+  if (document.hidden) { pauseClock(); return; }
+  if (a?.kind === "lift" && checkIdle(now())) return;
+  if (a?.kind === "lift" && ui.view !== "resume") { M.clockRun(a, now()); persist(); }
   if (ui.view === "set") { syncRing(); tick(); }
 });
+addEventListener("pagehide", pauseClock);
+addEventListener("pageshow", (e) => { if (e.persisted && db().active?.kind === "lift" && !checkIdle(now()) && ui.view !== "resume") { M.clockRun(db().active, now()); persist(); } });
+
+/** The app left the screen: bank the session time so far; time away is never counted. */
+function pauseClock() {
+  const a = db().active;
+  if (a?.kind !== "lift") return;
+  M.clockPause(a, now());
+  persist();
+}
+
+/**
+ * Left alone for 90 minutes (no set, no tap): ask "Pick up or finish?". Checked on open, on
+ * coming back to the app and every tick, so a tab left open overnight asks too.
+ */
+function checkIdle(t) {
+  const a = db().active;
+  if (!a || a.kind !== "lift" || ui.view === "resume" || ui.view === "summary" || !M.isStale(a, t)) return false;
+  M.clockStopIdle(a);
+  persist();
+  awake.off();
+  dropSheet();
+  ui.toast = null;
+  ui.view = "resume";
+  render({ focus: true });
+  return true;
+}
 
 // ---------------------------------------------------------------- set actions
 
@@ -677,6 +723,8 @@ async function commitSet(values, t, btn, ev) {
     const dl = document.getElementById("done-label");
     if (dl) dl.textContent = res.finished ? "Session done" : `Set ${n} logged`;
     btn.classList.add("is-done");
+    const r = btn.getBoundingClientRect();
+    if (!res.finished) celebrate(ev?.clientX || r.left + r.width / 2, ev?.clientY || r.top + r.height / 2);
     await wait(reducedMotion() ? 250 : 560);
   }
   ui.lock = false;
@@ -916,6 +964,7 @@ function finishWorkout(early) {
   awake.off();
   const after = (ex) => hist(ex);
   ui.finished = w;
+  ui.celebrated = false;
   ui.summary = { ...M.summarize(w, before, after), name: w.name, date: w.date, partial, early };
   sound("done", db().settings.sound !== false && !early);
   if (!early) vibrate([20, 40, 20, 40, 60]);
@@ -1006,18 +1055,20 @@ function viewResume() {
   const name = w.name;
   const total = M.totalSets(w);
   const last = M.exName(w.log[w.log.length - 1]?.ex);
-  const ago = now() - w.lastSetAt;
+  const ago = now() - (w.lastSetAt ?? M.lastActive(w));
   const h = Math.floor(ago / 3600000), m = Math.round((ago % 3600000) / 60000);
+  const n = w.log.length;
   return `<main class="scr" data-screen="resume">
     <header class="scr__head"><div class="row head-row">${backBtn("home", "Back to Home (the workout stays open)")}<span class="label">${esc(name)} · started ${new Date(w.startedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span></div>
       <h1 class="h1">${esc(name)} is still open</h1></header>
     <div class="scr__body">
-      <section class="card"><b>${w.log.length} of ${total} sets logged</b>
-        <p class="meta" style="margin:0">Last: ${esc(last)}, ${h ? `${h} h ` : ""}${m} min ago</p></section>
-      <p class="meta" style="margin:0">Pick up and the session continues as planned. Finish and it's saved as a partial session that counts toward your week.</p>
+      <section class="card"><b>${n} of ${total} sets logged</b>
+        <p class="meta" style="margin:0">${n ? `Last: ${esc(last)}, ` : "Opened "}${h ? `${h} h ` : ""}${m} min ago</p></section>
+      <p class="meta" style="margin:0">${n ? "Pick up and the session continues as planned. Finish and it's saved as a partial session that counts toward your week."
+        : "Nothing is logged yet. Pick up to start where it was, or leave it: nothing is saved and it stays next up."}</p>
     </div>
     <div class="scr__foot"><div class="toast-slot" id="toast-slot" aria-live="polite"></div><div class="foot-actions">
-      <button class="btn btn--secondary btn--tall" data-act="finish-now">Finish with ${w.log.length} set${w.log.length === 1 ? "" : "s"}</button>
+      <button class="btn btn--secondary btn--tall" data-act="finish-now">${n ? `Finish with ${n} set${n === 1 ? "" : "s"}` : "Leave without saving"}</button>
       <button class="btn btn--primary" data-act="pick-up"><span class="btn__label">Pick up where you left off</span></button>
     </div></div>
   </main>`;
@@ -1173,6 +1224,7 @@ app.addEventListener("click", (ev) => {
   if (!el || el.disabled) return;
   const act = el.dataset.act;
   const w = db().active;
+  if (w?.kind === "lift" && ui.view !== "resume") w.touchedAt = now(); // any tap counts as being here (saved with the next change)
   switch (act) {
     case "home": goHome(); break;
     case "exit": if (w?.kind === "lift") openSheet("exit", el); else goHome(); break;
@@ -1238,7 +1290,9 @@ app.addEventListener("click", (ev) => {
       if (w?.log.length) { dropSheet(); finishWorkout(true); } else discard();
       break;
     case "resume": resumeFinished(); break;
-    case "pick-up": awake.on(); go("set"); break;
+    case "pick-up": if (w) { w.touchedAt = now(); M.clockRun(w, now()); persist(); } awake.on(); go("set"); break;
+    case "warm-done": if (w) { w.warm = "done"; ui.warmOpen = false; persist(); render(); say("Warm-up done"); } break;
+    case "warm-open": ui.warmOpen = !ui.warmOpen; render(); break;
     case "retry-save": if (persist()) { const b = document.getElementById("save-error"); if (b) b.hidden = true; } break;
     case "run-done": runDone(); break;
     case "race-open": ui.run.raceOpen = !ui.run.raceOpen; render(); break;
@@ -1306,10 +1360,13 @@ function boot() {
       }
       db().active = null;
       persist();
-    } else if (a.lastSetAt && now() - a.lastSetAt > M.RESUME_AFTER_MS) {
+    } else if (a.kind === "lift" && M.isStale(a, now())) {
+      M.clockStopIdle(a);
+      persist();
       ui.view = "resume";
     } else {
       ui.view = "set";
+      if (a.kind === "lift") { M.clockRun(a, now()); persist(); }
       awake.on();
     }
   }
@@ -1360,6 +1417,7 @@ function boot() {
 }
 
 boot();
+installPressGlow(app);
 
 // offline + updates; the update prompt waits until no workout is running
 startServiceWorker({ quiet: () => !!db().active });
