@@ -283,7 +283,7 @@ async function home() {
   { // Plan opens on the week
     const { pg, ctx, errors } = await open({ width: 390, height: 844 });
     await pg.goto(`${origin}/plan.html`);
-    check((await pg.textContent(".subnav [aria-current=page]")).trim() === "Week" && await pg.locator(".plan-session").count() >= 6, "Plan: the week plan comes first, every session in full");
+    check((await pg.textContent(".subnav [aria-current=page]")).trim() === "Week" && await pg.locator(".week-ups > li").count() >= 6, "Plan: the week plan comes first, every session listed");
     noErrors("plan", errors);
     await ctx.close();
   }
@@ -294,6 +294,7 @@ const OVERLAPS = () => {
   const leaves = [];
   const walk = (el) => {
     if (el.closest(".sr-only, .toast-slot, .scrim, [aria-hidden=true], svg")) return;
+    if (el.matches("details:not([open]) > :not(summary)")) return; // a closed card's contents aren't painted
     const st = getComputedStyle(el);
     if (st.display === "none" || st.visibility === "hidden" || Number(st.opacity) === 0) return;
     const texts = [...el.childNodes].filter((n) => n.nodeType === 3 && n.textContent.trim());

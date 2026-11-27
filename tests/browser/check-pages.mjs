@@ -103,9 +103,13 @@ for (const [label, viewport] of [["360", { width: 360, height: 780 }], ["390", {
   // ---------------- Plan
   const p = await open("plan.html", viewport);
   const pp = p.pg;
-  check(await pp.locator(".plan-session").count() >= 6 && (await pp.textContent(".subnav [aria-current=page]")).trim() === "Week", `${label}: Plan opens on the week plan`);
+  check(await pp.locator(".week-ups > li").count() >= 6 && (await pp.textContent(".subnav [aria-current=page]")).trim() === "Week", `${label}: Plan opens on the week plan`);
+  check(await pp.locator(".week-ups details[open]").count() === 0 && await pp.evaluate(() => document.querySelector(".week-ups").getBoundingClientRect().height < innerHeight * 1.6),
+    `${label}: Week: each session is one line until tapped (nice-to-have 20)`);
   check(await noHScroll(pp) && await smallTargets(pp) === 0, `${label}: week plan: no horizontal scroll, tap targets ≥ 44 px`);
-  await pp.click(".plan-session >> nth=1 >> .exrow button >> nth=1");
+  await pp.click(".week-ups > li:nth-child(2) summary");
+  check(await pp.locator(".week-ups > li:nth-child(2) .exrow").count() >= 5 && await pp.isVisible(".week-ups > li:nth-child(2) .up__map .mmap"), `${label}: a Week session opens to its exercises and muscle map`);
+  await pp.click(".week-ups > li:nth-child(2) .exrow button >> nth=1");
   await pp.waitForSelector(".sheet .howto");
   check(await pp.isVisible(".sheet a[href*='youtube.com/results']"), `${label}: an exercise in Week opens its how-to with the YouTube link`);
   await shot(pp, `${label}-plan-week-howto`);

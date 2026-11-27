@@ -398,3 +398,6 @@ body { overscroll-behavior-y: none; }
   .hm-sec__head { margin-top: var(--sp-2); }
 }
 @media (max-width: 959px) and (max-height: 700px) { .dial { width: min(100%, 200px); } .slot { min-height: 92px; } }
+
+/* week cards: the short description gets two lines instead of being cut ("Horizontal pre…") */
+.slot__sub { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }

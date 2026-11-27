@@ -14,7 +14,7 @@ import { mmss } from "../workout/run.js";
 import { exName } from "../workout/model.js";
 import { pastSessions, lastWeekSummary } from "../history.js";
 import { pastRow, pastDetail, lastWeekHTML } from "../session-view.js";
-import { installPressGlow } from "../motion.js";
+import { installPressGlow, staggerIn } from "../motion.js";
 
 const store = createStore();
 const db = () => store.db;
@@ -54,7 +54,7 @@ function weeksSection() {
     value: w.lifts + w.run + w.cond,
     met: !!w.level,
     current: w.current,
-    read: `${w.current ? "Last 7 days" : `${dayMonth(w.start)} – ${dayMonth(w.end)}`}: ${w.level || "below Minimum"} · ${w.lifts} lifts, ${w.run} run, ${w.cond} sport or conditioning`,
+    read: `${w.current ? "Last 7 days" : `${dayMonth(w.start)} – ${dayMonth(w.end)}`}: ${w.level || "below Minimum"} · ${w.lifts} ${w.lifts === 1 ? "lift" : "lifts"}, ${w.run} ${w.run === 1 ? "run" : "runs"}, ${w.cond} sport or conditioning`,
   }));
   return `<section class="section" aria-labelledby="weeks-h">
     <h2 id="weeks-h">Rolling weeks</h2>
@@ -266,6 +266,7 @@ function logWeight(ev) {
 app.addEventListener("submit", (ev) => { if (ev.target.id === "bw-form") logWeight(ev); });
 wireCharts(app);
 render();
+staggerIn(app.querySelector(".scr__body"));
 if (location.hash === "#history") document.getElementById("history")?.scrollIntoView({ block: "start" });
 
 installPressGlow(document);

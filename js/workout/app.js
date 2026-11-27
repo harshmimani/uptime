@@ -18,7 +18,7 @@ import { startServiceWorker } from "../sw-client.js";
 import * as R from "./run.js";
 import { unlockAudio, sound, vibrate, setVibration, KeepAwake } from "./feedback.js";
 import { setUnits, units, wu as unitLabel, fromUnit, weightStep } from "../units.js";
-import { splitLetters, playIn, countTo, reducedMotion, wait, celebrate, installPressGlow } from "../motion.js";
+import { splitLetters, playIn, countTo, reducedMotion, wait, celebrate, installPressGlow, wipeFrom } from "../motion.js";
 
 const store = createStore();
 const db = () => store.db;
@@ -155,6 +155,15 @@ function afterRender(focus) {
       setTimeout(() => { const r = mark.getBoundingClientRect(); celebrate(r.left + r.width / 2, r.top + r.height / 2, { big: true }); }, reducedMotion() ? 0 : 520);
     }
   }
+  // Next / Previous: the exercise slides in 24 px from the side it sits on, with a 200 ms fade
+  if (ui.slide) {
+    const body = app.querySelector(".scr__body");
+    body?.classList.add(ui.slide > 0 ? "slide-next" : "slide-prev");
+    ui.slide = 0;
+  }
+  watchExName();
+  const box = app.querySelector(".timerbox.is-over");
+  if (box) box.style.setProperty("--oy", wipeOrigin(box));
   syncRing();
   tick();
   if (ui.sheet) {
@@ -165,6 +174,24 @@ function afterRender(focus) {
     h?.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   }
+}
+
+/**
+ * The exercise name never leaves the screen: when the big name scrolls under the header
+ * (an open warm-up, a long cue, a short phone), the header swaps the session label for it.
+ */
+let nameWatch = null;
+function watchExName() {
+  nameWatch?.disconnect();
+  nameWatch = null;
+  const name = app.querySelector("#ex-name"), label = app.querySelector("#head-label"), head = app.querySelector(".scr__head");
+  if (!name || !label || !head || label.classList.contains("is-ex") || !("IntersectionObserver" in window)) return;
+  // the visible band is between the sticky header and the sticky dock
+  const foot = app.querySelector(".scr__foot");
+  const top = Math.round(head.getBoundingClientRect().bottom), bottom = Math.round(foot ? innerHeight - foot.getBoundingClientRect().top : 0);
+  nameWatch = new IntersectionObserver(([e]) => label.classList.toggle("is-ex", !e.isIntersecting),
+    { rootMargin: `-${top}px 0px -${Math.max(0, bottom)}px 0px`, threshold: 0.6 });
+  nameWatch.observe(name);
 }
 
 // ---------------------------------------------------------------- back to Home (index.html)
@@ -287,8 +314,11 @@ function checkIn(v) {
 
 function headerFor(w, it) {
   // between sets the exercise name sits up here, where the dock and the timer can't cover it
+  // and whenever the name on the page has scrolled out of view (afterRender watches it)
   const resting = !!(w.rest || w.work) && it;
-  const label = resting ? `<span class="label head-ex" id="head-ex">${esc(M.exName(it.ex))}</span>` : `<span class="label">${esc(w.name)}${w.short ? " · Short" : ""}</span>`;
+  const label = `<span class="head-label${resting ? " is-ex" : ""}" id="head-label">
+    <span class="label head-session">${esc(w.name)}${w.short ? " · Short" : ""}</span>
+    ${it ? `<span class="label head-ex" id="head-ex">${esc(M.exName(it.ex))}</span>` : ""}</span>`;
   const segs = w.items.map((x) => {
     const d = M.doneCount(w, x.key);
     const cls = d >= x.sets ? "done" : x.key === it.key ? "cur" : "";
@@ -513,7 +543,12 @@ function upNextHTML(w, p, v, it) {
 }
 
 function timerBoxHTML({ kind, label, next, upNext = "" }) {
-  return `<section class="timerbox${ui.timerEnter ? " enter" : ""}" aria-label="${esc(label)} timer">
+  // rest already over: the card is green; it wipes in only when it ended just now
+  const r = kind === "rest" ? db().active?.rest : null;
+  const over = r && r.endAt <= now();
+  const wipe = over && ui.wiped !== r.endAt && now() - r.endAt < 2500;
+  if (over) ui.wiped = r.endAt;
+  return `<section class="timerbox${ui.timerEnter ? " enter" : ""}${over ? " is-over" : ""}${wipe ? " wipe" : ""}" aria-label="${esc(label)} timer">
     <div class="row between"><span class="label" id="timer-label">${esc(label)}</span>${next ? `<span class="meta">${esc(next)}</span>` : ""}</div>
     <div class="ring" id="ring" data-kind="${kind}" role="timer" aria-label="${esc(label)}">
       <div class="ring__track"></div>
@@ -593,11 +628,27 @@ function tick() {
   if (a.rest && !a.work && time) {
     const left = a.rest.endAt - t;
     if (left > 0) {
-      time.textContent = clock(left + 999);
+      const text = clock(left + 999);
+      // the last 10 seconds: the digits turn green and beat once a second
+      const final = left <= 10000;
+      ring?.classList.toggle("final", final);
+      if (final && time.textContent !== text && time.textContent) { time.classList.remove("beat"); void time.offsetWidth; time.classList.add("beat"); }
+      time.textContent = text;
       if (sub) sub.textContent = "";
       beepCountdown(a.rest.endAt, left, soundOn);
+      const box = ring?.closest(".timerbox");
+      if (box?.classList.contains("is-over")) box.classList.remove("is-over", "wipe"); // +15 s after it ended
     } else {
       time.textContent = "Go";
+      ring?.classList.remove("final");
+      const box = ring?.closest(".timerbox");
+      const rerender = document.querySelector(".scr__foot--docked") && !ui.sheet; // the full repaint below wipes it in
+      if (box && !rerender && !box.classList.contains("is-over")) {
+        box.style.setProperty("--oy", wipeOrigin(box));
+        box.classList.add("is-over");
+        if (-left < 2500) box.classList.add("wipe");
+        ui.wiped = a.rest.endAt;
+      }
       const ago = -left;
       if (sub) sub.textContent = ago > 5000 ? `Rest over · ${clock(ago)} ago` : "Rest over";
       if (ring && !ring.classList.contains("over")) { ring.classList.remove("run"); ring.classList.add("over"); }
@@ -610,6 +661,12 @@ function tick() {
       }
     }
   }
+}
+
+/** Where the green wipe starts: the middle of the timer, as a share of the card's height. */
+function wipeOrigin(box) {
+  const c = box.querySelector(".ring__center")?.getBoundingClientRect(), b = box.getBoundingClientRect();
+  return c && b.height ? `${Math.round(((c.top + c.height / 2 - b.top) / b.height) * 100)}%` : "40%";
 }
 
 function beepCountdown(endAt, left, soundOn) {
@@ -746,10 +803,18 @@ async function commitSet(values, t, btn, ev) {
   const w = db().active;
   ui.lock = true;
   const n = M.doneCount(w, w.cur) + 1;
-  const res = M.logSet(w, { kg: values.kg && values.kg > 0 ? values.kg : null, reps: values.reps, sec: values.sec }, t);
+  const logged = { kg: values.kg && values.kg > 0 ? values.kg : null, reps: values.reps, sec: values.sec };
+  // beat last time? (worked out before the set joins today's log)
+  const it0 = M.item(w, w.cur);
+  const p0 = M.prefill(w, w.cur, hist);
+  const earlier = [...hist(it0.ex).flatMap((x) => x.sets || []), ...w.log.filter((l) => l.ex === it0.ex)];
+  const reward = (p0.target.kind === "beat" || p0.target.kind === "up") && !w.short && !w.adjust.deload ? M.rewardFor(logged, p0.target.last, earlier) : null;
+  const res = M.logSet(w, logged, t);
   persist(); // saved before anything animates
-  vibrate(18);
-  say(`Set ${n} logged`);
+  vibrate(reward ? [18, 50, 28] : 18);
+  sound(reward ? "best" : "log", db().settings.sound !== false);
+  const doseNow = `${logged.kg ? `${fmtKg(logged.kg)} ${unitLabel()} × ` : ""}${logged.sec != null ? `${logged.sec} s` : `${logged.reps}${logged.kg ? "" : " reps"}`}`;
+  say(reward ? `Set ${n} logged. ${reward === "best" ? "New best" : "Beat last time"}: ${doseNow}` : `Set ${n} logged`);
   if (btn) {
     if (ev && ev.clientX) {
       const r = btn.getBoundingClientRect();
@@ -757,22 +822,26 @@ async function commitSet(values, t, btn, ev) {
       btn.style.setProperty("--tap-y", `${ev.clientY - r.top}px`);
     }
     const dl = document.getElementById("done-label");
-    if (dl) dl.textContent = res.finished ? "Session done" : `Set ${n} logged`;
+    if (dl) dl.textContent = res.finished ? "Session done" : reward === "best" ? "New best" : reward ? "Beat last time" : `Set ${n} logged`;
     btn.classList.add("is-done");
+    if (reward) btn.classList.add("is-best");
     const r = btn.getBoundingClientRect();
-    if (!res.finished) celebrate(ev?.clientX || r.left + r.width / 2, ev?.clientY || r.top + r.height / 2);
+    if (!res.finished) celebrate(ev?.clientX || r.left + r.width / 2, ev?.clientY || r.top + r.height / 2, { best: !!reward });
     await wait(reducedMotion() ? 250 : 560);
   }
   ui.lock = false;
   ui.warmOpen = false;
   ui.dockOpen = false;
-  if (res.finished) return finishWorkout(false);
+  if (res.finished) return finishWorkout(false, btn);
+  const moved = w.cur !== it0.key; // that was the exercise's last set: the next one slides in
   ui.justLogged = true;
   ui.timerEnter = true;
+  if (moved) ui.slide = 1;
   render({ focus: false });
   ui.justLogged = false;
   ui.timerEnter = false;
-  toast(`Set ${n} logged`, "Undo", "undo");
+  toast(reward === "best" ? `New best · ${doseNow}` : reward ? `Beat last time · ${doseNow}` : `Set ${n} logged`, "Undo", "undo");
+  if (reward) document.querySelector(".toast-slot .toast")?.classList.add("toast--best");
 }
 
 function undo() {
@@ -881,7 +950,7 @@ function viewSheet() {
         <button type="button" data-act="set-length" data-short="1" aria-pressed="${!!w.short}"><b>Short</b></button>
       </div>
       ${rows}
-      <div class="setting"><span id="sound-l">Sound at the end of rest</span>
+      <div class="setting"><span id="sound-l">Sounds (logged sets, end of rest)</span>
         <button class="switch" type="button" data-act="toggle-sound" role="switch" aria-checked="${db().settings.sound !== false}" aria-labelledby="sound-l"><span class="switch__track"><span class="switch__knob"></span></span><span aria-hidden="true">${db().settings.sound !== false ? "On" : "Off"}</span></button></div>
       <button class="btn btn--secondary btn--wide" data-act="finish-now">${w.log.length ? `Finish now · ${w.log.length} of ${M.totalSets(w)} sets` : "Leave without saving"}</button>
       <button class="btn btn--text" style="justify-self:center" data-act="close-sheet">Back to the workout</button>
@@ -946,7 +1015,10 @@ function undoSnap() {
 }
 function moveTo(key) {
   const w = db().active;
+  const from = w.items.findIndex((x) => x.key === w.cur);
   if (!key || !M.jumpTo(w, key)) return;
+  const to = w.items.findIndex((x) => x.key === key);
+  ui.slide = to > from ? 1 : to < from ? -1 : 0; // slide in from the side it sits on
   ui.dockOpen = false;
   persist();
   dropSheet();
@@ -997,7 +1069,7 @@ function setLength(short) {
 
 // ---------------------------------------------------------------- finishing
 
-function finishWorkout(early) {
+function finishWorkout(early, from = null) {
   const w = db().active;
   const partial = early || !M.isFinished(w);
   const rec = M.toSession(w, { partial, end: w.lastSetAt });
@@ -1013,6 +1085,12 @@ function finishWorkout(early) {
   ui.summary = { ...M.summarize(w, before, after), name: w.name, date: w.date, partial, early };
   sound("done", db().settings.sound !== false && !early);
   if (!early) vibrate([20, 40, 20, 40, 60]);
+  // the whole session done: green fills the screen from the button, the summary appears under it
+  if (!early && from && !partial) {
+    ui.lock = true;
+    wipeFrom(from).then((reveal) => { ui.lock = false; go("summary"); reveal(); });
+    return;
+  }
   go("summary");
   if (early) toast(`Saved as partial · ${w.log.length} of ${M.totalSets(w)} sets`, "Resume", "resume", 10000);
 }
@@ -1310,7 +1388,7 @@ app.addEventListener("click", (ev) => {
     case "prev-ex": moveTo(M.neighbour(w, -1)?.key); break;
     case "next-ex": moveTo(M.neighbour(w, 1)?.key); break;
     case "next-open": moveTo(M.nextStep(w, null)?.key); break;
-    case "finish-done": finishWorkout(false); break;
+    case "finish-done": finishWorkout(false, el); break;
     case "start-run": startRun(); break;
     case "start-long": startRun("long"); break;
     case "open-other": ui.other = { date: today(), savedId: null, editing: false }; go("other"); break;

@@ -419,6 +419,16 @@ export function beats(v, last) {
 }
 
 /**
+ * How a set just logged compares (for the reward): "best" when it beats last time's same set
+ * and no earlier set of this exercise ever (history and earlier today) is as good: heavier,
+ * or as heavy with as many reps (or seconds). "beat" when it only beats last time. Else null.
+ */
+export function rewardFor(v, last, earlier = []) {
+  if (!beats(v, last)) return null;
+  return earlier.every((s) => beats(v, s)) ? "best" : "beat";
+}
+
+/**
  * What the steppers show for the next set of `key`, and the target to beat.
  * history(ex) → past sessions of that exercise (store.exerciseHistory). history.lastKg(ex), if
  * given, is the old app's last typed weight, used only when there's no dated history.

@@ -145,6 +145,8 @@ async function liftFlow(label, viewport) {
   check(await pg.isHidden("#warm-left").catch(() => true), `${label}: warm-up card leaves after set 1`);
   check(/^2:0\d$/.test(await pg.textContent("#ring-time")), `${label}: 2:00 rest started by itself`);
   check(await pg.isVisible(".toast-slot .toast"), `${label}: "Set 1 logged · Undo" toast`);
+  check((await pg.textContent(".toast-slot .toast")).includes("New best · 15 kg × 9") && await pg.locator(".toast--best").count() === 1,
+    `${label}: beating every earlier set says "New best · 15 kg × 9"`);
   // design review: rest is a takeover. Big digits, green arc, Up next in view, the dock one line, the toast up top.
   const rest = await pg.evaluate(() => {
     const r = (sel) => document.querySelector(sel)?.getBoundingClientRect();
@@ -187,13 +189,42 @@ async function liftFlow(label, viewport) {
   await pg.waitForTimeout(300);
   const t = await pg.textContent("#ring-time");
   check(/^0:[45]\d$/.test(t), `${label}: reopened mid-rest, straight back to the set with ${t} left`);
+  // the last 10 seconds: green digits that beat once a second
+  { const left = await pg.evaluate(() => JSON.parse(localStorage.getItem("uptime2")).active.rest.endAt - Date.now());
+    await pg.clock.fastForward(Math.max(0, left - 8000));
+    await pg.waitForTimeout(400);
+    await pg.clock.fastForward(1000);
+    await pg.waitForTimeout(300);
+    check(await pg.evaluate(() => document.getElementById("ring").classList.contains("final") && document.getElementById("ring-time").classList.contains("beat")),
+      `${label}: the last 10 s of rest beat once a second (${await pg.textContent("#ring-time")})`); }
   await pg.clock.fastForward(60000);
   await pg.waitForTimeout(400);
   check((await pg.textContent("#ring-time")) === "Go", `${label}: rest over shows Go`);
-  check(await pg.evaluate(() => getComputedStyle(document.querySelector(".ring__go")).opacity === "1"), `${label}: at zero the timer turns green`);
+  check(await pg.evaluate(() => {
+    const box = document.querySelector(".timerbox");
+    const green = getComputedStyle(document.documentElement).getPropertyValue("--c-green").trim();
+    const probe = document.createElement("i"); probe.style.color = green; document.body.append(probe);
+    const want = getComputedStyle(probe).color; probe.remove();
+    return box.classList.contains("is-over") && getComputedStyle(box, "::before").backgroundColor === want && getComputedStyle(box, "::before").opacity === "1";
+  }), `${label}: at zero the whole rest card turns green`);
+  await shot(pg, `${label}-08b-rest-go`);
   check(await pg.isVisible("#v-reps"), `${label}: rest over: the dock opens again (a different rep count is two taps)`);
   await shot(pg, `${label}-08-rest-over`);
   check((await pg.inputValue("#v-kg")) === "15", `${label}: weight carries to set 2`);
+
+  // Next / Previous slide the exercise in from its side; the name stays in the header when scrolled away
+  const tapNav = (act) => pg.evaluate((a) => { const b = document.querySelector(`[data-act=${a}]`); b.scrollIntoView({ block: "center" }); b.click(); }, act);
+  await tapNav("next-ex");
+  check(await pg.locator(".scr__body.slide-next").count() === 1, `${label}: Next slides the next exercise in from the right`);
+  await tapNav("prev-ex");
+  check(await pg.locator(".scr__body.slide-prev").count() === 1 && (await pg.textContent("#ex-name")).includes("bench press"), `${label}: Previous slides back from the left`);
+  await pg.evaluate(() => { document.getElementById("ex-name").scrollIntoView(); scrollBy(0, 2000); });
+  await pg.waitForTimeout(250);
+  check(await pg.evaluate(() => {
+    const scrolledAway = document.getElementById("ex-name").getBoundingClientRect().bottom < document.querySelector(".scr__head").getBoundingClientRect().bottom + 2;
+    return !scrolledAway || (document.getElementById("head-label").classList.contains("is-ex") && getComputedStyle(document.getElementById("head-ex")).opacity === "1");
+  }), `${label}: scrolled past the name, the header shows the exercise`);
+  await pg.evaluate(() => scrollTo(0, 0));
 
   // swap
   await pg.click("[data-act=open-swap]");

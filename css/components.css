@@ -548,3 +548,21 @@ button { font: inherit; color: inherit; }
 .mm-lab { font-size: 7.5px; }
 /* how-to: the figure is capped so step 1 is on the first screen of the sheet */
 .howto__map .mmap--l { width: auto; max-width: 100%; height: 220px; }
+
+/* ---------------------------------------------------------------- session finished: a green circle fills the screen
+   from the Log button (js/motion.js wipeFrom), the summary is painted under it, then it fades away. */
+.finish-wipe {
+  position: fixed; inset: 0; z-index: 40; pointer-events: none; background: var(--c-green);
+  clip-path: circle(0 at var(--x) var(--y)); animation: finish-in 440ms var(--ease-emphasized) forwards;
+}
+.finish-wipe.out { animation: finish-out 520ms var(--ease-out) forwards; }
+@keyframes finish-in { to { clip-path: circle(150vmax at var(--x) var(--y)); } }
+@keyframes finish-out { from { clip-path: circle(150vmax at var(--x) var(--y)); opacity: 1; } to { clip-path: circle(150vmax at var(--x) var(--y)); opacity: 0; } }
+
+/* a set that beat last time: the Log button's check says so, and the toast carries a green mark */
+.btn.is-best .btn__done { font-weight: var(--fw-black); }
+.toast--best { box-shadow: var(--elev-3), inset 4px 0 0 var(--c-green); font-weight: var(--fw-bold); }
+
+/* ---------------------------------------------------------------- staggered entrance (js/motion.js staggerIn) */
+.stagger > *, .stagger .ups > li { animation: stagger-rise 460ms var(--ease-emphasized) both; animation-delay: calc(var(--i, 0) * 45ms); }
+@keyframes stagger-rise { from { opacity: 0; transform: translateY(calc(18px * var(--motion-distance))) scale(calc(1 - .015 * var(--motion-distance))); } }

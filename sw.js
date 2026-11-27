@@ -15,7 +15,7 @@
 
    Pages are cached by path (no query), so workout.html?start=lift reuses workout.html.
    The desktop-only light effect is left out on purpose: phones must never download it. */
-const VERSION = "56061a9a3741";
+const VERSION = "84172d8272fe";
 const CACHE = `uptime-${VERSION}`;
 const ASSETS = [
   "./", "index.html", "workout.html", "progress.html", "plan.html", "manifest.webmanifest",

@@ -131,27 +131,48 @@ export class RestTimer {
 /**
  * A burst of green from a point (a logged set, a finished session). Decoration only:
  * nothing under reduced motion, and the nodes remove themselves.
- * opts.big: the session-done version (more sparks, further, two rings).
+ * opts.best: a set that beat last time (bigger, a second ring).
+ * opts.big: the session-done version (more sparks, further, two rings and a second wave).
  */
-export function celebrate(x, y, { big = false } = {}) {
+export function celebrate(x, y, { big = false, best = false, wave = false } = {}) {
   if (reducedMotion() || typeof document === "undefined") return;
   const box = document.createElement("div");
   box.className = "burst";
   box.setAttribute("aria-hidden", "true");
   box.style.transform = `translate(${x}px, ${y}px)`;
-  const n = big ? 34 : 14, reach = big ? 190 : 90;
+  const n = big ? (wave ? 22 : 44) : best ? 26 : 14, reach = big ? (wave ? 260 : 210) : best ? 140 : 90;
   const colors = ["var(--c-green)", "var(--c-action)", "var(--c-green-deep)", "var(--c-text)"];
-  let html = big ? `<b></b><b style="--ring:200px;animation-delay:120ms"></b>` : `<b style="--ring:90px"></b>`;
+  let html = big ? (wave ? `<b style="--ring:320px"></b>` : `<b></b><b style="--ring:200px;animation-delay:120ms"></b>`)
+    : best ? `<b style="--ring:110px"></b><b style="--ring:170px;animation-delay:90ms"></b>` : `<b style="--ring:90px"></b>`;
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + Math.random() * 0.5;
     const d = reach * (0.55 + Math.random() * 0.6);
-    const s = (big ? 6 : 5) + Math.random() * (big ? 8 : 5);
+    const s = (big || best ? 6 : 5) + Math.random() * (big ? 8 : best ? 6 : 5);
     const bar = Math.random() < 0.4;
-    html += `<i style="--x:${(Math.cos(a) * d).toFixed(1)}px;--y:${(Math.sin(a) * d - (big ? 40 : 10)).toFixed(1)}px;--s:${s.toFixed(1)}px;--c:${colors[i % (big ? 4 : 2)]};--t:${Math.round((big ? 900 : 620) + Math.random() * 300)}ms;--d:${Math.round(Math.random() * (big ? 160 : 60))}ms;--rot:${Math.round(Math.random() * 360)}deg${bar ? ";--r:2px" : ""}"></i>`;
+    html += `<i style="--x:${(Math.cos(a) * d).toFixed(1)}px;--y:${(Math.sin(a) * d - (big ? 40 : best ? 24 : 10)).toFixed(1)}px;--s:${s.toFixed(1)}px;--c:${colors[i % (big || best ? 4 : 2)]};--t:${Math.round((big ? 900 : best ? 760 : 620) + Math.random() * 300)}ms;--d:${Math.round(Math.random() * (big ? 160 : 60))}ms;--rot:${Math.round(Math.random() * 360)}deg${bar ? ";--r:2px" : ""}"></i>`;
   }
   box.innerHTML = html;
   document.body.append(box);
-  setTimeout(() => box.remove(), big ? 1600 : 1100);
+  setTimeout(() => box.remove(), big ? 1600 : 1300);
+  if (big && !wave) setTimeout(() => celebrate(x, y, { big: true, wave: true }), 280);
+}
+
+/**
+ * A full-screen green circle grows from an element (a session just finished), then fades to
+ * reveal what's underneath. Resolves once the screen is covered, so the caller can swap the
+ * view behind it. Reduced motion: resolves at once and nothing is drawn.
+ */
+export function wipeFrom(el) {
+  if (reducedMotion() || typeof document === "undefined" || !el) return Promise.resolve(() => {});
+  const r = el.getBoundingClientRect();
+  const w = document.createElement("div");
+  w.className = "finish-wipe";
+  w.setAttribute("aria-hidden", "true");
+  w.style.setProperty("--x", `${Math.round(r.left + r.width / 2)}px`);
+  w.style.setProperty("--y", `${Math.round(r.top + r.height / 2)}px`);
+  document.body.append(w);
+  const reveal = () => { w.classList.add("out"); setTimeout(() => w.remove(), 600); };
+  return wait(440).then(() => reveal);
 }
 
 /** Primary buttons light up under the finger: a soft glow from the press point. One listener for the page. */
@@ -169,4 +190,16 @@ export function installPressGlow(root = document) {
     b.append(g);
     setTimeout(() => g.remove(), 600);
   }, { passive: true });
+}
+
+/**
+ * Cards rise in one after another (Progress, Plan): each direct child of `root` that matches
+ * gets its place in line as --i, and the CSS (.stagger in components.css) does the rest.
+ * Only for a page's first paint or a new section, never a repaint the user caused in place.
+ */
+export function staggerIn(root, selector = ":scope > *, :scope .ups > li") {
+  if (!root || reducedMotion()) return;
+  [...root.querySelectorAll(selector)].forEach((el, i) => el.style.setProperty("--i", Math.min(i, 10)));
+  root.classList.add("stagger");
+  setTimeout(() => root.classList.remove("stagger"), 1200);
 }

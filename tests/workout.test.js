@@ -365,3 +365,14 @@ test("session clock counts only while the app is open and never the idle stretch
   assert.equal(M.clockText(65000), "1:05");
   assert.equal(M.clockText(3725000), "1:02:05");
 });
+
+test("reward: a new best only when no earlier set is as good; otherwise beat last time", () => {
+  const last = { kg: 15, reps: 8 };
+  assert.equal(M.rewardFor({ kg: 15, reps: 8 }, last, [last]), null);
+  assert.equal(M.rewardFor({ kg: 15, reps: 9 }, last, [last, { kg: 15, reps: 7 }]), "best");
+  assert.equal(M.rewardFor({ kg: 15, reps: 9 }, last, [last, { kg: 17.5, reps: 5 }]), "beat"); // heavier once before
+  assert.equal(M.rewardFor({ kg: 15, reps: 9 }, last, [last, { kg: 15, reps: 10 }]), "beat");
+  assert.equal(M.rewardFor({ kg: 17.5, reps: 6 }, last, [last, { kg: 15, reps: 12 }]), "best");
+  assert.equal(M.rewardFor({ reps: 9 }, { reps: 8 }, [{ reps: 8 }]), "best"); // bodyweight
+  assert.equal(M.rewardFor({ kg: 15, reps: 9 }, null, []), null); // nothing to beat
+});

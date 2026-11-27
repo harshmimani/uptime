@@ -17,14 +17,14 @@ import { exerciseList } from "../session-view.js";
 import * as R from "../workout/run.js";
 import { getTheme, setTheme } from "../theme.js";
 import { unlockAudio, sound, setVibration, vibrate } from "../workout/feedback.js";
-import { installPressGlow } from "../motion.js";
+import { installPressGlow, staggerIn } from "../motion.js";
 
 const store = createStore();
 const db = () => store.db;
 const app = document.getElementById("app");
 const today = () => isoDate(new Date());
 const SECTIONS = [["week", "Week"], ["next", "Coming up"], ["modes", "Modes"], ["fuel", "Fuel"], ["learn", "Learn"], ["settings", "Settings"]];
-const ui = { upOpen: null, section: "week", diet: "both", focus: null, info: null, infoTrigger: null };
+const ui = { open: new Set(), section: "week", diet: "both", focus: null, info: null, infoTrigger: null };
 
 function applyPrefs() {
   setUnits(db().settings.units);
@@ -51,33 +51,27 @@ function viewWeek() {
   const fiveK = R.fiveKSec(db().activities, db().settings);
   const run = R.runTarget(E.runPick(log, today(), db().settings), fiveK);
   const long = R.runTarget(E.longPick(log, today(), db().settings), fiveK);
+  // each session is one line until tapped (like Coming up), so the whole week fits a screen or two
   const sessions = ids.map((id, i) => {
     const def = E.sessionDef(id);
     const items = buildItems(id, { settings: db().settings });
-    return `<article class="card plan-session" aria-labelledby="ps-${id}">
-      <div class="plan-session__head"><span class="plan-session__n num">${i + 1}</span>
-        <div><h3 id="ps-${id}">${esc(def.name)}${id === next ? ` <span class="pill">Next up</span>` : ""}</h3>
-        <p class="meta">${esc(def.focus || "Full body")} · ${items.length} exercises · about ${estimateMin(items)} min</p></div></div>
-      ${exerciseList(items, { video: true, label: `${def.name} exercises` })}
-    </article>`;
+    return upCard({ k: `w${id}`, n: i + 1, when: id === next ? "Next up" : busy ? "Full body" : def.kind === "lower" ? "Lower body" : "Upper body",
+      name: def.name, meta: `${def.focus || "Full body"} · ${items.length} exercises · about ${estimateMin(items)} min`,
+      body: liftBody(def, items), kind: "lift", next: id === next });
   }).join("");
   const sport = db().settings.sportName || "Basketball";
   const cond = PLAN.conditioning.options.filter((c) => c.fills !== "run").map((c) => `<li><b>${esc(exName(c.ex))}</b>${c.minutes[0]}–${c.minutes[1]} min${c.note ? ` · ${esc(c.note)}` : ""}</li>`).join("");
+  const runCard = upCard({ k: "wrun", n: ids.length + 1, when: "Quality run", name: run.name, kind: "run",
+    meta: `Tempo and intervals take turns · a game of ${sport.toLowerCase()} counts instead`,
+    body: `<p class="run-line">${esc(run.target)}</p><p class="meta">Strava records it.</p>` });
+  const longCard = busy ? "" : upCard({ k: "wlong", n: ids.length + 2, when: three ? "Long run" : "Long run · or easy cardio", name: long.name, kind: "long",
+    meta: long.note || "Easy pace",
+    body: `<p class="run-line">${esc(long.target)}</p>
+      ${three ? `<p class="quiet">Plus an easy run of ${PLAN.run.easyMinutes[0]}–${PLAN.run.easyMinutes[1]} minutes.</p>` : `<p class="quiet">No time for it? Any of these fills the slot instead; a game never does.</p><ul class="cues">${cond}</ul>`}` });
   return `<section class="section" aria-labelledby="week-h">
     <h2 id="week-h" class="sr-only">Week plan</h2>
-    <p class="meta">${busy ? "Busy mode is on: full-body sessions of about 40 minutes, plus one run. The main rotation waits." : three ? "Half-marathon build: three lifts (Upper A, one Lower, Upper B) and three runs a rotation, plus at least one rest day." : "Four lifts in a fixed order, a quality run and a long run, plus at least one rest day. Missed days never skip a session: the next one in line waits."} Tap any exercise for its muscles, steps and a video.</p>
-    ${sessions}
-    <article class="card plan-session" aria-labelledby="ps-run">
-      <div class="plan-session__head"><span class="plan-session__n num">${ids.length + 1}</span>
-        <div><h3 id="ps-run">Run · ${esc(run.name)}</h3><p class="meta">Tempo and intervals take turns. A game of ${esc(sport.toLowerCase())} counts instead. Strava records it.</p></div></div>
-      <p class="run-line">${esc(run.target)}</p>
-    </article>
-    ${busy ? "" : `<article class="card plan-session" aria-labelledby="ps-long">
-      <div class="plan-session__head"><span class="plan-session__n num">${ids.length + 2}</span>
-        <div><h3 id="ps-long">${esc(long.name)}</h3><p class="meta">${esc(long.note)}</p></div></div>
-      <p class="run-line">${esc(long.target)}</p>
-      ${three ? `<p class="quiet">Plus an easy run of ${PLAN.run.easyMinutes[0]}–${PLAN.run.easyMinutes[1]} minutes.</p>` : `<p class="quiet">No time for it? Any of these fills the slot instead; a game never does.</p><ul class="cues">${cond}</ul>`}
-    </article>`}
+    <p class="meta">${busy ? "Busy mode is on: full-body sessions of about 40 minutes, plus one run. The main rotation waits." : three ? "Half-marathon build: three lifts (Upper A, one Lower, Upper B) and three runs a rotation, plus at least one rest day." : "Four lifts in a fixed order, a quality run and a long run, plus at least one rest day. Missed days never skip a session: the next one in line waits."} Tap a session for its exercises, muscles and videos.</p>
+    <ol class="ups week-ups">${sessions}${runCard}${longCard}</ol>
     <p class="quiet">Rest: at least one full day per rotation, and never three hard days in a row. No ${esc(sport.toLowerCase())} or intervals the day after Lower B. ${esc(PLAN.run.timeNote)}</p>
   </section>`;
 }
@@ -88,6 +82,24 @@ function viewWeek() {
 // in place to its exercises, sets × reps and muscles. Plain and calm, phone or laptop.
 
 const WHEN = ["Next", "Then", "After that"];
+
+/** One session as a card that opens in place (Week and Coming up share it). */
+function upCard({ k, n, when, name, meta, body, kind, next = false }) {
+  return `<li><details class="up up--${kind}${next ? " up--next" : ""}" data-k="${esc(k)}"${ui.open.has(k) ? " open" : ""}>
+      <summary><span class="up__n num" aria-hidden="true">${n}</span>
+        <span class="up__text"><span class="up__when">${esc(when)}</span><b class="up__name">${esc(name)}</b><span class="up__meta">${esc(meta)}</span></span>
+        <span class="up__chev" aria-hidden="true"></span></summary>
+      <div class="up__body">${body}</div>
+    </details></li>`;
+}
+
+/** A lift's card body: the combined muscle map, then every exercise with sets × reps and a video. */
+function liftBody(def, items) {
+  const mus = sessionMuscles(items);
+  return `<div class="up__map">${mapSVG(mus.main, mus.also, { size: "l", label: `${def.name} works ${muscleList(mus.main)}${mus.also.length ? `; also ${muscleList(mus.also)}` : ""}` })}
+          <p class="meta"><b>Works</b> ${esc(muscleList(mus.main))}${mus.also.length ? `<br><b>Helps</b> ${esc(muscleList(mus.also))}` : ""}</p></div>
+        ${exerciseList(items, { video: true, label: `${def.name} exercises` })}`;
+}
 
 function sessionMuscles(items) {
   const main = new Set(), also = new Set();
@@ -100,20 +112,16 @@ function viewNext() {
   const list = E.upcoming(log, db().settings, today());
   const fiveK = R.fiveKSec(db().activities, db().settings);
   const sport = db().settings.sportName || "Basketball";
-  if (!ui.upOpen) ui.upOpen = new Set(); // all closed: the order reads at a glance
   const cards = list.map((x, i) => {
     const when = WHEN[i] || "Later";
     let name, meta, body, kind;
     if (x.type === "lift") {
       const def = E.sessionDef(x.id);
       const items = buildItems(x.id, { settings: db().settings });
-      const mus = sessionMuscles(items);
       kind = "lift";
       name = def.name;
       meta = `${def.focus || "Full body"} · ${items.length} exercises · about ${estimateMin(items)} min`;
-      body = `<div class="up__map">${mapSVG(mus.main, mus.also, { size: "l", label: `${def.name} works ${muscleList(mus.main)}${mus.also.length ? `; also ${muscleList(mus.also)}` : ""}` })}
-          <p class="meta"><b>Works</b> ${esc(muscleList(mus.main))}${mus.also.length ? `<br><b>Helps</b> ${esc(muscleList(mus.also))}` : ""}</p></div>
-        ${exerciseList(items, { video: true, label: `${def.name} exercises` })}`;
+      body = liftBody(def, items);
     } else if (x.type === "run") {
       const t = R.runTarget(x.pick, fiveK);
       kind = "run";
@@ -134,12 +142,7 @@ function viewNext() {
       meta = "Half-marathon build: the third run";
       body = `<p class="run-line">${esc(t.target)}</p>`;
     }
-    return `<li><details class="up up--${kind}" data-i="${i}"${ui.upOpen.has(i) ? " open" : ""}>
-      <summary><span class="up__n num" aria-hidden="true">${i + 1}</span>
-        <span class="up__text"><span class="up__when">${when}</span><b class="up__name">${esc(name)}</b><span class="up__meta">${esc(meta)}</span></span>
-        <span class="up__chev" aria-hidden="true"></span></summary>
-      <div class="up__body">${body}</div>
-    </details></li>`;
+    return upCard({ k: `n${i}`, n: i + 1, when, name, meta, body, kind, next: i === 0 });
   }).join("");
   return `<section class="section coming" aria-labelledby="next-h">
     <h2 id="next-h" class="sr-only">Coming up</h2>
@@ -298,7 +301,7 @@ function viewSettings() {
         <button type="button" data-act="units" data-u="lb" aria-pressed="${s.units === "lb"}"><b>lb</b></button>
       </div>
       <p class="quiet">Everything is stored in kg, so switching never changes your logs.</p>
-      <div class="setting"><span id="sound-l">Sound at the end of rest</span>${sw("sound", s.sound !== false)}</div>
+      <div class="setting"><span id="sound-l">Sounds (logged sets, end of rest)</span>${sw("sound", s.sound !== false)}</div>
       <div class="setting"><span id="vibrate-l">Vibration<small>Not supported on iPhone</small></span>${sw("vibrate", s.vibrate !== false)}</div>
     </div>
     <h2>Your data</h2>
@@ -469,6 +472,7 @@ app.addEventListener("click", (ev) => {
       ui.section = el.dataset.s;
       ui.focus = ".page-title";
       render();
+      staggerIn(app.querySelector(".scr__body > .section, .scr__body > section"));
       scrollTo(0, 0);
       break;
     case "busy": toggleBusy(); break;
@@ -547,16 +551,16 @@ function closeInfo() {
   if (back) document.querySelector(back)?.focus({ preventScroll: true });
 }
 addEventListener("hashchange", () => { fromHash(); render(); });
-// Coming up: remember which cards are open, so opening a how-to and coming back keeps them
+// Week and Coming up: remember which cards are open, so opening a how-to and coming back keeps them
 app.addEventListener("toggle", (ev) => {
   const d = ev.target;
-  if (!d.matches?.("details.up") || !ui.upOpen) return;
-  const i = Number(d.dataset.i);
-  if (d.open) ui.upOpen.add(i); else ui.upOpen.delete(i);
+  if (!d.matches?.("details.up")) return;
+  if (d.open) ui.open.add(d.dataset.k); else ui.open.delete(d.dataset.k);
 }, true);
 
 fromHash();
 render();
+staggerIn(app.querySelector(".scr__body > .section, .scr__body > section"));
 installPressGlow(document);
 installSheetSwipe();
 
